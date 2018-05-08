@@ -1,6 +1,6 @@
-/*************
- * dummy.cpp *
- *************/
+/***************
+ * ui_config.h *
+ ***************/
 
 /****************************************************************************
  *   Written By Marcio Teixeira 2018 - Aleph Objects, Inc.                  *
@@ -19,26 +19,40 @@
  *   location: <http://www.gnu.org/licenses/>.                              *
  ****************************************************************************/
 
-#include "../../inc/MarlinConfigPre.h"
-
-#if ENABLED(EXTENSIBLE_UI)
+#ifndef _UI_CONFIG_H_
+#define _UI_CONFIG_H_
 
 #include "../ui_api.h"
 
-// To implement a new UI, complete the functions below and
-// read or update Marlin's state using the methods in the
-// Extensible_UI_API methods in "../ui_api.h"
+// Uncomment the following to use hardware SPI.
+//#define USE_ARDUINO_HW_SPI
 
-namespace Extensible_UI_API {
-  void onStartup() {}
-  void onIdle() {}
-  void onUpdate() {}
-  void onPrinterKilled(const char* lcd_msg) {}
-  void onMediaInserted() {}
-  void onMediaRemoved() {}
-  void onPlayTone(const uint16_t frequency, const uint16_t duration) {}
-  void onStatusChanged(const char* lcd_msg) {}
-  void onStatusChanged(progmem_str lcd_msg) {}
-}
+// By default, the FTDI driver can repurpose the
+// pins defined for ULTRALCD. However, they can be
+// changed here.
 
-#endif // EXTENSIBLE_UI
+#ifndef USE_ARDUINO_HW_SPI
+    #define CLCD_SOFT_SPI_SCLK             LCD_PINS_D7
+    #define CLCD_SOFT_SPI_MOSI             LCD_PINS_D6
+    #define CLCD_SOFT_SPI_CS               LCD_PINS_D5
+    #define CLCD_SOFT_SPI_MISO             LCD_PINS_RS
+    #define CLCD_MOD_RESET                 LCD_PINS_D4     // Module reset
+    #define CLCD_AUX_0                     LCD_PINS_ENABLE
+    #define CLCD_AUX_1                     BTN_ENC
+    #define CLCD_AUX_2                     BEEPER_PIN
+#endif
+
+// Define whether an FT800 or FT810+ chip is being used
+//#define USE_FTDI_FT800
+#define USE_FTDI_FT810
+
+// Define whether to use a portrait orientation (requires FT810 or above).
+// If not defined, landscape orientation will be used.
+//#define USE_PORTRAIT_ORIENTATION
+//#define FLIP_UPSIDE_DOWN
+
+// Define the display resolution
+//#define LCD_480x272
+#define LCD_800x480
+
+#endif // _UI_CONFIG_H_
