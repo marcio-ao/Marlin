@@ -387,11 +387,11 @@ void CLCD::DLCache::append() {
 
 void CLCD::init (void) {
   spi_init();                                  // Set Up I/O Lines for SPI and FT800/810 Control
-  delay(50);
+ 
+ // delay(50);
 
-  reset();                                    // Power Down the FT800/810 for 50 ms
-  delay(50);
-
+  reset();                                    // Power Down the FT800/810, includes apropriate delays
+ 
 /*
  *  If driving the 4D Systems 4DLCD-FT843 Board, the following Init sequence is needed for its FT800 Driver
  */
@@ -399,21 +399,34 @@ void CLCD::init (void) {
 #ifdef USE_FTDI_FT800                                    // Use External Crystal and 48 MHz System Clock
   host_cmd(CLKEXT, 0);
 
-  delay(20);
+//  delay(20);
   host_cmd(CLK48M, 0);
 #else
   host_cmd(CLKINT, 0);
-  delay(20);
+//  delay(20);
   host_cmd(CLKSEL, Clksel);                     // Use Internal RC Oscillator and 48 MHz System Clock
 #endif
 
-  delay(20);
+ // delay(20);
 
   host_cmd(ACTIVE, 0);                        // Activate the System Clock
-  delay(50);
+ // delay(50);
 
-  delay(400);
-  uint8_t device_id = mem_read_8(REG_ID);            // Read Device ID, Should Be 0x7C;
+  /* read the device-id until it returns 0x7c or times out, should take less than 150ms */
+  uint8_t counter;
+  for(counter=0;counter<250;counter++) {
+   uint8_t device_id = mem_read_8(REG_ID);            // Read Device ID, Should Be 0x7C;
+   if(device_id == 0x7c) {
+     break;
+   }
+   else {
+     delay(1);
+   }
+
+  }
+
+  
+  
   #if defined(UI_FRAMEWORK_DEBUG)
   if(device_id != 0x7C) {
     #if defined (SERIAL_PROTOCOLLNPAIR)
@@ -430,7 +443,7 @@ void CLCD::init (void) {
     #endif
   }
   #endif // UI_FRAMEWORK_DEBUG
-  delay(400);
+//  delay(400);
 
   mem_write_8(REG_GPIO, 0x00);                 // Turn OFF Display Enable (GPIO Bit 7);
   mem_write_8(REG_PCLK, 0x00);                 // Turn OFF LCD PCLK
@@ -460,7 +473,7 @@ void CLCD::init (void) {
   mem_write_8(REG_ROTATE, 2);
   #elif !defined(USE_PORTRAIT_ORIENTATION) &&  defined(FLIP_UPSIDE_DOWN)
   mem_write_8(REG_ROTATE, 1);
-  #else !defined(USE_PORTRAIT_ORIENTATION) && !defined(FLIP_UPSIDE_DOWN)
+  #else // !defined(USE_PORTRAIT_ORIENTATION) && !defined(FLIP_UPSIDE_DOWN)
   mem_write_8(REG_ROTATE, 0);
   #endif
 
@@ -484,10 +497,10 @@ void CLCD::init (void) {
   #endif
 
   enable();                                   // Turns on Clock by setting PCLK Register to 5
-  delay(50);
+//  delay(50);
 
   CommandFifo::reset();
-  delay(50);
+//  delay(50);
 
   // Set Initial Values for Touch Transform Registers
 

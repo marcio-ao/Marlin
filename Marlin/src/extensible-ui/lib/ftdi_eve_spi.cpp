@@ -75,8 +75,9 @@ void CLCD::spi_deselect (void) {
 
 void CLCD::reset (void) {
   WRITE(CLCD_MOD_RESET, 0);
-  delay(100);
+  delay(6); /* minimum time for power-down is 5ms */
   WRITE(CLCD_MOD_RESET, 1);
+  delay(21); /* minimum time to allow from rising PD_N to first access is 20ms */
 }
 
 void CLCD::test_pulse(void)
