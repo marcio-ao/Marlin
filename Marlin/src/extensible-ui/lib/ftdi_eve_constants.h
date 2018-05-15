@@ -564,6 +564,12 @@ namespace FTDI {
   const uint32_t CMD_LOGO                           = 0xFFFFFF31;
 }
 
+#if defined(USE_FTDI_FT810)
+  namespace FTDI {
+    const uint32_t CMD_SETROTATE                      = 0xFFFFFF36;
+  }
+#endif
+
 namespace FTDI {
   enum effect_t {
     SILENCE                                         = 0x00,

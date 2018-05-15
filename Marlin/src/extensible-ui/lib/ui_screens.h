@@ -74,7 +74,7 @@ class CachedScreen {
   protected:
     static bool storeBackground(){
       CLCD::DLCache dlcache(DL_SLOT);
-      dlcache.store(DL_SIZE);
+      return dlcache.store(DL_SIZE);
     }
 
     static void repaintBackground(){
@@ -234,8 +234,8 @@ class ValueAdjusters : public UIScreen {
         void units(const char *units);
         void precision(uint8_t decimals);
 
-        void heading(char *label);
-        void adjuster(uint8_t tag, const char *label,float value=0);
+        void heading(const char *label);
+        void adjuster(uint8_t tag, const char *label, float value=0);
         void increments();
     };
 
@@ -288,24 +288,5 @@ class FilesScreen : public UIScreen, public CachedScreen<FILES_SCREEN_CACHE> {
     static void onRedraw(draw_mode_t what);
     static bool onTouchStart(uint8_t tag);
 };
-
-//void lcd_init();
-void lcd_update();
-//bool lcd_hasstatus();
-//void lcd_reset_status();
-//void lcd_setstatus(const char * const message, const bool persist = false);
-//void lcd_setstatusPGM(const char * const message, int8_t level = 0);
-void lcd_status_printf_P(const uint8_t level, const char * const fmt, ...);
-//void lcd_setalertstatusPGM(const char * const message);
-void lcd_buttons_update();
-//void lcd_reset_alert_level();
-//void lcd_refresh();
-
-namespace Extensible_UI_API {
-  void onPrinterKilled(const char* lcd_msg);
-  void onCardInserted();
-  void onCardRemoved();
-  void onPlayTone(const uint16_t frequency, const uint16_t duration);
-}
 
 #endif // _UI_SCREENS_

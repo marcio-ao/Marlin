@@ -256,6 +256,19 @@ void CLCD::CommandFifo::append (uint32_t ptr, uint32_t size) {
   cmd( &cmd_data, sizeof(cmd_data) );
 }
 
+#if defined(USE_FTDI_FT810)
+void CLCD::CommandFifo::set_rotate (uint8_t rotation) {
+  struct {
+    uint32_t  type = CMD_SETROTATE;
+    uint32_t  rotation;
+  } cmd_data;
+
+  cmd_data.rotation = rotation;
+
+  cmd( &cmd_data, sizeof(cmd_data) );
+}
+#endif
+
 /******************* DISPLAY LIST CACHE MANAGEMENT ************************/
 
 // The init function ensures all cache locatios are marked as empty
@@ -387,11 +400,11 @@ void CLCD::DLCache::append() {
 
 void CLCD::init (void) {
   spi_init();                                  // Set Up I/O Lines for SPI and FT800/810 Control
- 
+
  // delay(50);
 
   reset();                                    // Power Down the FT800/810, includes apropriate delays
- 
+
 /*
  *  If driving the 4D Systems 4DLCD-FT843 Board, the following Init sequence is needed for its FT800 Driver
  */
@@ -425,8 +438,6 @@ void CLCD::init (void) {
 
   }
 
-  
-  
   #if defined(UI_FRAMEWORK_DEBUG)
   if(device_id != 0x7C) {
     #if defined (SERIAL_PROTOCOLLNPAIR)
@@ -467,16 +478,6 @@ void CLCD::init (void) {
   mem_write_8(REG_PCLK_POL, Pclkpol);
   mem_write_8(REG_CSPREAD,  1);
 
-  #if   defined(USE_PORTRAIT_ORIENTATION)  &&  defined(FLIP_UPSIDE_DOWN)
-  mem_write_8(REG_ROTATE, 3);
-  #elif defined(USE_PORTRAIT_ORIENTATION)  && !defined(FLIP_UPSIDE_DOWN)
-  mem_write_8(REG_ROTATE, 2);
-  #elif !defined(USE_PORTRAIT_ORIENTATION) &&  defined(FLIP_UPSIDE_DOWN)
-  mem_write_8(REG_ROTATE, 1);
-  #else // !defined(USE_PORTRAIT_ORIENTATION) && !defined(FLIP_UPSIDE_DOWN)
-  mem_write_8(REG_ROTATE, 0);
-  #endif
-
   mem_write_8(REG_TOUCH_MODE, 0x03);           // Configure the Touch Screen
   mem_write_8(REG_TOUCH_ADC_MODE, 0x01);
   mem_write_8(REG_TOUCH_OVERSAMPLE, 0x0F);
@@ -497,10 +498,10 @@ void CLCD::init (void) {
   #endif
 
   enable();                                   // Turns on Clock by setting PCLK Register to 5
-//  delay(50);
+
+  // Initialize the command FIFO
 
   CommandFifo::reset();
-//  delay(50);
 
   // Set Initial Values for Touch Transform Registers
 
@@ -510,6 +511,40 @@ void CLCD::init (void) {
   mem_write_32(REG_TOUCH_TRANSFORM_D, default_transform_d);
   mem_write_32(REG_TOUCH_TRANSFORM_E, default_transform_e);
   mem_write_32(REG_TOUCH_TRANSFORM_F, default_transform_f);
+
+  #if defined(USE_FTDI_FT810)
+    // Set the initial display orientation. On the FT810, we use the command
+    // processor to do this since it will also update the transform matrices.
+
+    CommandFifo cmd;
+    cmd.cmd(CMD_DLSTART);
+
+    #if   defined(USE_PORTRAIT_ORIENTATION)  &&  defined(USE_INVERTED_ORIENTATION) &&  defined(USE_MIRRORED_ORIENTATION)
+    cmd.set_rotate(7);
+    #elif defined(USE_PORTRAIT_ORIENTATION)  && !defined(USE_INVERTED_ORIENTATION) &&  defined(USE_MIRRORED_ORIENTATION)
+    cmd.set_rotate(6);
+    #elif !defined(USE_PORTRAIT_ORIENTATION) &&  defined(USE_INVERTED_ORIENTATION) &&  defined(USE_MIRRORED_ORIENTATION)
+    cmd.set_rotate(5);
+    #elif !defined(USE_PORTRAIT_ORIENTATION) && !defined(USE_INVERTED_ORIENTATION) &&  defined(USE_MIRRORED_ORIENTATION)
+    cmd.set_rotate(4);
+    #elif  defined(USE_PORTRAIT_ORIENTATION) &&  defined(USE_INVERTED_ORIENTATION) && !defined(USE_MIRRORED_ORIENTATION)
+    cmd.set_rotate(3);
+    #elif defined(USE_PORTRAIT_ORIENTATION)  && !defined(USE_INVERTED_ORIENTATION) && !defined(USE_MIRRORED_ORIENTATION)
+    cmd.set_rotate(2);
+    #elif !defined(USE_PORTRAIT_ORIENTATION) &&  defined(USE_INVERTED_ORIENTATION) && !defined(USE_MIRRORED_ORIENTATION)
+    cmd.set_rotate(1);
+    #else // !defined(USE_PORTRAIT_ORIENTATION) && !defined(USE_INVERTED_ORIENTATION) && !defined(USE_MIRRORED_ORIENTATION)
+    cmd.set_rotate(0);
+    #endif
+
+    cmd.cmd(DL_DISPLAY);
+    cmd.cmd(CMD_SWAP);
+    cmd.execute();
+  #endif
+
+  #if defined(USE_FTDI_FT800) &&  defined(USE_INVERTED_ORIENTATION)
+    mem_write_32(REG_ROTATE, 1);
+  #endif
 }
 
 /******************* SOUND HELPER CLASS ************************/

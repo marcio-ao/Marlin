@@ -22,7 +22,7 @@
 
 #include "ui_config.h"
 
-#if defined(EXTENSIBLE_UI)
+#if ENABLED(EXTENSIBLE_UI)
 
 #include "ftdi_eve_constants.h"
 #include "ftdi_eve_functions.h"
@@ -84,8 +84,8 @@ using namespace FTDI;
 // BTN_X, BTN_Y, BTN_W and BTN_X returns the top-left and width
 // and height of a button, taking into account the button margins.
 
-#define BTN_X(x)         (GRID_X(x-1) + MARGIN_L)
-#define BTN_Y(y)         (GRID_Y(y-1) + MARGIN_T)
+#define BTN_X(x)         (GRID_X((x)-1) + MARGIN_L)
+#define BTN_Y(y)         (GRID_Y((y)-1) + MARGIN_T)
 #define BTN_W(w)         (GRID_X(w)   - MARGIN_L - MARGIN_R)
 #define BTN_H(h)         (GRID_Y(h)   - MARGIN_T - MARGIN_B)
 
@@ -99,22 +99,22 @@ using namespace FTDI;
 #define BTN_TAG(t)       cmd.set_tag(t);
 #define RGB(rgb)         cmd.set_foreground_color(rgb);
 #define THEME(color)     cmd.set_foreground_color(Theme::color);
-#define BTN_ENABLED(en)  if(en) { \
-    cmd.set_color(Theme::btn_rgb_enabled); \
-    cmd.set_foreground_color(Theme::btn_fg_enabled); \
+#define BTN_EN_THEME(enabled, theme) \
+  if(enabled) { \
+    cmd.set_color(Theme::theme ##_rgb_enabled); \
+    cmd.set_foreground_color(Theme::theme ## _fg_enabled); \
   } else { \
-    cmd.set_color(Theme::btn_rgb_disabled); \
-    cmd.set_foreground_color(Theme::btn_fg_disabled); \
+    cmd.set_color(Theme::theme ##_rgb_disabled); \
+    cmd.set_foreground_color(Theme::theme ## _fg_disabled); \
     cmd.set_tag(0); \
   }
+#define BTN_ENABLED(enabled) BTN_EN_THEME(enabled,default)
 
 #define FONT_SML         Theme::font_small
 #define FONT_MED         Theme::font_medium
 #define FONT_LRG         Theme::font_large
 
 #define MENU_BTN_STYLE   Theme::font_medium, OPT_3D
-
-#define EXEC_GCODE(cmd)  Extensible_UI_API::enqueueCommands(cmd)
 
 /****************************** SCREEN STATIC DATA *************************/
 
@@ -172,10 +172,15 @@ namespace Theme {
   const uint32_t toggle_off    = theme_darkest;
 
   // Disabled vs enabled buttons
-  const uint32_t btn_rgb_enabled  = 0xFFFFFF;
-  const uint32_t btn_fg_enabled   = theme_darkest;
-  const uint32_t btn_rgb_disabled = theme_dark;
-  const uint32_t btn_fg_disabled  = theme_dark;
+  const uint32_t default_rgb_enabled  = 0xFFFFFF;
+  const uint32_t default_fg_enabled   = theme_darkest;
+  const uint32_t default_rgb_disabled = theme_dark;
+  const uint32_t default_fg_disabled  = theme_dark;
+
+  const uint32_t light_rgb_enabled    = 0xFFFFFF;
+  const uint32_t light_fg_enabled     = theme_light;
+  const uint32_t light_rgb_disabled   = theme_dark;
+  const uint32_t light_fg_disabled    = theme_dark;
 
   // Files screens
 
@@ -372,9 +377,11 @@ void RestoreFailsafeScreen::onRedraw(draw_mode_t what) {
 }
 
 bool RestoreFailsafeScreen::onTouchStart(uint8_t tag) {
+  using namespace Extensible_UI_API;
+
   switch(tag) {
     case 1:
-      EXEC_GCODE(F("M502\nM500"));
+      enqueueCommands(F("M502\nM500"));
       AlertBoxScreen::show(F("Factory settings restored."));
       // Remove RestoreFailsafeScreen from the stack
       // so the alert box doesn't return to it.
@@ -765,7 +772,7 @@ void StatusScreen::setStatusMessage(const char * const message) {
 
   if(!storeBackground()) {
     #if defined (SERIAL_PROTOCOLLNPAIR)
-      SERIAL_PROTOCOLLNPAIR("Unable to set the status message, not enough DL cache space: ",message);
+      SERIAL_PROTOCOLLNPAIR("Unable to set the status message, not enough DL cache space: ", message);
     #else
       #if defined(UI_FRAMEWORK_DEBUG)
         Serial.print(F("Unable to set the status message, not enough DL cache space: "));
@@ -889,17 +896,19 @@ void MenuScreen::onRedraw(draw_mode_t what) {
 }
 
 bool MenuScreen::onTouchStart(uint8_t tag) {
+  using namespace Extensible_UI_API;
+
   switch(tag) {
-    case 1:  GOTO_PREVIOUS();                                    break;
-    case 2:  EXEC_GCODE(F("G28"));                               break;
+    case 1:  GOTO_PREVIOUS();                                         break;
+    case 2:  enqueueCommands(F("G28"));                               break;
     #if defined(LULZBOT_MENU_AXIS_LEVELING_COMMANDS)
-    case 3:  EXEC_GCODE(F(LULZBOT_MENU_AXIS_LEVELING_COMMANDS)); break;
+    case 3:  enqueueCommands(F(LULZBOT_MENU_AXIS_LEVELING_COMMANDS)); break;
     #endif
-    case 4:  GOTO_SCREEN(MoveAxisScreen);                        break;
-    case 5:  EXEC_GCODE(F("M84"));                               break;
-    case 6:  GOTO_SCREEN(TemperatureScreen);                     break;
-    case 8:  GOTO_SCREEN(AdvancedSettingsScreen);                break;
-    case 9:  GOTO_SCREEN(AboutScreen);                           break;
+    case 4:  GOTO_SCREEN(MoveAxisScreen);                             break;
+    case 5:  enqueueCommands(F("M84"));                               break;
+    case 6:  GOTO_SCREEN(TemperatureScreen);                          break;
+    case 8:  GOTO_SCREEN(AdvancedSettingsScreen);                     break;
+    case 9:  GOTO_SCREEN(AboutScreen);                                break;
     default:
       return false;
   }
@@ -1022,10 +1031,12 @@ void AdvancedSettingsScreen::onRedraw(draw_mode_t what) {
 }
 
 bool AdvancedSettingsScreen::onTouchStart(uint8_t tag) {
+  using namespace Extensible_UI_API;
+
   switch(tag) {
     case 1:  GOTO_PREVIOUS();                    break;
     case 2:
-      EXEC_GCODE(F("M500"));
+      enqueueCommands(F("M500"));
       AlertBoxScreen::show(F("Settings saved!"));
       break;
     #if HAS_BED_PROBE
@@ -1199,7 +1210,7 @@ void ValueAdjusters::widgets_t::precision(uint8_t decimals) {
   _decimals = decimals;
 }
 
-void ValueAdjusters::widgets_t::heading(char *label) {
+void ValueAdjusters::widgets_t::heading(const char *label) {
   CLCD::CommandFifo cmd;
 
   if(_what & BACKGROUND) {
@@ -1559,11 +1570,14 @@ bool FeedrateScreen::onTouchHeld(uint8_t tag) {
   #define GRID_COLS  6
   #define GRID_ROWS 14
 #else
-  #define GRID_COLS  3
-  #define GRID_ROWS  6
+  #define GRID_COLS  6
+  #define GRID_ROWS  9
 #endif
 
-const uint16_t filesPerPage = GRID_ROWS - 4;
+#define HEADER_H   1
+#define FOOTER_H   2
+
+const uint16_t filesPerPage = GRID_ROWS - HEADER_H - FOOTER_H;
 
 void FilesScreen::onEntry() {
   screen_data.FilesScreen.page            = 0;
@@ -1590,70 +1604,79 @@ void FilesScreen::onRedraw(draw_mode_t what) {
   using namespace Extensible_UI_API;
 
   CLCD::CommandFifo cmd;
-  cmd.set_clear_color(Theme::background);
-  cmd.clear(1,1,1);
 
-  #define MARGIN_T 0
-  #define MARGIN_B 0
-
-  bool dirSelected = false;
-
-  Media_Iterator iterator(screen_data.FilesScreen.page * filesPerPage);
-  if(iterator.count()) {
-    do {
-      const uint16_t tag = getTagForIndex(iterator.value());
-      const bool isDir   = iterator.isDirectory();
-
-      BTN_TAG(tag)
-      if(screen_data.FilesScreen.selected_tag == tag) {
-        RGB(Theme::files_selected)
-        dirSelected = isDir;
-      } else {
-        RGB(Theme::background)
-      }
-      BTN( BTN_POS(1,tag+2), BTN_SIZE(6,1), F(""),               FONT_SML, OPT_FLAT);
-      BTX( BTN_POS(1,tag+2), BTN_SIZE(6,1), iterator.filename(), FONT_LRG, OPT_CENTERY);
-      if(isDir) {
-        BTX( BTN_POS(1,tag+2), BTN_SIZE(6,1), F("> "),           FONT_LRG, OPT_CENTERY | OPT_RIGHTX);
-      }
-
-      iterator.next();
-    } while(iterator.hasMore());
+  if(what & BACKGROUND) {
+    cmd.set_clear_color(Theme::background);
+    cmd.clear(1,1,1);
   }
 
-  #define MARGIN_T 5
-  #define MARGIN_B 5
+  if(what & FOREGROUND) {
+    #define MARGIN_T 0
+    #define MARGIN_B 0
 
-  const uint16_t pageCount = iterator.count() / filesPerPage + 1;
-  const bool prevEnabled   = screen_data.FilesScreen.page > 0;
-  const bool nextEnabled   = screen_data.FilesScreen.page < (pageCount - 1);
-  const bool itemSelected  = screen_data.FilesScreen.selected_tag != 0xFF;
-  const uint8_t backTag    = isAtRootDir() ? 240 : 245;
+    // Make sure the page value is in range
+    const uint16_t pageCount = ceil(getFileCount() / filesPerPage);
+    screen_data.FilesScreen.page = min(screen_data.FilesScreen.page, pageCount-1);
 
-  char page_str[15];
-  sprintf_P(page_str, PSTR("Page %d of %d"), screen_data.FilesScreen.page + 1, pageCount);
+    Media_Iterator iterator(screen_data.FilesScreen.page * filesPerPage);
+    bool dirSelected = false;
 
-  #if defined(USE_PORTRAIT_ORIENTATION)
+    // Make buttons for each file.
+    if(iterator.count()) {
+      uint8_t line = 1;
+      do {
+        const uint16_t tag = getTagForIndex(iterator.value());
+        const bool isDir   = iterator.isDirectory();
+
+        BTN_TAG(tag)
+        if(screen_data.FilesScreen.selected_tag == tag) {
+          RGB(Theme::files_selected)
+          dirSelected = isDir;
+        } else {
+          RGB(Theme::background)
+        }
+        BTN( BTN_POS(1,HEADER_H+line), BTN_SIZE(6,1), F(""),               FONT_MED, OPT_FLAT);
+        BTX( BTN_POS(1,HEADER_H+line), BTN_SIZE(6,1), iterator.filename(), FONT_MED, OPT_CENTERY);
+        if(isDir) {
+          BTX( BTN_POS(1,HEADER_H+line), BTN_SIZE(6,1), F("> "),           FONT_MED, OPT_CENTERY | OPT_RIGHTX);
+        }
+      } while(iterator.next() && line++ < filesPerPage);
+    }
+
+    #define MARGIN_T 5
+    #define MARGIN_B 5
+
+    const bool prevEnabled   = screen_data.FilesScreen.page > 0;
+    const bool nextEnabled   = screen_data.FilesScreen.page < (pageCount - 1);
+    const bool itemSelected  = screen_data.FilesScreen.selected_tag != 0xFF;
+    const uint8_t backTag    = isAtRootDir() ? 240 : 245;
+
+    char page_str[15];
+    sprintf_P(page_str, PSTR("Page %d of %d"), screen_data.FilesScreen.page + 1, pageCount);
+
     BTN_TAG(0)
-    BTX( BTN_POS(1,1), BTN_SIZE(6,1), page_str, FONT_LRG, OPT_CENTER);
+    BTX( BTN_POS(1,1), BTN_SIZE(4,1), page_str, FONT_SML, OPT_CENTER);
 
-    if(prevEnabled)  {BTN_TAG(241); BTN( BTN_POS(1,1),  BTN_SIZE(1,2), F("<"), MENU_BTN_STYLE);}
-    if(nextEnabled)  {BTN_TAG(242); BTN( BTN_POS(6,1),  BTN_SIZE(1,2), F(">"), MENU_BTN_STYLE);}
+    #define MARGIN_T 0
+    #define MARGIN_B 2
+
+    BTN_EN_THEME(prevEnabled, light) BTN_TAG(241); BTN( BTN_POS(5,1),  BTN_SIZE(1,HEADER_H), F("<"), MENU_BTN_STYLE);
+    BTN_EN_THEME(nextEnabled, light) BTN_TAG(242); BTN( BTN_POS(6,1),  BTN_SIZE(1,HEADER_H), F(">"), MENU_BTN_STYLE);
 
     #define MARGIN_T 15
-    BTN_TAG(backTag) THEME(back_btn) BTN( BTN_POS(5,13), BTN_SIZE(2,2), F("Back"), MENU_BTN_STYLE);
+    #define MARGIN_B 5
+    const uint8_t y = GRID_ROWS-FOOTER_H+1;
+    const uint8_t h = FOOTER_H;
+    BTN_ENABLED(true) BTN_TAG(backTag) THEME(back_btn) BTN( BTN_POS(5,y), BTN_SIZE(2,h), F("Back"), MENU_BTN_STYLE);
 
     BTN_ENABLED(itemSelected)
     if(dirSelected) {
-      BTN_TAG(244); BTN( BTN_POS(1,13), BTN_SIZE(4,2), F("Open"),  MENU_BTN_STYLE);
+      BTN_TAG(244); BTN( BTN_POS(1, y), BTN_SIZE(4,h), F("Open"),  MENU_BTN_STYLE);
     } else {
-      BTN_TAG(243); BTN( BTN_POS(1,13), BTN_SIZE(4,2), F("Print"), MENU_BTN_STYLE);
+      BTN_TAG(243); BTN( BTN_POS(1, y), BTN_SIZE(4,h), F("Print"), MENU_BTN_STYLE);
     }
-  #else
-    BTN_TAG(backTag) THEME(back_btn) BTN( BTN_POS(1,4), BTN_SIZE(1,1), F("Back"), MENU_BTN_STYLE);
-  #endif
-
-  #define MARGIN_T 5
+    #define MARGIN_T 5
+  }
 }
 
 bool FilesScreen::onTouchStart(uint8_t tag) {
@@ -1661,8 +1684,14 @@ bool FilesScreen::onTouchStart(uint8_t tag) {
 
   switch(tag) {
     case 240: GOTO_PREVIOUS();                  return true;
-    case 241: screen_data.FilesScreen.page--;   break;
-    case 242: screen_data.FilesScreen.page++;   break;
+    case 241:
+      if(screen_data.FilesScreen.page > 0)
+        screen_data.FilesScreen.page--;
+      break;
+    case 242:
+      // Positive bounds checking will be done in the refresh routine.
+      screen_data.FilesScreen.page++;
+      break;
     case 243:
       printFile(getSelectedShortFilename());
       StatusScreen::setStatusMessage(PSTR("Print Starting"));
@@ -1701,10 +1730,6 @@ namespace Extensible_UI_API {
     StatusScreen::setStatusMessage(PSTR(WELCOME_MSG));
 
     current_screen.start();
-  }
-
-  void onIdle() {
-    current_screen.onIdle();
   }
 
   void onUpdate() {
@@ -1823,12 +1848,12 @@ namespace Extensible_UI_API {
   }
 
   void onMediaInserted() {
-    StatusScreen::setStatusMessage(PSTR(MSG_SD_INSERTED));
+    StatusScreen::setStatusMessage(F(MSG_SD_INSERTED));
     sound.play(media_inserted);
   }
 
   void onMediaRemoved() {
-    StatusScreen::setStatusMessage(PSTR(MSG_SD_REMOVED));
+    StatusScreen::setStatusMessage(F(MSG_SD_REMOVED));
     sound.play(media_removed);
   }
 

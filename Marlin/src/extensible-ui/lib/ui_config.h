@@ -46,10 +46,12 @@
 //#define USE_FTDI_FT800
 #define USE_FTDI_FT810
 
-// Define whether to use a portrait orientation (requires FT810 or above).
-// If not defined, landscape orientation will be used.
-//#define USE_PORTRAIT_ORIENTATION
-//#define FLIP_UPSIDE_DOWN
+// Defines how to orient the display. An inverted (i.e. upside-down) display
+// is supported on the FT800. The FT810 or better also support a portrait
+// and mirrored orientation.
+#define USE_INVERTED_ORIENTATION
+#define USE_PORTRAIT_ORIENTATION
+//#define USE_MIRRORED_ORIENTATION
 
 // Define the display resolution
 //#define LCD_480x272

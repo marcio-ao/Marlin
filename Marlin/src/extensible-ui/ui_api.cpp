@@ -198,6 +198,12 @@ namespace Extensible_UI_API {
     #endif
   }
 
+  uint16_t getFileCount() {
+    #if ENABLED(SDSUPPORT)
+      return card.get_num_Files();
+    #endif
+  }
+
   void upDir() {
     #if ENABLED(SDSUPPORT)
       card.updir();
@@ -286,13 +292,15 @@ namespace Extensible_UI_API {
     return (index < (num_files - 1)) && (num_files > 0);
   }
 
-  void Media_Iterator::next() {
+  bool Media_Iterator::next() {
     #if ENABLED(SDSUPPORT)
       if (hasMore()) {
         index++;
         seek(index);
+        return true;
       }
     #endif
+    return false;
   }
 
   void Media_Iterator::seek(uint16_t index) {
@@ -343,29 +351,29 @@ namespace Extensible_UI_API {
 
 } // namespace Extensible_UI_API
 
-static uint8_t lcd_sd_status;
-
 void lcd_init() {
   #if ENABLED(SDSUPPORT) && PIN_EXISTS(SD_DETECT)
     SET_INPUT_PULLUP(SD_DETECT_PIN);
-    lcd_sd_status = 2; // UNKNOWN
   #endif
   Extensible_UI_API::onStartup();
 }
 
-void lcd_update() {
+void lcd_refresh() {}
+
+void lcd_update()                                                                {
   #if ENABLED(SDSUPPORT)
+    static bool last_sd_status;
     const bool sd_status = Extensible_UI_API::isMediaInserted();
-    if (sd_status != lcd_sd_status) {
+    if (sd_status != last_sd_status) {
+      last_sd_status = sd_status;
       if (sd_status) {
         card.initsd();
-        if (lcd_sd_status != 2) Extensible_UI_API::onMediaInserted();
+        Extensible_UI_API::onMediaInserted();
       }
       else {
         card.release();
-        if (lcd_sd_status != 2) Extensible_UI_API::onMediaRemoved();
+        Extensible_UI_API::onMediaRemoved();
       }
-      lcd_sd_status = sd_status;
     }
   #endif // SDSUPPORT
   Extensible_UI_API::onUpdate();
@@ -376,12 +384,10 @@ void lcd_update() {
 bool lcd_hasstatus()                                                             { return true; }
 bool lcd_detected()                                                              { return true; }
 void lcd_reset_alert_level()                                                     {}
-void lcd_refresh()                                                               { Extensible_UI_API::onIdle(); }
 void lcd_setstatus(const char * const message, const bool persist /* = false */) { Extensible_UI_API::onStatusChanged(message); }
 void lcd_setstatusPGM(const char * const message, int8_t level /* = 0 */)        { Extensible_UI_API::onStatusChanged((progmem_str)message); }
 void lcd_reset_status()                                                          {}
 void lcd_setalertstatusPGM(const char * const message)                           { lcd_setstatusPGM(message, 0); }
-
 void lcd_status_printf_P(const uint8_t level, const char * const fmt, ...) {
   char buff[64];
   va_list args;

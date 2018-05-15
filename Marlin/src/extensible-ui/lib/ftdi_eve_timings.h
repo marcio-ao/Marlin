@@ -61,21 +61,12 @@ namespace FTDI_LCD_480x272 {
   const int Pclk    =    5;
   const int Clksel  = 0x44;
 
-  #if defined(USE_PORTRAIT_ORIENTATION)
-    const uint32_t default_transform_a = 0xFFFFFEA3;
-    const uint32_t default_transform_b = 0xFFFFB05D;
-    const uint32_t default_transform_c = 0x012C5254;
-    const uint32_t default_transform_d = 0xFFFF8303;
-    const uint32_t default_transform_e = 0xFFFFFDF8;
-    const uint32_t default_transform_f = 0x01F32984;
-  #else
-    const uint32_t default_transform_a = 0x00008100;
-    const uint32_t default_transform_b = 0x00000000;
-    const uint32_t default_transform_c = 0xFFF18000;
-    const uint32_t default_transform_d = 0x00000000;
-    const uint32_t default_transform_e = 0xFFFFB100;
-    const uint32_t default_transform_f = 0x0120D000;
-  #endif
+  const uint32_t default_transform_a = 0x00008100;
+  const uint32_t default_transform_b = 0x00000000;
+  const uint32_t default_transform_c = 0xFFF18000;
+  const uint32_t default_transform_d = 0x00000000;
+  const uint32_t default_transform_e = 0xFFFFB100;
+  const uint32_t default_transform_f = 0x0120D000;
 }
 
 // GLOBAL LCD REGISTER SET VALUES FOR 800x480 DISPLAY
@@ -106,12 +97,12 @@ namespace FTDI_LCD_800x480 {
   const int Pclk    =    2;
   const int Clksel  = 0x45;
 
-  const uint32_t default_transform_a = 0x0000012B;
-  const uint32_t default_transform_b = 0xFFFF7BFC;
-  const uint32_t default_transform_c = 0x01F2443A;
-  const uint32_t default_transform_d = 0xFFFF25ED;
-  const uint32_t default_transform_e = 0x000000F9;
-  const uint32_t default_transform_f = 0x033F61DA;
+  const uint32_t default_transform_a = 0x0000D8B9;
+  const uint32_t default_transform_b = 0x00000124;
+  const uint32_t default_transform_c = 0xFFE23926;
+  const uint32_t default_transform_d = 0xFFFFFF51;
+  const uint32_t default_transform_e = 0xFFFF7E4F;
+  const uint32_t default_transform_f = 0x01F0AF70;
 }
 
 #if defined(LCD_800x480)

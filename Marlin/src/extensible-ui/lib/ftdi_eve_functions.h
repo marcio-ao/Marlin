@@ -226,6 +226,10 @@ class CLCD::CommandFifo {
     void set_tag (uint8_t Tag);
     void bitmap_source (uint32_t ram_g_addr);
 
+    #if defined(USE_FTDI_FT810)
+    void set_rotate(uint8_t rotation);
+    #endif
+
     // The following functions *must* be inlined since we are relying on the compiler to do
     // substitution of the constants from the data structure rather than actually storing
     // it in PROGMEM (which would fail, since we are not using pgm_read_near to read them).

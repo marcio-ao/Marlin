@@ -22,7 +22,7 @@
 
 #include "ui_config.h"
 
-#if defined(EXTENSIBLE_UI)
+#if ENABLED(EXTENSIBLE_UI)
 
 #include "ftdi_eve_constants.h"
 #include "ftdi_eve_functions.h"
