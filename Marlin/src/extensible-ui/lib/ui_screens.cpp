@@ -1518,7 +1518,7 @@ bool StepsScreen::onTouchHeld(uint8_t tag) {
     w.units(PSTR("mm"));
 
     w.heading(     PSTR("Z Offset"));
-    w.adjuster(4,  PSTR("Z Offset:"), getZOffset_mm());
+    w.color(Theme::z_axis); w.adjuster(4,  PSTR("Z Offset:"), getZOffset_mm());
     w.increments();
   }
 
@@ -1615,7 +1615,7 @@ void FilesScreen::onRedraw(draw_mode_t what) {
     #define MARGIN_B 0
 
     // Make sure the page value is in range
-    const uint16_t pageCount = ceil(getFileCount() / filesPerPage);
+    const uint16_t pageCount = max(1,(ceil)(float(getFileCount()) / filesPerPage));
     screen_data.FilesScreen.page = min(screen_data.FilesScreen.page, pageCount-1);
 
     Media_Iterator iterator(screen_data.FilesScreen.page * filesPerPage);
@@ -1667,13 +1667,13 @@ void FilesScreen::onRedraw(draw_mode_t what) {
     #define MARGIN_B 5
     const uint8_t y = GRID_ROWS-FOOTER_H+1;
     const uint8_t h = FOOTER_H;
-    BTN_ENABLED(true) BTN_TAG(backTag) THEME(back_btn) BTN( BTN_POS(5,y), BTN_SIZE(2,h), F("Back"), MENU_BTN_STYLE);
+    BTN_ENABLED(true) BTN_TAG(backTag) THEME(back_btn) BTN( BTN_POS(1,y), BTN_SIZE(3,h), F("Back"), MENU_BTN_STYLE);
 
     BTN_ENABLED(itemSelected)
     if(dirSelected) {
-      BTN_TAG(244); BTN( BTN_POS(1, y), BTN_SIZE(4,h), F("Open"),  MENU_BTN_STYLE);
+      BTN_TAG(244); BTN( BTN_POS(4, y), BTN_SIZE(3,h), F("Open"),  MENU_BTN_STYLE);
     } else {
-      BTN_TAG(243); BTN( BTN_POS(1, y), BTN_SIZE(4,h), F("Print"), MENU_BTN_STYLE);
+      BTN_TAG(243); BTN( BTN_POS(4, y), BTN_SIZE(3,h), F("Print"), MENU_BTN_STYLE);
     }
     #define MARGIN_T 5
   }
@@ -1727,7 +1727,7 @@ namespace Extensible_UI_API {
     CLCD::init();
     CLCD::DLCache::init();
 
-    StatusScreen::setStatusMessage(PSTR(WELCOME_MSG));
+    StatusScreen::setStatusMessage(F(WELCOME_MSG));
 
     current_screen.start();
   }
@@ -1870,4 +1870,4 @@ namespace Extensible_UI_API {
   }
 }
 
-#endif // FTDI_EVE_TOUCHSCREEN
+#endif // EXTENSIBLE_UI
