@@ -41,36 +41,39 @@
 /********************************* SPI Functions *********************************/
 
 void CLCD::spi_init (void) {
-#if defined(USE_ARDUINO_HW_SPI)
+  SET_OUTPUT(CLCD_MOD_RESET); // Module Reset, not SPI
+  WRITE(CLCD_MOD_RESET, 1);
+
+  SET_OUTPUT(CLCD_SPI_CS);
+  WRITE(CLCD_SPI_CS, 1);
+
+#if defined(CLCD_USE_SOFT_SPI)
+  SET_OUTPUT(CLCD_SOFT_SPI_MOSI);
+  WRITE(CLCD_SOFT_SPI_MOSI, 1);
+
+  SET_OUTPUT(CLCD_SOFT_SPI_SCLK);
+  WRITE(CLCD_SOFT_SPI_SCLK, 0);
+
+  SET_INPUT_PULLUP(CLCD_SOFT_SPI_MISO);
+#elif defined(USE_ARDUINO_HW_SPI)
   SPI.begin();
   SPI.beginTransaction(LCDsettings);
 #else
-  SET_OUTPUT(CLCD_MOD_RESET);         // CLCD_MOD_RST - Module Reset, not SPI
-  WRITE(CLCD_MOD_RESET, 1);
-
-  SET_OUTPUT(CLCD_SOFT_SPI_MOSI);       // CLCD_MOSI
-  WRITE(CLCD_SOFT_SPI_MOSI, 1);
-
-  SET_OUTPUT(CLCD_SOFT_SPI_SCLK);       // CLCD_SCLK
-  WRITE(CLCD_SOFT_SPI_SCLK, 0);
-
-  SET_OUTPUT(CLCD_SOFT_SPI_CS);         // CLCD_CS
-  WRITE(CLCD_SOFT_SPI_CS, 1);
-
-  SET_INPUT_PULLUP(CLCD_SOFT_SPI_MISO); // CLCD_MISO
+  spiBegin();
+  spiInit(SPI_SPEED);
+#endif
 
   delay(50);
-#endif
 }
 
-// CLCD Bitbanged SPI - Chip Select
+// CLCD SPI - Chip Select
 void CLCD::spi_select (void) {
-  WRITE(CLCD_SOFT_SPI_CS, 0);
+  WRITE(CLCD_SPI_CS, 0);
 }
 
-// CLCD Bitbanged SPI - Chip Deselect
+// CLCD SPI - Chip Deselect
 void CLCD::spi_deselect (void) {
-  WRITE(CLCD_SOFT_SPI_CS, 1);
+  WRITE(CLCD_SPI_CS, 1);
 }
 
 void CLCD::reset (void) {
@@ -89,43 +92,60 @@ void CLCD::test_pulse(void)
   #endif
 }
 
-uint8_t CLCD::spi_transfer (uint8_t spiOutByte) {
-#ifdef IS_ARDUINO
-  SPI.transfer(spiOutByte);
-#else
+#if defined(CLCD_USE_SOFT_SPI)
+  uint8_t CLCD::_soft_spi_transfer (uint8_t spiOutByte) {
+    uint8_t spiIndex  = 0x80;
+    uint8_t spiInByte = 0;
+    uint8_t k;
 
-  uint8_t spiIndex  = 0x80;
-  uint8_t spiInByte = 0;
-  uint8_t k;
+    for(k = 0; k <8; k++) {         // Output and Read each bit of spiOutByte and spiInByte
+      if(spiOutByte & spiIndex) {   // Output MOSI Bit
+        WRITE(CLCD_SOFT_SPI_MOSI, 1);
+      }
+      else {
+        WRITE(CLCD_SOFT_SPI_MOSI, 0);
+      }
+      WRITE(CLCD_SOFT_SPI_SCLK, 1);   // Pulse Clock
+      WRITE(CLCD_SOFT_SPI_SCLK, 0);
 
-  for(k = 0; k <8; k++) {         // Output and Read each bit of spiOutByte and spiInByte
-    if(spiOutByte & spiIndex) {   // Output MOSI Bit
-      WRITE(CLCD_SOFT_SPI_MOSI, 1);
+      if(READ(CLCD_SOFT_SPI_MISO)) {
+        spiInByte |= spiIndex;
+      }
+
+      spiIndex >>= 1;
     }
-    else {
-      WRITE(CLCD_SOFT_SPI_MOSI, 0);
-    }
-    WRITE(CLCD_SOFT_SPI_SCLK, 1);   // Pulse Clock
-    WRITE(CLCD_SOFT_SPI_SCLK, 0);
-
-    if(READ(CLCD_SOFT_SPI_MISO)) {
-      spiInByte |= spiIndex;
-    }
-
-    spiIndex >>= 1;
+    return spiInByte;
   }
-  return spiInByte;
 #endif
+
+void CLCD::spi_send(uint8_t spiOutByte) {
+  #if defined(CLCD_USE_SOFT_SPI)
+    _soft_spi_transfer(spiOutByte);
+  #elif defined(USE_ARDUINO_HW_SPI)
+    SPI.transfer(spiOutByte);
+  #else
+    spiSend(spiOutByte);
+  #endif
+}
+
+uint8_t CLCD::spi_recv() {
+  #if defined(CLCD_USE_SOFT_SPI)
+    return _soft_spi_transfer(0x00);
+  #elif defined(USE_ARDUINO_HW_SPI)
+    return SPI.transfer(0x00);
+  #else
+    return spiRec();
+  #endif
 }
 
 // MEMORY READ FUNCTIONS
 
 // Write 4-Byte Address
 void CLCD::mem_read_addr (uint32_t reg_address) {
-  spi_transfer((reg_address >> 16) & 0x3F);  // Address [21:16]
-  spi_transfer((reg_address >> 8 ) & 0xFF);  // Address [15:8]
-  spi_transfer((reg_address >> 0)  & 0xFF);  // Address [7:0]
-  spi_transfer(0x00);                        // Dummy Byte
+  spi_send((reg_address >> 16) & 0x3F);  // Address [21:16]
+  spi_send((reg_address >> 8 ) & 0xFF);  // Address [15:8]
+  spi_send((reg_address >> 0)  & 0xFF);  // Address [7:0]
+  spi_send(0x00);                        // Dummy Byte
 }
 
 // Write 4-Byte Address, Read Multiple Bytes
@@ -133,7 +153,7 @@ void CLCD::mem_read_bulk (uint32_t reg_address, uint8_t *data, uint16_t len) {
   spi_select();
   mem_read_addr(reg_address);
   while(len--) {
-    *data = spi_transfer(0x00);
+    *data = spi_recv();
     *data++;
   }
   spi_deselect();
@@ -143,7 +163,7 @@ void CLCD::mem_read_bulk (uint32_t reg_address, uint8_t *data, uint16_t len) {
 uint8_t CLCD::mem_read_8 (uint32_t reg_address) {
   spi_select();
   mem_read_addr(reg_address);
-  uint8_t r_data = spi_transfer(0x00);
+  uint8_t r_data = spi_recv();
   spi_deselect();
   return r_data;
 }
@@ -152,8 +172,8 @@ uint8_t CLCD::mem_read_8 (uint32_t reg_address) {
 uint16_t CLCD::mem_read_16 (uint32_t reg_address) {
   spi_select();
   mem_read_addr(reg_address);
-  uint16_t r_data =  (((uint16_t) spi_transfer(0x00)) << 0) |
-                     (((uint16_t) spi_transfer(0x00)) << 8);
+  uint16_t r_data =  (((uint16_t) spi_recv()) << 0) |
+                     (((uint16_t) spi_recv()) << 8);
   spi_deselect();
   return r_data;
 }
@@ -162,10 +182,10 @@ uint16_t CLCD::mem_read_16 (uint32_t reg_address) {
 uint32_t CLCD::mem_read_32 (uint32_t reg_address) {
   spi_select();
   mem_read_addr(reg_address);
-  uint32_t r_data =  (((uint32_t) spi_transfer(0x00)) <<  0) |
-                     (((uint32_t) spi_transfer(0x00)) <<  8) |
-                     (((uint32_t) spi_transfer(0x00)) << 16) |
-                     (((uint32_t) spi_transfer(0x00)) << 24);
+  uint32_t r_data =  (((uint32_t) spi_recv()) <<  0) |
+                     (((uint32_t) spi_recv()) <<  8) |
+                     (((uint32_t) spi_recv()) << 16) |
+                     (((uint32_t) spi_recv()) << 24);
   spi_deselect();
   return r_data;
 }
@@ -175,9 +195,9 @@ uint32_t CLCD::mem_read_32 (uint32_t reg_address) {
 
  // Write 3-Byte Address
 void CLCD::mem_write_addr (uint32_t reg_address) {
-  spi_transfer((reg_address >> 16) | 0x80); // Address [21:16]
-  spi_transfer((reg_address >> 8 ) & 0xFF); // Address [15:8]
-  spi_transfer((reg_address >> 0)  & 0xFF); // Address [7:0]
+  spi_send((reg_address >> 16) | 0x80); // Address [21:16]
+  spi_send((reg_address >> 8 ) & 0xFF); // Address [15:8]
+  spi_send((reg_address >> 0)  & 0xFF); // Address [7:0]
 }
 
 // Write 3-Byte Address, Multiple Bytes, plus padding bytes
@@ -187,11 +207,11 @@ void CLCD::mem_write_bulk (uint32_t reg_address, const void *data, uint16_t len,
   mem_write_addr(reg_address);
   // Write data bytes
   while(len--) {
-    spi_transfer(*p++);
+    spi_send(*p++);
   }
   // Write padding bytes
   while(padding--) {
-    spi_transfer(0);
+    spi_send(0);
   }
   spi_deselect();
 }
@@ -202,11 +222,11 @@ void CLCD::mem_write_bulk (uint32_t reg_address, progmem_str str, uint16_t len, 
   mem_write_addr(reg_address);
   // Write data bytes
   while(len--) {
-    spi_transfer(pgm_read_byte_near(p++));
+    spi_send(pgm_read_byte_near(p++));
   }
   // Write padding bytes
   while(padding--) {
-    spi_transfer(0);
+    spi_send(0);
   }
   spi_deselect();
 }
@@ -215,7 +235,7 @@ void CLCD::mem_write_bulk (uint32_t reg_address, progmem_str str, uint16_t len, 
 void CLCD::mem_write_8 (uint32_t reg_address, uint8_t w_data) {
   spi_select();
   mem_write_addr(reg_address);
-  spi_transfer(w_data);
+  spi_send(w_data);
   spi_deselect();
 }
 
@@ -223,8 +243,8 @@ void CLCD::mem_write_8 (uint32_t reg_address, uint8_t w_data) {
 void CLCD::mem_write_16 (uint32_t reg_address, uint16_t w_data) {
   spi_select();
   mem_write_addr(reg_address);
-  spi_transfer((uint8_t) ((w_data >> 0) & 0x00FF));
-  spi_transfer((uint8_t) ((w_data >> 8) & 0x00FF));
+  spi_send((uint8_t) ((w_data >> 0) & 0x00FF));
+  spi_send((uint8_t) ((w_data >> 8) & 0x00FF));
   spi_deselect();
 }
 
@@ -232,10 +252,10 @@ void CLCD::mem_write_16 (uint32_t reg_address, uint16_t w_data) {
 void CLCD::mem_write_32 (uint32_t reg_address, uint32_t w_data) {
   spi_select();
   mem_write_addr(reg_address);
-  spi_transfer(w_data >> 0);
-  spi_transfer(w_data >> 8);
-  spi_transfer(w_data >> 16);
-  spi_transfer(w_data >> 24);
+  spi_send(w_data >> 0);
+  spi_send(w_data >> 8);
+  spi_send(w_data >> 16);
+  spi_send(w_data >> 24);
   spi_deselect();
 }
 

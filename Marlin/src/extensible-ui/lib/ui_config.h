@@ -24,22 +24,40 @@
 
 #include "../ui_api.h"
 
-// Uncomment the following to use hardware SPI.
-//#define USE_ARDUINO_HW_SPI
+// Select which display you are using.
+//#define AO_COLOR_DISPLAY_REV_B
+//#define AO_COLOR_DISPLAY_REV_C_EXP1
+#define AO_COLOR_DISPLAY_REV_C_EXP2
 
-// By default, the FTDI driver can repurpose the
-// pins defined for ULTRALCD. However, they can be
-// changed here.
+#if defined(AO_COLOR_DISPLAY_REV_B)
+    // The AlephObjects Rev B Color Display must connect
+    // to EXP1 and can only use software SPI
+    #define CLCD_USE_SOFT_SPI
+    #define CLCD_MOD_RESET                   LCD_PINS_D4
+    #define CLCD_SPI_CS                      LCD_PINS_D5
+    #define CLCD_SOFT_SPI_SCLK               LCD_PINS_D7
+    #define CLCD_SOFT_SPI_MOSI               LCD_PINS_D6
+    #define CLCD_SOFT_SPI_MISO               LCD_PINS_RS
+    #define CLCD_AUX_0                       LCD_PINS_ENABLE
+    #define CLCD_AUX_1                       BTN_ENC
+    #define CLCD_AUX_2                       BEEPER_PIN
+#endif
 
-#ifndef USE_ARDUINO_HW_SPI
-    #define CLCD_SOFT_SPI_SCLK             LCD_PINS_D7
-    #define CLCD_SOFT_SPI_MOSI             LCD_PINS_D6
-    #define CLCD_SOFT_SPI_CS               LCD_PINS_D5
-    #define CLCD_SOFT_SPI_MISO             LCD_PINS_RS
-    #define CLCD_MOD_RESET                 LCD_PINS_D4     // Module reset
-    #define CLCD_AUX_0                     LCD_PINS_ENABLE
-    #define CLCD_AUX_1                     BTN_ENC
-    #define CLCD_AUX_2                     BEEPER_PIN
+// The AlephObjects Rev C Color Display can connect
+// to EXP1 for software SPI, or EXP2 for hardware SPI
+
+#if defined(AO_COLOR_DISPLAY_REV_C_EXP1)
+    #define CLCD_USE_SOFT_SPI
+    #define CLCD_MOD_RESET                 LCD_PINS_ENABLE
+    #define CLCD_SPI_CS                    LCD_PINS_D4
+    #define CLCD_SOFT_SPI_SCLK             BTN_ENC
+    #define CLCD_SOFT_SPI_MOSI             LCD_PINS_D5
+    #define CLCD_SOFT_SPI_MISO             BEEPER_PIN
+#endif
+
+#if defined(AO_COLOR_DISPLAY_REV_C_EXP2)
+    #define CLCD_SPI_CS                    BTN_EN1
+    #define CLCD_MOD_RESET                 BTN_EN2
 #endif
 
 // Define whether an FT800 or FT810+ chip is being used

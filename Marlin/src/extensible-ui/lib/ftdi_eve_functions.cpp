@@ -56,9 +56,9 @@ void CLCD::host_cmd (unsigned char host_command, unsigned char byte2) {  // Send
     host_command |= 0x40;
   }
   spi_select();
-  spi_transfer(host_command);
-  spi_transfer(byte2);
-  spi_transfer(0x00);
+  spi_send(host_command);
+  spi_send(byte2);
+  spi_send(0x00);
   spi_deselect();
 }
 

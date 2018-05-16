@@ -123,7 +123,11 @@ class CLCD {
     static void     spi_init (void);
     static void     spi_select (void);
     static void     spi_deselect (void);
-    static uint8_t  spi_transfer (uint8_t spiOutByte);
+
+    static uint8_t  _soft_spi_transfer (uint8_t spiOutByte);
+
+    static void     spi_send(uint8_t spiOutByte);
+    static uint8_t  spi_recv();
 
     static void     mem_read_addr  (uint32_t reg_address);
     static void     mem_write_addr (uint32_t reg_address);
