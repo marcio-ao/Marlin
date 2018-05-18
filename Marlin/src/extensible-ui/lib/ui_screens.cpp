@@ -20,7 +20,7 @@
  *   location: <http://www.gnu.org/licenses/>.                              *
  ****************************************************************************/
 
-#include "ui_config.h"
+#include "ui.h"
 
 #if ENABLED(EXTENSIBLE_UI)
 
@@ -288,12 +288,16 @@ void AboutScreen::onRedraw(draw_mode_t what) {
   BTX( BTN_POS(1,5), BTN_SIZE(4,1), getFirmwareName(), FONT_LRG);
 
   BTN_TAG(1) BTN_ENABLED(1) BTN( BTN_POS(2,7), BTN_SIZE(2,1), F("Okay"), MENU_BTN_STYLE);
+
+  #undef GRID_COLS
+  #undef GRID_ROWS
 }
 
 bool AboutScreen::onTouchStart(uint8_t tag) {
   switch(tag) {
     case 1:        GOTO_PREVIOUS();                         return true;
     case 2:        GOTO_SCREEN(CalibrationRegistersScreen); return true;
+    default:                                                return false;
   }
 }
 
@@ -324,12 +328,16 @@ void DialogBoxBaseClass::drawDialog(const progmem_str lines[], size_t n_lines, p
   } else if(btn2) {
     BTN_TAG(2) BTN_ENABLED(1) BTN( BTN_POS(1,8), BTN_SIZE(2,1), btn2, MENU_BTN_STYLE);
   }
+
+  #undef GRID_COLS
+  #undef GRID_ROWS
 }
 
 bool DialogBoxBaseClass::onTouchStart(uint8_t tag) {
   switch(tag) {
     case 1: GOTO_PREVIOUS(); return true;
     case 2: GOTO_PREVIOUS(); return true;
+    default:                 return false;
   }
 }
 
@@ -446,6 +454,9 @@ void KillScreen::show(progmem_str message) {
 
   BTX( BTN_POS(1,6), BTN_SIZE(4,1), F("Please reset"),           FONT_LRG);
 
+  #undef GRID_COLS
+  #undef GRID_ROWS
+
   cmd.cmd(DL_DISPLAY);
   cmd.cmd(CMD_SWAP);
   cmd.execute();
@@ -462,11 +473,11 @@ void KillScreen::show(progmem_str message) {
 /*********************************** STATUS SCREEN ******************************/
 #if defined(USE_PORTRAIT_ORIENTATION)
   #define GRID_ROWS 9
-  #define GRID_COLS 3
 #else
   #define GRID_ROWS 8
-  #define GRID_COLS 3
 #endif
+
+#define GRID_COLS 3
 
 void StatusScreen::static_axis_position() {
   CLCD::CommandFifo cmd;
@@ -521,9 +532,9 @@ void StatusScreen::dynamic_axis_position() {
     BTX( BTN_POS(2,6), BTN_SIZE(1,1), y_str, FONT_MED);
     BTX( BTN_POS(3,6), BTN_SIZE(1,1), z_str, FONT_MED);
   #endif
-
-  //#define MARGIN_T 5
 }
+
+#undef GRID_COLS
 
 #if defined(USE_PORTRAIT_ORIENTATION)
   #define GRID_COLS 8
@@ -669,6 +680,8 @@ void StatusScreen::dynamic_progress() {
   #endif
 }
 
+#undef GRID_COLS
+
 #define GRID_COLS 4
 
 void StatusScreen::static_media_button() {
@@ -737,6 +750,8 @@ void StatusScreen::dynamic_interaction_buttons() {
   #endif
 }
 
+#undef  GRID_COLS
+
 #define GRID_COLS 1
 
 void StatusScreen::static_status_message(const char * const message) {
@@ -786,11 +801,7 @@ void StatusScreen::setStatusMessage(const char * const message) {
   }
 }
 
-#if defined(USE_PORTRAIT_ORIENTATION)
-  #define GRID_COLS 8
-#else
-  #define GRID_COLS 12
-#endif
+#undef  GRID_COLS
 
 void StatusScreen::onStartup() {
   // Load the bitmaps for the status screen
@@ -848,15 +859,9 @@ bool StatusScreen::onTouchStart(uint8_t tag) {
   return true;
 }
 
-/************************************ MENU SCREEN *******************************/
+#undef GRID_ROWS
 
-#if defined(USE_PORTRAIT_ORIENTATION)
-  #define GRID_ROWS 7
-  #define GRID_COLS 2
-#else
-  #define GRID_ROWS 5
-  #define GRID_COLS 2
-#endif
+/************************************ MENU SCREEN *******************************/
 
 void MenuScreen::onRedraw(draw_mode_t what) {
   if(what & BACKGROUND) {
@@ -865,6 +870,8 @@ void MenuScreen::onRedraw(draw_mode_t what) {
     cmd.clear(1,1,1);
 
     #if defined(USE_PORTRAIT_ORIENTATION)
+      #define GRID_ROWS 7
+      #define GRID_COLS 2
       BTN_TAG(2) BTN_ENABLED(1)  BTN( BTN_POS(1,1), BTN_SIZE(1,1), F("Auto Home"),          MENU_BTN_STYLE);
       BTN_TAG(3) BTN_ENABLED(1)  BTN( BTN_POS(2,1), BTN_SIZE(1,1), F("Level X Axis"),       MENU_BTN_STYLE);
       BTN_TAG(4) BTN_ENABLED(1)  BTN( BTN_POS(1,2), BTN_SIZE(1,1), F("Move Axis"),          MENU_BTN_STYLE);
@@ -873,7 +880,12 @@ void MenuScreen::onRedraw(draw_mode_t what) {
       BTN_TAG(7) BTN_ENABLED(0)  BTN( BTN_POS(1,4), BTN_SIZE(2,1), F("Change Filament"),    MENU_BTN_STYLE);
       BTN_TAG(8) BTN_ENABLED(1)  BTN( BTN_POS(1,5), BTN_SIZE(2,1), F("Advanced Settings"),  MENU_BTN_STYLE);
       BTN_TAG(9) BTN_ENABLED(1)  BTN( BTN_POS(1,6), BTN_SIZE(2,1), F("About Firmware"),     MENU_BTN_STYLE);
+      BTN_TAG(1) THEME(back_btn) BTN( BTN_POS(1,7), BTN_SIZE(2,1), F("Back"),               MENU_BTN_STYLE);
+      #undef GRID_COLS
+      #undef GRID_ROWS
     #else
+      #define GRID_ROWS 5
+      #define GRID_COLS 2
       BTN_TAG(2) BTN_ENABLED(1)  BTN( BTN_POS(1,1), BTN_SIZE(1,1), F("Auto Home"),          MENU_BTN_STYLE);
       BTN_TAG(3) BTN_ENABLED(1)  BTN( BTN_POS(2,1), BTN_SIZE(1,1), F("Level X Axis"),       MENU_BTN_STYLE);
       BTN_TAG(4) BTN_ENABLED(1)  BTN( BTN_POS(1,2), BTN_SIZE(1,1), F("Move Axis"),          MENU_BTN_STYLE);
@@ -882,16 +894,10 @@ void MenuScreen::onRedraw(draw_mode_t what) {
       BTN_TAG(7) BTN_ENABLED(0)  BTN( BTN_POS(2,3), BTN_SIZE(1,1), F("Change Filament"),    MENU_BTN_STYLE);
       BTN_TAG(8) BTN_ENABLED(1)  BTN( BTN_POS(1,4), BTN_SIZE(1,1), F("Advanced Settings"),  MENU_BTN_STYLE);
       BTN_TAG(9) BTN_ENABLED(1)  BTN( BTN_POS(2,4), BTN_SIZE(1,1), F("About Firmware"),     MENU_BTN_STYLE);
-    #endif
-
-    #if defined(USE_PORTRAIT_ORIENTATION)
-      #define MARGIN_T 15
-      BTN_TAG(1) THEME(back_btn) BTN( BTN_POS(1,7), BTN_SIZE(2,1), F("Back"),               MENU_BTN_STYLE);
-    #else
       BTN_TAG(1) THEME(back_btn) BTN( BTN_POS(1,5), BTN_SIZE(2,1), F("Back"),               MENU_BTN_STYLE);
+      #undef GRID_COLS
+      #undef GRID_ROWS
     #endif
-
-    #define MARGIN_T 5
   }
 }
 
@@ -917,14 +923,6 @@ bool MenuScreen::onTouchStart(uint8_t tag) {
 
 /************************************ TUNE SCREEN *******************************/
 
-#if defined(USE_PORTRAIT_ORIENTATION)
-  #define GRID_ROWS 5
-  #define GRID_COLS 2
-#else
-  #define GRID_ROWS 3
-  #define GRID_COLS 2
-#endif
-
 void TuneScreen::onRedraw(draw_mode_t what) {
   if(what & BACKGROUND) {
     CLCD::CommandFifo cmd;
@@ -932,6 +930,8 @@ void TuneScreen::onRedraw(draw_mode_t what) {
     cmd.clear(1,1,1);
 
     #if defined(USE_PORTRAIT_ORIENTATION)
+      #define GRID_ROWS 5
+      #define GRID_COLS 2
       BTN_TAG(2) BTN_ENABLED(1)  BTN( BTN_POS(1,1), BTN_SIZE(2,1), F("Temperature"),        MENU_BTN_STYLE);
       BTN_TAG(3) BTN_ENABLED(0)  BTN( BTN_POS(1,2), BTN_SIZE(2,1), F("Change Filament"),    MENU_BTN_STYLE);
       #if HAS_BED_PROBE
@@ -941,7 +941,13 @@ void TuneScreen::onRedraw(draw_mode_t what) {
       #endif
       BTN_TAG(4)                 BTN( BTN_POS(1,3), BTN_SIZE(2,1), F("Z Offset"),           MENU_BTN_STYLE);
       BTN_TAG(5) BTN_ENABLED(1)  BTN( BTN_POS(1,4), BTN_SIZE(2,1), F("Print Speed"),        MENU_BTN_STYLE);
+
+      BTN_TAG(1) THEME(back_btn) BTN( BTN_POS(1,5), BTN_SIZE(2,1), F("Back"),               MENU_BTN_STYLE);
+      #undef GRID_COLS
+      #undef GRID_ROWS
     #else
+      #define GRID_ROWS 3
+      #define GRID_COLS 2
       BTN_TAG(2) BTN_ENABLED(1)  BTN( BTN_POS(1,1), BTN_SIZE(1,1), F("Temperature"),        MENU_BTN_STYLE);
       BTN_TAG(3) BTN_ENABLED(0)  BTN( BTN_POS(1,2), BTN_SIZE(1,1), F("Change Filament"),    MENU_BTN_STYLE);
       #if HAS_BED_PROBE
@@ -951,16 +957,11 @@ void TuneScreen::onRedraw(draw_mode_t what) {
       #endif
       BTN_TAG(4)                 BTN( BTN_POS(2,1), BTN_SIZE(1,1), F("Z Offset"),           MENU_BTN_STYLE);
       BTN_TAG(5) BTN_ENABLED(1)  BTN( BTN_POS(2,2), BTN_SIZE(2,1), F("Print Speed"),        MENU_BTN_STYLE);
-    #endif
 
-    #if defined(USE_PORTRAIT_ORIENTATION)
-      #define MARGIN_T 15
-      BTN_TAG(1) THEME(back_btn) BTN( BTN_POS(1,5), BTN_SIZE(2,1), F("Back"),               MENU_BTN_STYLE);
-    #else
       BTN_TAG(1) THEME(back_btn) BTN( BTN_POS(1,3), BTN_SIZE(2,1), F("Back"),               MENU_BTN_STYLE);
+      #undef GRID_COLS
+      #undef GRID_ROWS
     #endif
-
-    #define MARGIN_T 5
   }
 }
 
@@ -980,14 +981,6 @@ bool TuneScreen::onTouchStart(uint8_t tag) {
 
 /******************************* CONFIGURATION SCREEN ****************************/
 
-#if defined(USE_PORTRAIT_ORIENTATION)
-  #define GRID_ROWS 7
-  #define GRID_COLS 2
-#else
-  #define GRID_ROWS 4
-  #define GRID_COLS 2
-#endif
-
 void AdvancedSettingsScreen::onRedraw(draw_mode_t what) {
   if(what & BACKGROUND) {
     CLCD::CommandFifo cmd;
@@ -995,6 +988,8 @@ void AdvancedSettingsScreen::onRedraw(draw_mode_t what) {
     cmd.clear(1,1,1);
 
     #if defined(USE_PORTRAIT_ORIENTATION)
+      #define GRID_ROWS 7
+      #define GRID_COLS 2
       #if HAS_BED_PROBE
         BTN_ENABLED(1)
       #else
@@ -1010,7 +1005,11 @@ void AdvancedSettingsScreen::onRedraw(draw_mode_t what) {
       BTN_TAG(10) BTN_ENABLED(1)  BTN( BTN_POS(1,5), BTN_SIZE(2,1), F("Restore Factory Settings"), MENU_BTN_STYLE);
       BTN_TAG(2)  BTN_ENABLED(1)  BTN( BTN_POS(1,6), BTN_SIZE(2,1), F("Save As Default"),          MENU_BTN_STYLE);
       BTN_TAG(1)  THEME(back_btn) BTN( BTN_POS(1,7), BTN_SIZE(2,1), F("Back"),                     MENU_BTN_STYLE);
+      #undef GRID_COLS
+      #undef GRID_ROWS
     #else
+      #define GRID_ROWS 4
+      #define GRID_COLS 2
       #if HAS_BED_PROBE
         BTN_ENABLED(1)
       #else
@@ -1026,6 +1025,8 @@ void AdvancedSettingsScreen::onRedraw(draw_mode_t what) {
 
       BTN_TAG(2)  BTN_ENABLED(1)  BTN( BTN_POS(1,4), BTN_SIZE(1,1), F("Save"),                     MENU_BTN_STYLE);
       BTN_TAG(1)  THEME(back_btn) BTN( BTN_POS(2,4), BTN_SIZE(1,1), F("Back"),                     MENU_BTN_STYLE);
+      #undef GRID_COLS
+      #undef GRID_ROWS
     #endif
   }
 }
@@ -1052,9 +1053,6 @@ bool AdvancedSettingsScreen::onTouchStart(uint8_t tag) {
 }
 
 /******************************** CALIBRATION SCREEN ****************************/
-
-#define GRID_COLS 4
-#define GRID_ROWS 16
 
 void CalibrationScreen::onEntry() {
   // Clear the display
@@ -1084,16 +1082,22 @@ void CalibrationScreen::onRedraw(draw_mode_t what) {
   cmd.set_clear_color(Theme::background);
   cmd.clear(1,1,1);
 
+  #define GRID_COLS 4
+  #define GRID_ROWS 16
   #if defined(USE_PORTRAIT_ORIENTATION)
-  BTX( BTN_POS(1,8), BTN_SIZE(4,1), F("Touch the dots"), FONT_LRG);
-  BTX( BTN_POS(1,9), BTN_SIZE(4,1), F("to calibrate"), FONT_LRG);
+    BTX( BTN_POS(1,8), BTN_SIZE(4,1), F("Touch the dots"), FONT_LRG);
+    BTX( BTN_POS(1,9), BTN_SIZE(4,1), F("to calibrate"), FONT_LRG);
   #else
-    #if defined(LCD_800x480)
-      BTX( BTN_POS(1,1), BTN_SIZE(4,16), F("Touch the dots to calibrate"), FONT_LRG);
-    #else
-      BTX( BTN_POS(1,1), BTN_SIZE(4,16), F("Touch the dots to calibrate"), FONT_MED);
-    #endif
+    BTX( BTN_POS(1,1), BTN_SIZE(4,16), F("Touch the dots to calibrate"),
+      #if defined(LCD_800x480)
+        FONT_LRG
+      #else
+        FONT_MED
+      #endif
+    );
   #endif
+  #undef GRID_COLS
+  #undef GRID_ROWS
 
   cmd.cmd(CMD_CALIBRATE);
 }
@@ -1118,10 +1122,6 @@ void CalibrationScreen::onIdle() {
 
 /***************************** CALIBRATION REGISTERS SCREEN ****************************/
 
-#define MARGIN_T 5
-#define GRID_ROWS 7
-#define GRID_COLS 2
-
 void CalibrationRegistersScreen::onRedraw(draw_mode_t what) {
   const uint32_t T_Transform_A = CLCD::mem_read_32(REG_TOUCH_TRANSFORM_A);
   const uint32_t T_Transform_B = CLCD::mem_read_32(REG_TOUCH_TRANSFORM_B);
@@ -1135,6 +1135,8 @@ void CalibrationRegistersScreen::onRedraw(draw_mode_t what) {
   cmd.set_clear_color(Theme::background);
   cmd.clear(1,1,1);
 
+  #define GRID_ROWS 7
+  #define GRID_COLS 2
   BTN_TAG(0)
   THEME(transformA) BTN( BTN_POS(1,1), BTN_SIZE(1,1), F("TOUCH TRANSFORM_A"), 28, OPT_3D);
   THEME(transformB) BTN( BTN_POS(1,2), BTN_SIZE(1,1), F("TOUCH TRANSFORM_B"), 28, OPT_3D);
@@ -1157,9 +1159,9 @@ void CalibrationRegistersScreen::onRedraw(draw_mode_t what) {
   sprintf_P(b, PSTR("0x%08lX"), T_Transform_E); BTX( BTN_POS(2,5), BTN_SIZE(1,1), b, 28);
   sprintf_P(b, PSTR("0x%08lX"), T_Transform_F); BTX( BTN_POS(2,6), BTN_SIZE(1,1), b, 28);
 
-  #define GRID_COLS 3
-
-  BTN_TAG(1) THEME(back_btn) BTN( BTN_POS(3,7), BTN_SIZE(1,1), F("Back"), MENU_BTN_STYLE);
+  BTN_TAG(1) THEME(back_btn) BTN( BTN_POS(2,7), BTN_SIZE(1,1), F("Back"), MENU_BTN_STYLE);
+  #undef GRID_COLS
+  #undef GRID_ROWS
 
   sound.play(js_bach_joy);
 }
@@ -1174,6 +1176,18 @@ bool CalibrationRegistersScreen::onTouchStart(uint8_t tag) {
 }
 
 /*************************** GENERIC VALUE ADJUSTMENT SCREEN ******************************/
+
+void ValueAdjusters::widgets_t::color(uint32_t color) {
+  _color = color;
+}
+
+void ValueAdjusters::widgets_t::units(const char *units) {
+  _units = units;
+}
+
+void ValueAdjusters::widgets_t::precision(uint8_t decimals) {
+  _decimals = decimals;
+}
 
 #if defined(USE_PORTRAIT_ORIENTATION)
   #define GRID_COLS  6
@@ -1198,18 +1212,6 @@ ValueAdjusters::widgets_t::widgets_t(draw_mode_t what) : _what(what) {
   _line = 1;
 }
 
-void ValueAdjusters::widgets_t::color(uint32_t color) {
-  _color = color;
-}
-
-void ValueAdjusters::widgets_t::units(const char *units) {
-  _units = units;
-}
-
-void ValueAdjusters::widgets_t::precision(uint8_t decimals) {
-  _decimals = decimals;
-}
-
 void ValueAdjusters::widgets_t::heading(const char *label) {
   CLCD::CommandFifo cmd;
 
@@ -1223,6 +1225,16 @@ void ValueAdjusters::widgets_t::heading(const char *label) {
 
   _line++;
 }
+
+#if defined(USE_PORTRAIT_ORIENTATION)
+  #if defined(LCD_800x480)
+    #undef EDGE_R
+    #define EDGE_R 20
+  #else
+    #undef EDGE_R
+    #define EDGE_R 10
+  #endif
+#endif
 
 void ValueAdjusters::widgets_t::_draw_increment_btn(uint8_t line, const uint8_t tag) {
   CLCD::CommandFifo  cmd;
@@ -1291,20 +1303,6 @@ void ValueAdjusters::widgets_t::increments() {
   _line += 2;
 }
 
-#if defined(USE_PORTRAIT_ORIENTATION)
-  #if defined(LCD_800x480)
-    #define EDGE_R 20
-  #else
-    #define EDGE_R 10
-  #endif
-#else
-  #if defined(LCD_800x480)
-    #define EDGE_R  40
-  #else
-    #define EDGE_R  20
-  #endif
-#endif
-
 void ValueAdjusters::widgets_t::adjuster(uint8_t tag, const char *label,float value) {
   CLCD::CommandFifo cmd;
 
@@ -1330,6 +1328,12 @@ void ValueAdjusters::widgets_t::adjuster(uint8_t tag, const char *label,float va
   _line++;
 }
 
+#undef EDGE_R
+#define EDGE_R 0
+
+#undef GRID_COLS
+#undef GRID_ROWS
+
 void ValueAdjusters::onEntry() {
   screen_data.ValueAdjusters.increment = 242;
   UIScreen::onEntry();
@@ -1353,10 +1357,9 @@ float ValueAdjusters::getIncrement() {
     case 243: return   1.0;
     case 244: return  10.0;
     case 245: return 100.0;
+    default:  return   0.0;
   }
 }
-
-#define EDGE_R 0
 
 /******************************** MOVE AXIS SCREEN ******************************/
 
@@ -1566,19 +1569,6 @@ bool FeedrateScreen::onTouchHeld(uint8_t tag) {
 
 /***************************** FILES SCREEN ***************************/
 
-#if defined(USE_PORTRAIT_ORIENTATION)
-  #define GRID_COLS  6
-  #define GRID_ROWS 14
-#else
-  #define GRID_COLS  6
-  #define GRID_ROWS  9
-#endif
-
-#define HEADER_H   1
-#define FOOTER_H   2
-
-const uint16_t filesPerPage = GRID_ROWS - HEADER_H - FOOTER_H;
-
 void FilesScreen::onEntry() {
   screen_data.FilesScreen.page            = 0;
   screen_data.FilesScreen.selected_tag    = 0xFF;
@@ -1611,15 +1601,29 @@ void FilesScreen::onRedraw(draw_mode_t what) {
   }
 
   if(what & FOREGROUND) {
-    #define MARGIN_T 0
-    #define MARGIN_B 0
+    const uint8_t header_h = 1;
+    const uint8_t footer_h = 2;
+
+    #if defined(USE_PORTRAIT_ORIENTATION)
+      #define GRID_COLS  6
+      #define GRID_ROWS 14
+    #else
+      #define GRID_COLS  6
+      #define GRID_ROWS  9
+    #endif
 
     // Make sure the page value is in range
+    const uint16_t filesPerPage = GRID_ROWS - header_h - footer_h;
     const uint16_t pageCount = max(1,(ceil)(float(getFileCount()) / filesPerPage));
     screen_data.FilesScreen.page = min(screen_data.FilesScreen.page, pageCount-1);
 
     Media_Iterator iterator(screen_data.FilesScreen.page * filesPerPage);
     bool dirSelected = false;
+
+    #undef MARGIN_T
+    #undef MARGIN_B
+    #define MARGIN_T 0
+    #define MARGIN_B 0
 
     // Make buttons for each file.
     if(iterator.count()) {
@@ -1635,21 +1639,23 @@ void FilesScreen::onRedraw(draw_mode_t what) {
         } else {
           RGB(Theme::background)
         }
-        BTN( BTN_POS(1,HEADER_H+line), BTN_SIZE(6,1), F(""),               FONT_MED, OPT_FLAT);
-        BTX( BTN_POS(1,HEADER_H+line), BTN_SIZE(6,1), iterator.filename(), FONT_MED, OPT_CENTERY);
+        BTN( BTN_POS(1,header_h+line), BTN_SIZE(6,1), F(""),               FONT_MED, OPT_FLAT);
+        BTX( BTN_POS(1,header_h+line), BTN_SIZE(6,1), iterator.filename(), FONT_MED, OPT_CENTERY);
         if(isDir) {
-          BTX( BTN_POS(1,HEADER_H+line), BTN_SIZE(6,1), F("> "),           FONT_MED, OPT_CENTERY | OPT_RIGHTX);
+          BTX( BTN_POS(1,header_h+line), BTN_SIZE(6,1), F("> "),           FONT_MED, OPT_CENTERY | OPT_RIGHTX);
         }
       } while(iterator.next() && line++ < filesPerPage);
     }
-
-    #define MARGIN_T 5
-    #define MARGIN_B 5
 
     const bool prevEnabled   = screen_data.FilesScreen.page > 0;
     const bool nextEnabled   = screen_data.FilesScreen.page < (pageCount - 1);
     const bool itemSelected  = screen_data.FilesScreen.selected_tag != 0xFF;
     const uint8_t backTag    = isAtRootDir() ? 240 : 245;
+
+    #undef MARGIN_T
+    #undef MARGIN_B
+    #define MARGIN_T 0
+    #define MARGIN_B 2
 
     char page_str[15];
     sprintf_P(page_str, PSTR("Page %d of %d"), screen_data.FilesScreen.page + 1, pageCount);
@@ -1657,16 +1663,15 @@ void FilesScreen::onRedraw(draw_mode_t what) {
     BTN_TAG(0)
     BTX( BTN_POS(1,1), BTN_SIZE(4,1), page_str, FONT_SML, OPT_CENTER);
 
-    #define MARGIN_T 0
-    #define MARGIN_B 2
+    BTN_EN_THEME(prevEnabled, light) BTN_TAG(241); BTN( BTN_POS(5,1),  BTN_SIZE(1,header_h), F("<"), MENU_BTN_STYLE);
+    BTN_EN_THEME(nextEnabled, light) BTN_TAG(242); BTN( BTN_POS(6,1),  BTN_SIZE(1,header_h), F(">"), MENU_BTN_STYLE);
 
-    BTN_EN_THEME(prevEnabled, light) BTN_TAG(241); BTN( BTN_POS(5,1),  BTN_SIZE(1,HEADER_H), F("<"), MENU_BTN_STYLE);
-    BTN_EN_THEME(nextEnabled, light) BTN_TAG(242); BTN( BTN_POS(6,1),  BTN_SIZE(1,HEADER_H), F(">"), MENU_BTN_STYLE);
-
+    #undef MARGIN_T
+    #undef MARGIN_B
     #define MARGIN_T 15
     #define MARGIN_B 5
-    const uint8_t y = GRID_ROWS-FOOTER_H+1;
-    const uint8_t h = FOOTER_H;
+    const uint8_t y = GRID_ROWS - footer_h + 1;
+    const uint8_t h = footer_h;
     BTN_ENABLED(true) BTN_TAG(backTag) THEME(back_btn) BTN( BTN_POS(1,y), BTN_SIZE(3,h), F("Back"), MENU_BTN_STYLE);
 
     BTN_ENABLED(itemSelected)
@@ -1675,7 +1680,14 @@ void FilesScreen::onRedraw(draw_mode_t what) {
     } else {
       BTN_TAG(243); BTN( BTN_POS(4, y), BTN_SIZE(3,h), F("Print"), MENU_BTN_STYLE);
     }
+
+    #undef MARGIN_T
+    #undef MARGIN_B
     #define MARGIN_T 5
+    #define MARGIN_B 5
+
+    #undef GRID_COLS
+    #undef GRID_ROWS
   }
 }
 

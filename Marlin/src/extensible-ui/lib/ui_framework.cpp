@@ -19,7 +19,7 @@
  *   location: <http://www.gnu.org/licenses/>.                              *
  ****************************************************************************/
 
-#include "ui_config.h"
+#include "ui.h"
 #include "ui_framework.h"
 
 /********************** VIRTUAL DISPATCH DATA TYPE  ******************************/

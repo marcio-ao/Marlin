@@ -22,57 +22,56 @@
 #ifndef _UI_CONFIG_H_
 #define _UI_CONFIG_H_
 
-#include "../ui_api.h"
+// If using a pre-configured display for Marlin, select it below. Otherwise,
+// select OTHER_DISPLAY to configure a custom display.
 
-// Select which display you are using.
-//#define AO_COLOR_DISPLAY_REV_B
+#define AO_COLOR_DISPLAY_REV_B
 //#define AO_COLOR_DISPLAY_REV_C_EXP1
-#define AO_COLOR_DISPLAY_REV_C_EXP2
+//#define AO_COLOR_DISPLAY_REV_C_EXP2
+//#define OTHER_DISPLAY
 
-#if defined(AO_COLOR_DISPLAY_REV_B)
-    // The AlephObjects Rev B Color Display must connect
-    // to EXP1 and can only use software SPI
-    #define CLCD_USE_SOFT_SPI
-    #define CLCD_MOD_RESET                   LCD_PINS_D4
-    #define CLCD_SPI_CS                      LCD_PINS_D5
-    #define CLCD_SOFT_SPI_SCLK               LCD_PINS_D7
-    #define CLCD_SOFT_SPI_MOSI               LCD_PINS_D6
-    #define CLCD_SOFT_SPI_MISO               LCD_PINS_RS
-    #define CLCD_AUX_0                       LCD_PINS_ENABLE
-    #define CLCD_AUX_1                       BTN_ENC
-    #define CLCD_AUX_2                       BEEPER_PIN
+#if defined(OTHER_DISPLAY)
+    // Define whether an FT800 or FT810+ chip is being used
+    #define USE_FTDI_FT800
+    //#define USE_FTDI_FT810
+
+    // When specifying pins:
+    //   - If compiling Marlin, use Marlin pin numbers.
+    //   - If compiling standalone sketch, use Arduino
+    //     pin numbers or use USE_FAST_AVR_IO instead
+    ///    (see below for documentation).
+
+    // The pins for CS and MOD_RESET (PD) must be chosen.
+    #define CLCD_MOD_RESET                      9
+    #define CLCD_SPI_CS                        10
+
+    // If using software SPI, specify pins for SCLK, MOSI, MISO
+    //#define CLCD_USE_SOFT_SPI
+    #if defined(CLCD_USE_SOFT_SPI)
+        #define CLCD_SOFT_SPI_MOSI             11
+        #define CLCD_SOFT_SPI_MISO             12
+        #define CLCD_SOFT_SPI_SCLK             13
+    #endif
+
+    // Define the display resolution
+    #define LCD_480x272
+    //#define LCD_800x480
+
+    // Defines how to orient the display. An inverted (i.e. upside-down) display
+    // is supported on the FT800. The FT810 or better also support a portrait
+    // and mirrored orientation.
+    //#define USE_INVERTED_ORIENTATION
+    //#define USE_PORTRAIT_ORIENTATION
+    //#define USE_MIRRORED_ORIENTATION
+
+    // If the following is defined, the pin definitions can be
+    // given as a pairing of a port and bitmask, as opposed to
+    // Arduino pin numbers, for faster sofware based I/O on
+    // AVR chips, e.g:
+    //
+    //   #define CLCD_SPI_CS  G, 0b00001000 // PG3
+    //
+    //#define USE_FAST_AVR_IO
 #endif
-
-// The AlephObjects Rev C Color Display can connect
-// to EXP1 for software SPI, or EXP2 for hardware SPI
-
-#if defined(AO_COLOR_DISPLAY_REV_C_EXP1)
-    #define CLCD_USE_SOFT_SPI
-    #define CLCD_MOD_RESET                 LCD_PINS_ENABLE
-    #define CLCD_SPI_CS                    LCD_PINS_D4
-    #define CLCD_SOFT_SPI_SCLK             BTN_ENC
-    #define CLCD_SOFT_SPI_MOSI             LCD_PINS_D5
-    #define CLCD_SOFT_SPI_MISO             BEEPER_PIN
-#endif
-
-#if defined(AO_COLOR_DISPLAY_REV_C_EXP2)
-    #define CLCD_SPI_CS                    BTN_EN1
-    #define CLCD_MOD_RESET                 BTN_EN2
-#endif
-
-// Define whether an FT800 or FT810+ chip is being used
-//#define USE_FTDI_FT800
-#define USE_FTDI_FT810
-
-// Defines how to orient the display. An inverted (i.e. upside-down) display
-// is supported on the FT800. The FT810 or better also support a portrait
-// and mirrored orientation.
-#define USE_INVERTED_ORIENTATION
-#define USE_PORTRAIT_ORIENTATION
-//#define USE_MIRRORED_ORIENTATION
-
-// Define the display resolution
-//#define LCD_480x272
-#define LCD_800x480
 
 #endif // _UI_CONFIG_H_
