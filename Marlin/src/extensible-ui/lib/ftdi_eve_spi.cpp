@@ -20,29 +20,64 @@
  *   location: <http://www.gnu.org/licenses/>.                              *
  ****************************************************************************/
 
-#include "ui_config.h"
+#include "ui.h"
 
 #if ENABLED(EXTENSIBLE_UI)
 
 #include "ftdi_eve_constants.h"
 #include "ftdi_eve_functions.h"
 
-#if defined(PIN_DIR_OUT)
-  // If SET_OUTPUT is defined, then map Marlin routines to those
-  #define SET_OUTPUT                PIN_DIR_OUT
-  #define SET_INPUT_PULLUP(a)       _PIN_DIR_IN(a); _PIN_HIGH(a);
-  #define SET_INPUT                 PIN_DIR_IN
-  #define WRITE                     SET_PIN
-  #define READ                      GET_PIN
-#endif
-
 #define MULTIPLE_OF_4(val) ((((val)+3)>>2)<<2)
+
+/*************************** I/O COMPATIBILITY ******************************/
+
+// The following functions allow this code to be used outside of Marlin (i.e.
+// in Arduino sketches)
+
+#if defined(USE_FAST_AVR_IO)
+  // If the following is defined, the pin definitions can be
+  // given as a pairing of port and bitmask, as opposed to
+  // Arduino pin numbers, for faster I/O on AVR chips.
+  //
+  //    #define CLCD_SPI_CS   G, 0b00001000 // PG3 P1 Pin-3
+
+  #define _PIN_HIGH( port, bit)       PORT##port = (PORT##port |   bit);
+  #define _PIN_LOW(  port, bit)       PORT##port = (PORT##port & (~bit));
+
+  #define _SET_INPUT(   port, bit)    DDR##port  = (DDR##port  & (~bit));
+  #define _SET_OUTPUT(  port, bit)    DDR##port  = (DDR##port  |   bit);
+  #define _READ(  port, bit)          (PIN##port & bit)
+  #define _WRITE(  port, bit, value)  {if(value) {_PIN_HIGH(port, bit)} else {_PIN_LOW(port, bit)}}
+
+  // This level of indirection is needed to unpack the "pin" into two arguments
+  #define SET_INPUT(pin)               _SET_INPUT(pin)
+  #define SET_INPUT_PULLUP(pin)        _SET_INPUT(pin); _PIN_HIGH(pin);
+  #define SET_OUTPUT(pin)              _SET_OUTPUT(pin)
+  #define READ(pin)                    _READ(pin)
+  #define WRITE(pin, value)            _WRITE(pin, value)
+
+  #define CLCD_USE_SOFT_SPI // Hardware SPI not implemented yet
+
+#elif !defined(SET_OUTPUT)
+  // Use standard Arduino Wire library
+
+  #include <Wire.h>
+  #if !defined(CLCD_USE_SOFT_SPI)
+      #include "SPI.h"
+  #endif
+
+  #define SET_OUTPUT(p)             pinMode(p, OUTPUT);
+  #define SET_INPUT_PULLUP(p)       pinMode(p, INPUT_PULLUP);
+  #define SET_INPUT(p)              pinMode(p, INPUT);
+  #define WRITE(p,v)                digitalWrite(p, v ? HIGH : LOW);
+  #define READ(p)                   digitalRead(p)
+#endif
 
 /********************************* SPI Functions *********************************/
 
 void CLCD::spi_init (void) {
-  SET_OUTPUT(CLCD_MOD_RESET); // Module Reset, not SPI
-  WRITE(CLCD_MOD_RESET, 0); // power down TFT
+  SET_OUTPUT(CLCD_MOD_RESET); // Module Reset (a.k.a. PD, not SPI)
+  WRITE(CLCD_MOD_RESET, 1);
 
   SET_OUTPUT(CLCD_SPI_CS);
   WRITE(CLCD_SPI_CS, 1);
@@ -55,13 +90,15 @@ void CLCD::spi_init (void) {
   WRITE(CLCD_SOFT_SPI_SCLK, 0);
 
   SET_INPUT_PULLUP(CLCD_SOFT_SPI_MISO);
-#elif defined(USE_ARDUINO_HW_SPI)
-  SPI.begin();
-  SPI.beginTransaction(LCDsettings);
-#else
+#elif defined(USE_MARLIN_IO)
   spiBegin();
   spiInit(SPI_SPEED);
+#else
+  SPI.begin();
+  SPI.beginTransaction(SPISettings(14000000, MSBFIRST, SPI_MODE0));
 #endif
+
+  delay(50);
 }
 
 // CLCD SPI - Chip Select
@@ -116,43 +153,23 @@ void CLCD::test_pulse(void)
   }
 #endif
 
-#if defined(CLCD_USE_SOFT_SPI)
-  void CLCD::_soft_spi_send (uint8_t spiOutByte) {
-    uint8_t spiIndex  = 0x80;
-    uint8_t k;
-
-    for(k = 0; k <8; k++) {         // Output and Read each bit of spiOutByte and spiInByte
-      if(spiOutByte & spiIndex) {   // Output MOSI Bit
-        WRITE(CLCD_SOFT_SPI_MOSI, 1);
-      }
-      else {
-        WRITE(CLCD_SOFT_SPI_MOSI, 0);
-      }
-      WRITE(CLCD_SOFT_SPI_SCLK, 1);   // Pulse Clock
-      WRITE(CLCD_SOFT_SPI_SCLK, 0);
-    
-      spiIndex >>= 1;
-    }
-  }
-#endif
-
 void CLCD::spi_send(uint8_t spiOutByte) {
   #if defined(CLCD_USE_SOFT_SPI)
-    _soft_spi_send(spiOutByte);
-  #elif defined(USE_ARDUINO_HW_SPI)
-    SPI.transfer(spiOutByte);
-  #else
+    _soft_spi_transfer(spiOutByte);
+  #elif defined(USE_MARLIN_IO)
     spiSend(spiOutByte);
+  #else
+    SPI.transfer(spiOutByte);
   #endif
 }
 
 uint8_t CLCD::spi_recv() {
   #if defined(CLCD_USE_SOFT_SPI)
     return _soft_spi_transfer(0x00);
-  #elif defined(USE_ARDUINO_HW_SPI)
-    return SPI.transfer(0x00);
-  #else
+  #elif defined(USE_MARLIN_IO)
     return spiRec();
+  #else
+    return SPI.transfer(0x00);
   #endif
 }
 
@@ -171,8 +188,7 @@ void CLCD::mem_read_bulk (uint32_t reg_address, uint8_t *data, uint16_t len) {
   spi_select();
   mem_read_addr(reg_address);
   while(len--) {
-    *data = spi_recv();
-    *data++;
+    *data++ = spi_recv();
   }
   spi_deselect();
 }

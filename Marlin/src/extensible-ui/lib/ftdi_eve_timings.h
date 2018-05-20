@@ -110,7 +110,7 @@ namespace FTDI_LCD_800x480 {
 #elif defined(LCD_480x272)
   using namespace FTDI_LCD_480x272;
 #else
-  #error Invalid or no resolution specified for the LCD panel.
+  #error Unknown or no resolution specified. To add a new resolution, modify "ftdi_eve_timings.h"
 #endif
 
 #endif // _FTDI_EVE_TIMINGS_H_

@@ -125,8 +125,7 @@ class CLCD {
     static void     spi_deselect (void);
 
     static uint8_t  _soft_spi_transfer (uint8_t spiOutByte);
-    static void    _soft_spi_send (uint8_t spiOutByte);
-    
+
     static void     spi_send(uint8_t spiOutByte);
     static uint8_t  spi_recv();
 
@@ -247,8 +246,8 @@ class CLCD::CommandFifo {
     FORCEDINLINE void draw_button_icon(int16_t x, int16_t y, int16_t w, int16_t h, const bitmap_info_t& info, const float scale = 1) {
       begin(BEGIN_BITMAPS);
       if(scale != 1) {
-        cmd(BITMAP_TRANSFORM_A | uint32_t(float(256)/scale) & 0xFFFF);
-        cmd(BITMAP_TRANSFORM_E | uint32_t(float(256)/scale) & 0xFFFF);
+        cmd(BITMAP_TRANSFORM_A | (uint32_t(float(256)/scale) & 0xFFFF));
+        cmd(BITMAP_TRANSFORM_E | (uint32_t(float(256)/scale) & 0xFFFF));
       }
       bitmap_size(info.filter, info.wrapx, info.wrapy, info.width*scale, info.height*scale);
       vertex_2f((x + w/2 - info.width*scale/2)*16, (y + h/2 - info.height*scale/2)*16);

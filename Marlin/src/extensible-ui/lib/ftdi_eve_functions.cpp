@@ -20,7 +20,7 @@
  *   location: <http://www.gnu.org/licenses/>.                              *
  ****************************************************************************/
 
-#include "ui_config.h"
+#include "ui.h"
 
 #if defined(EXTENSIBLE_UI)
 

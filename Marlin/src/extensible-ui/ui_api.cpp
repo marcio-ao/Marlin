@@ -43,22 +43,22 @@ namespace Extensible_UI_API {
   float getActualTemp_celsius(const uint8_t extruder) {
     if (extruder) {
       return thermalManager.degHotend(extruder-1);
-    }
+    } else
     #if HAS_HEATED_BED
-      else {
         return thermalManager.degBed();
-      }
+    #else
+        return 0;
     #endif
   }
 
   float getTargetTemp_celsius(const uint8_t extruder) {
     if (extruder) {
       return thermalManager.degTargetHotend(extruder-1);
-    }
+    } else
     #if HAS_HEATED_BED
-      else {
         return thermalManager.degTargetBed();
-      }
+    #else
+        return 0;
     #endif
   }
 
@@ -68,11 +68,12 @@ namespace Extensible_UI_API {
 
   float getAxisPosition_mm(const axis_t axis) {
     switch(axis) {
-      case X:  return current_position[X_AXIS];  break;
-      case Y:  return current_position[Y_AXIS];  break;
-      case Z:  return current_position[Z_AXIS];  break;
-      case E0: return current_position[E_AXIS]; break;
+      case X:  return current_position[X_AXIS];   break;
+      case Y:  return current_position[Y_AXIS];   break;
+      case Z:  return current_position[Z_AXIS];   break;
+      case E0: return current_position[E_AXIS];   break;
       case E1: return current_position[E_AXIS+1]; break;
+      default: return 0;
     }
   }
 
@@ -137,6 +138,8 @@ namespace Extensible_UI_API {
   uint8_t getProgress_percent() {
     #if ENABLED(SDSUPPORT)
       return card.percentDone();
+    #else
+      return 0;
     #endif
   }
 
@@ -158,6 +161,7 @@ namespace Extensible_UI_API {
       case X:  return axis_known_position[X_AXIS];  break;
       case Y:  return axis_known_position[Y_AXIS];  break;
       case Z:  return axis_known_position[Z_AXIS];  break;
+      default: return true;
     }
   }
 
@@ -201,6 +205,8 @@ namespace Extensible_UI_API {
   uint16_t getFileCount() {
     #if ENABLED(SDSUPPORT)
       return card.get_num_Files();
+    #else
+      return 0;
     #endif
   }
 
@@ -214,6 +220,8 @@ namespace Extensible_UI_API {
     #if ENABLED(SDSUPPORT)
       card.getWorkDirName();
       return card.filename[0] == '/';
+    #else
+      return true;
     #endif
   }
 
@@ -346,6 +354,8 @@ namespace Extensible_UI_API {
   bool Media_Iterator::isDirectory() {
     #if ENABLED(SDSUPPORT)
       return card.filenameIsDir;
+    #else
+      return false;
     #endif
   }
 
