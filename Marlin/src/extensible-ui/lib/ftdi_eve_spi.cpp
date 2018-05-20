@@ -77,7 +77,7 @@
 
 void CLCD::spi_init (void) {
   SET_OUTPUT(CLCD_MOD_RESET); // Module Reset (a.k.a. PD, not SPI)
-  WRITE(CLCD_MOD_RESET, 1);
+  WRITE(CLCD_MOD_RESET, 0); // start with module in power-down
 
   SET_OUTPUT(CLCD_SPI_CS);
   WRITE(CLCD_SPI_CS, 1);
@@ -98,7 +98,6 @@ void CLCD::spi_init (void) {
   SPI.beginTransaction(SPISettings(14000000, MSBFIRST, SPI_MODE0));
 #endif
 
-  delay(50);
 }
 
 // CLCD SPI - Chip Select
