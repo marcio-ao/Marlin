@@ -26,7 +26,7 @@
 
 #include "ftdi_eve_constants.h"
 #include "ftdi_eve_functions.h"
-#include "ftdi_eve_timings.h"
+#include "ftdi_eve_panels.h"
 
 #include "ui_sounds.h"
 #include "ui_bitmaps.h"

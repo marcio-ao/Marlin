@@ -22,57 +22,29 @@
 #ifndef _UI_CONFIG_H_
 #define _UI_CONFIG_H_
 
-// If using a pre-configured display for Marlin, select it below. Otherwise,
-// select OTHER_DISPLAY to configure a custom display.
-
-//#define AO_COLOR_DISPLAY_REV_B
-//#define AO_COLOR_DISPLAY_REV_C_EXP1
-//#define AO_COLOR_DISPLAY_REV_C_EXP2
-//#define OTHER_DISPLAY
-#define CR10_TFT
-
-
-// Define whether an FT800 or FT810+ chip is being used
-//#define USE_FTDI_FT800
-#define USE_FTDI_FT810
-
-// Define the display used
+// Define the display module used (see "ftdi_eve_panels.h" for definitions)
 
 //#define LCD_VM800N35A       // FTDI 3.5" 320x240 with FT800
-#define LCD_FT800CB         // Haoyu 5" 480x272 with FT800
+//#define LCD_FT800CB         // Haoyu 5" 480x272 with FT800
 //#define LCD_4DLCD_FT843     // 4D Systems 4.3" 480x272 wuth FT800
-//#define LCD_FT810CB         // Haoyu 5" 800x480 with FT810
+#define LCD_FT810CB         // Haoyu 5" 800x480 with FT810
 
+// Define the printer interface or pins used (see "ftdi_eve_pins.h" for definitions):
 
-#if defined(CR10_TFT)
-    // Defines how to orient the display. An inverted (i.e. upside-down) display
-    // is supported on the FT800. The FT810 or better also support a portrait
-    // and mirrored orientation.
-    #define USE_INVERTED_ORIENTATION
-    //#define USE_PORTRAIT_ORIENTATION
-    //#define USE_MIRRORED_ORIENTATION
- 
-    #define CLCD_USE_SOFT_SPI
-    #define CLCD_SOFT_SPI_SCLK  LCD_PINS_D4      // PORTA1               Pin 6
-    #define CLCD_SOFT_SPI_MOSI  LCD_PINS_ENABLE  // PORTC1               Pin 8
-    #define CLCD_SPI_CS         LCD_PINS_RS      // PORTA3               Pin 7
-    #define CLCD_SOFT_SPI_MISO  16               // PORTC0   BTN_ENC     Pin 2
-    #define CLCD_MOD_RESET      11               // PORTD3   BTN_EN1     Pin 3
-    #define CLCD_AUX_0          10               // PORTD2   BTN_EN2     Pin 5
-    #define CLCD_AUX_1          BEEPER_PIN       // PORTA4               Pin 1
-//    #define CLCD_AUX_2          BEEPER_PIN
-#endif
+//#define CR10_TFT
+//#define AO_CLCD_PINOUT_REV_B_EXP1 // Uses UltraLCD EXP1 connector, old wiring
+//#define AO_CLCD_PINOUT_REV_C_EXP1 // Uses UltraLCD EXP1 connector, new wiring
+//#define AO_CLCD_PINOUT_REV_C_EXP2    // Uses UltraLCD EXP2 connector, new wiring
+#define OTHER_PIN_LAYOUT
 
-#if defined(OTHER_DISPLAY)
-    // Define whether an FT800 or FT810+ chip is being used
-    #define USE_FTDI_FT800
-    //#define USE_FTDI_FT810
+// Otherwise. Define all the pins manually:
 
+#if defined(OTHER_PIN_LAYOUT)
     // When specifying pins:
     //   - If compiling Marlin, use Marlin pin numbers.
     //   - If compiling standalone sketch, use Arduino
     //     pin numbers or use USE_FAST_AVR_IO instead
-    ///    (see below for documentation).
+    //    (see below for documentation).
 
     // The pins for CS and MOD_RESET (PD) must be chosen.
     #define CLCD_MOD_RESET                      9
@@ -86,17 +58,6 @@
         #define CLCD_SOFT_SPI_SCLK             13
     #endif
 
-    // Define the display resolution
-    #define LCD_480x272
-    //#define LCD_800x480
-
-    // Defines how to orient the display. An inverted (i.e. upside-down) display
-    // is supported on the FT800. The FT810 or better also support a portrait
-    // and mirrored orientation.
-    //#define USE_INVERTED_ORIENTATION
-    //#define USE_PORTRAIT_ORIENTATION
-    //#define USE_MIRRORED_ORIENTATION
-
     // If the following is defined, the pin definitions can be
     // given as a pairing of a port and bitmask, as opposed to
     // Arduino pin numbers, for faster sofware based I/O on
@@ -106,5 +67,12 @@
     //
     //#define USE_FAST_AVR_IO
 #endif
+
+// Defines how to orient the display. An inverted (i.e. upside-down) display
+// is supported on the FT800. The FT810 or better also support a portrait
+// and mirrored orientation.
+//#define USE_INVERTED_ORIENTATION
+//#define USE_PORTRAIT_ORIENTATION
+//#define USE_MIRRORED_ORIENTATION
 
 #endif // _UI_CONFIG_H_

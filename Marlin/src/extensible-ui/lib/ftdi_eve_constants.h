@@ -51,6 +51,7 @@
 #define _FTDI_EVE_CONSTANTS_H_
 
 #include "ui_config.h"
+#include "ftdi_eve_panels.h"
 
 // Uncomment this line if using an Arduino board instead of a Printer Controller board.
 // This allows the use of the Arduino SPI Library and SPI Peripheral instead of the bit-banged SPI
@@ -309,6 +310,9 @@ namespace FT800 {
 }
 
 namespace FT810 {
+  const uint8_t GPIO_GP0         = 1 << 0;
+  const uint8_t GPIO_GP1         = 1 << 1;
+  const uint8_t GPIO_DISP        = 1 << 7;
   const uint16_t GPIOX_GP0       = 1 << 0;
   const uint16_t GPIOX_GP1       = 1 << 1;
   const uint16_t GPIOX_DISP      = 1 << 15;

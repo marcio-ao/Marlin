@@ -24,6 +24,8 @@
 
 #if ENABLED(EXTENSIBLE_UI)
 
+#include "ftdi_eve_panels.h"
+#include "ftdi_eve_pins.h"
 #include "ftdi_eve_constants.h"
 #include "ftdi_eve_functions.h"
 
@@ -166,7 +168,7 @@ void CLCD::test_pulse(void)
       }
       WRITE(CLCD_SOFT_SPI_SCLK, 1);   // Pulse Clock
       WRITE(CLCD_SOFT_SPI_SCLK, 0);
-    
+
       spiIndex >>= 1;
     }
   }

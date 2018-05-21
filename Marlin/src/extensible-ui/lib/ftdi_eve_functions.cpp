@@ -24,8 +24,8 @@
 
 #if defined(EXTENSIBLE_UI)
 
+#include "ftdi_eve_panels.h"
 #include "ftdi_eve_constants.h"
-#include "ftdi_eve_timings.h"
 #include "ftdi_eve_functions.h"
 
 void CLCD::enable (void) {
@@ -444,7 +444,7 @@ void CLCD::init (void) {
   //mem_write_8(REG_GPIO, 0x00);  // Turn OFF Display Enable (GPIO Bit 7); - disabled because reset-default already
   //mem_write_8(REG_PCLK, 0x00);  // Turn OFF LCD PCLK - disabled because reset-default already
   mem_write_8(REG_PWM_DUTY, 0);   // turn off Backlight, Frequency already is set to 250Hz default
-  
+
   /* Configure the FT8xx Registers */
   mem_write_16(REG_HCYCLE,  Hcycle);
   mem_write_16(REG_HOFFSET, Hoffset);
@@ -459,12 +459,12 @@ void CLCD::init (void) {
   mem_write_8(REG_SWIZZLE,  Swizzle);
   mem_write_8(REG_PCLK_POL, Pclkpol);
   mem_write_8(REG_CSPREAD,  CSpread);
-  
+
   /* write a basic display-list to get things started */
 	mem_write_32(RAM_DL, CLEAR_COLOR_RGB);
 	mem_write_32(RAM_DL + 4, (CLEAR | 0x07)); /* clear color, stencil and tag buffer */
 	mem_write_32(RAM_DL + 8, DL_DISPLAY);	/* end of display list */
-  
+
   mem_write_8(REG_DLSWAP, 0x02); // activate display list, Bad Magic Cookie 2 = switch to new list after current frame is scanned out
 
   //mem_write_8(REG_TOUCH_MODE, 0x03);      // Configure the Touch Screen, Bad Magic Cookie, 3 = CONTINUOUS = Reset Default

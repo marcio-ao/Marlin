@@ -105,6 +105,7 @@
 #define _FTDI_EVE_FUNCTIONS_H_
 
 #include "ui_config.h"
+#include "ftdi_eve_panels.h"
 
 #define DL_CACHE_START RAM_G_SIZE - 0xFFFF
 

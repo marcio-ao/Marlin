@@ -1,5 +1,5 @@
 /*********************
- * ui_conditionals.h *
+ * ftdi_eve_pins.h *
  *********************/
 
 /****************************************************************************
@@ -19,42 +19,32 @@
  *   location: <http://www.gnu.org/licenses/>.                              *
  ****************************************************************************/
 
-#ifndef _UI_CONDITIONALS_H_
-#define _UI_CONDITIONALS_H_
+#ifndef _FTDI_EVE_PINS_H_
+#define _FTDI_EVE_PINS_H_
 
-#if defined(_MARLIN_CONFIG_H_)
-    // If _MARLIN_CONFIG_H_ exists, then we are being
-    // compiled inside Marlin.
-    #define USE_MARLIN_IO
-#else
-    #include "Arduino.h"
-
-    // Load up compatibility routines
-    #define EXTENSIBLE_UI
-    #define _CAT(a, ...) a ## __VA_ARGS__
-    #define SWITCH_ENABLED_      1
-    #define ENABLED(b) _CAT(SWITCH_ENABLED_, b)
-    #define DISABLED(b) !ENABLED(b)
-
-    // Messages that are declared in Marlin
-    #define WELCOME_MSG     "Printer Ready"
-    #define MSG_SD_INSERTED "Media Inserted"
-    #define MSG_SD_REMOVED  "Media Removed"
-#endif
-
-// The AlephObjects Rev B Color Display is display for Marlin
-// that connects to EXP1 and uses software SPI
-
-#if defined(AO_COLOR_DISPLAY_REV_B)
+#if defined(CR10_TFT)
     #ifndef USE_MARLIN_IO
         #error This display configuration cannot be used outside of Marlin.
     #endif
 
-    #define USE_FTDI_FT810
-    //#define LCD_800x480
-    #define LCD_480x272
-    //#define USE_INVERTED_ORIENTATION
-    //#define USE_PORTRAIT_ORIENTATION
+    #define CLCD_USE_SOFT_SPI
+    #define CLCD_SOFT_SPI_SCLK  LCD_PINS_D4      // PORTA1               Pin 6
+    #define CLCD_SOFT_SPI_MOSI  LCD_PINS_ENABLE  // PORTC1               Pin 8
+    #define CLCD_SPI_CS         LCD_PINS_RS      // PORTA3               Pin 7
+    #define CLCD_SOFT_SPI_MISO  16               // PORTC0   BTN_ENC     Pin 2
+    #define CLCD_MOD_RESET      11               // PORTD3   BTN_EN1     Pin 3
+    #define CLCD_AUX_0          10               // PORTD2   BTN_EN2     Pin 5
+    #define CLCD_AUX_1          BEEPER_PIN       // PORTA4               Pin 1
+//    #define CLCD_AUX_2          BEEPER_PIN
+#endif
+
+// The AlephObjects pinout for re-purposing the UltraLCD
+// connector EXP1 for software SPI (rev B)
+
+#if defined(AO_CLCD_PINOUT_REV_B_EXP1)
+    #ifndef USE_MARLIN_IO
+        #error This display configuration cannot be used outside of Marlin.
+    #endif
 
     #define CLCD_MOD_RESET                 LCD_PINS_D4
     #define CLCD_SPI_CS                    LCD_PINS_D5
@@ -69,19 +59,13 @@
     #define CLCD_SOFT_SPI_MISO             LCD_PINS_RS
 #endif
 
-// The AlephObjects Rev C Color Display is a display for Marlin
-// that can connect to EXP1 for software SPI, or EXP2 for
-// hardware SPI
+// The AlephObjects pinout for re-purposing the UltraLCD
+// connector EXP1 for software SPI (rev C)
 
-#if defined(AO_COLOR_DISPLAY_REV_C_EXP1)
+#if defined(AO_CLCD_PINOUT_REV_C_EXP1)
     #ifndef USE_MARLIN_IO
         #error This display configuration cannot be used outside of Marlin.
     #endif
-
-    #define USE_FTDI_FT810
-    #define LCD_800x480
-    #define USE_INVERTED_ORIENTATION
-    #define USE_PORTRAIT_ORIENTATION
 
     #define CLCD_MOD_RESET                 LCD_PINS_ENABLE
     #define CLCD_SPI_CS                    LCD_PINS_D4
@@ -92,18 +76,16 @@
     #define CLCD_SOFT_SPI_MISO             BEEPER_PIN
 #endif
 
-#if defined(AO_COLOR_DISPLAY_REV_C_EXP2)
+// The AlephObjects pinout for re-purposing the UltraLCD
+// connector EXP2 for hardware SPI (rev C)
+
+#if defined(AO_CLCD_PINOUT_REV_C_EXP2)
     #ifndef USE_MARLIN_IO
         #error This display configuration cannot be used outside of Marlin.
     #endif
-
-    #define USE_FTDI_FT810
-    #define LCD_800x480
-    #define USE_INVERTED_ORIENTATION
-    #define USE_PORTRAIT_ORIENTATION
 
     #define CLCD_SPI_CS                    BTN_EN1
     #define CLCD_MOD_RESET                 BTN_EN2
 #endif
 
-#endif // _UI_CONDITIONALS_H_
+#endif // _FTDI_EVE_PINS_H_
