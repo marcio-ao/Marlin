@@ -400,30 +400,16 @@ void CLCD::DLCache::append() {
 
 void CLCD::init (void) {
   spi_init();                                  // Set Up I/O Lines for SPI and FT800/810 Control
+  reset();                                    // Power down/up the FT8xx with the apropriate delays
 
- // delay(50);
-
-  reset();                                    // Power Down the FT800/810, includes apropriate delays
-
-/*
- *  If driving the 4D Systems 4DLCD-FT843 Board, the following Init sequence is needed for its FT800 Driver
- */
-
-#ifdef USE_FTDI_FT800                                    // Use External Crystal and 48 MHz System Clock
-  host_cmd(CLKEXT, 0);
-
-//  delay(20);
-  host_cmd(CLK48M, 0);
-#else
-  host_cmd(CLKINT, 0);
-//  delay(20);
-  host_cmd(CLKSEL, Clksel);                     // Use Internal RC Oscillator and 48 MHz System Clock
-#endif
-
- // delay(20);
+  if(Use_Crystal == 1) {
+    host_cmd(CLKEXT, 0);
+  }
+  else {
+    host_cmd(CLKINT, 0);
+  }
 
   host_cmd(ACTIVE, 0);                        // Activate the System Clock
- // delay(50);
 
   /* read the device-id until it returns 0x7c or times out, should take less than 150ms */
   uint8_t counter;
@@ -454,16 +440,12 @@ void CLCD::init (void) {
     #endif
   }
   #endif // UI_FRAMEWORK_DEBUG
-//  delay(400);
 
-  mem_write_8(REG_GPIO, 0x00);                 // Turn OFF Display Enable (GPIO Bit 7);
-  mem_write_8(REG_PCLK, 0x00);                 // Turn OFF LCD PCLK
-  set_backlight(0x00FA, 0);
-
-  /*
-   *  Configure the FT800/810 Registers
-   */
-
+  //mem_write_8(REG_GPIO, 0x00);  // Turn OFF Display Enable (GPIO Bit 7); - disabled because reset-default already
+  //mem_write_8(REG_PCLK, 0x00);  // Turn OFF LCD PCLK - disabled because reset-default already
+  mem_write_8(REG_PWM_DUTY, 0);   // turn off Backlight, Frequency already is set to 250Hz default
+  
+  /* Configure the FT8xx Registers */
   mem_write_16(REG_HCYCLE,  Hcycle);
   mem_write_16(REG_HOFFSET, Hoffset);
   mem_write_16(REG_HSYNC0,  Hsync0);
@@ -476,35 +458,38 @@ void CLCD::init (void) {
   mem_write_16(REG_VSIZE,   Vsize);
   mem_write_8(REG_SWIZZLE,  Swizzle);
   mem_write_8(REG_PCLK_POL, Pclkpol);
-  mem_write_8(REG_CSPREAD,  1);
+  mem_write_8(REG_CSPREAD,  CSpread);
+  
+  /* write a basic display-list to get things started */
+	mem_write_32(RAM_DL, CLEAR_COLOR_RGB);
+	mem_write_32(RAM_DL + 4, (CLEAR | 0x07)); /* clear color, stencil and tag buffer */
+	mem_write_32(RAM_DL + 8, DL_DISPLAY);	/* end of display list */
+  
+  mem_write_8(REG_DLSWAP, 0x02); // activate display list, Bad Magic Cookie 2 = switch to new list after current frame is scanned out
 
-  mem_write_8(REG_TOUCH_MODE, 0x03);           // Configure the Touch Screen
-  mem_write_8(REG_TOUCH_ADC_MODE, 0x01);
-  mem_write_8(REG_TOUCH_OVERSAMPLE, 0x0F);
-  mem_write_16(REG_TOUCH_RZTHRESH, 5000);
-  mem_write_8(REG_VOL_SOUND, 0x00);            // Turn Synthesizer Volume Off
-  mem_write_8(REG_DLSWAP, 0x02);               // Swap on New Frame
+  //mem_write_8(REG_TOUCH_MODE, 0x03);      // Configure the Touch Screen, Bad Magic Cookie, 3 = CONTINUOUS = Reset Default
+  //mem_write_8(REG_TOUCH_ADC_MODE, 0x01);  // Bad Magic Cookie, 1 = single touch = Reset Default
+  //mem_write_8(REG_TOUCH_OVERSAMPLE, 0x0F); // Reset Default = 7 - why 15?
+  mem_write_16(REG_TOUCH_RZTHRESH, touch_threshold); /* setup touch sensitivity */
+  mem_write_8(REG_VOL_SOUND, 0x00);       // Turn Synthesizer Volume Off
 
-  /*
-   *  Turn on the Display         (set DISP high)
-   *  Turn on the Audio Amplifier (set GP0 high; on the AO CLCD board, this is tied to the amplifier control)
-   */
-  #if defined(USE_FTDI_FT800)
-    mem_write_8(REG_GPIO_DIR,   GPIO_DISP  | GPIO_GP0);
-    mem_write_8(REG_GPIO,       GPIO_DISP  | GPIO_GP0);
-  #else
-    mem_write_16(REG_GPIOX_DIR, GPIOX_DISP | GPIOX_GP0);
-    mem_write_16(REG_GPIOX,     GPIOX_DISP | GPIOX_GP0);
-  #endif
+  /* turn on the display by setting DISP high */
+  /* turn on the Audio Amplifier by setting GPIO_1 high for the select few modules supporting this */
+  /* no need to use GPIOX here since DISP/GPIO_0 and GPIO_1 are on REG_GPIO for FT81x as well */
+  if(GPIO_1_Audio_Shutdown) {
+    mem_write_8(REG_GPIO_DIR,   GPIO_DISP  | GPIO_GP1);
+    mem_write_8(REG_GPIO,       GPIO_DISP  | GPIO_GP1);
+  }
+  else {
+    mem_write_8(REG_GPIO, GPIO_DISP); /* REG_GPIO_DIR is set to output for GPIO_DISP by default */
+  }
 
-  enable();                                   // Turns on Clock by setting PCLK Register to 5
+  mem_write_8(REG_PCLK, Pclk); // Turns on Clock by setting PCLK Register to the value necessary for the module
 
   // Initialize the command FIFO
-
   CommandFifo::reset();
 
   // Set Initial Values for Touch Transform Registers
-
   mem_write_32(REG_TOUCH_TRANSFORM_A, default_transform_a);
   mem_write_32(REG_TOUCH_TRANSFORM_B, default_transform_b);
   mem_write_32(REG_TOUCH_TRANSFORM_C, default_transform_c);
@@ -517,7 +502,7 @@ void CLCD::init (void) {
     // processor to do this since it will also update the transform matrices.
 
     CommandFifo cmd;
-    cmd.cmd(CMD_DLSTART);
+  //  cmd.cmd(CMD_DLSTART); // disabled because single command, not a display-list
 
     #if   defined(USE_PORTRAIT_ORIENTATION)  &&  defined(USE_INVERTED_ORIENTATION) &&  defined(USE_MIRRORED_ORIENTATION)
     cmd.set_rotate(7);
@@ -537,8 +522,8 @@ void CLCD::init (void) {
     cmd.set_rotate(0);
     #endif
 
-    cmd.cmd(DL_DISPLAY);
-    cmd.cmd(CMD_SWAP);
+//    cmd.cmd(DL_DISPLAY);
+//    cmd.cmd(CMD_SWAP);
     cmd.execute();
   #endif
 

@@ -32,16 +32,19 @@
 #define CR10_TFT
 
 
+// Define whether an FT800 or FT810+ chip is being used
+//#define USE_FTDI_FT800
+#define USE_FTDI_FT810
+
+// Define the display used
+
+//#define LCD_VM800N35A       // FTDI 3.5" 320x240 with FT800
+#define LCD_FT800CB         // Haoyu 5" 480x272 with FT800
+//#define LCD_4DLCD_FT843     // 4D Systems 4.3" 480x272 wuth FT800
+//#define LCD_FT810CB         // Haoyu 5" 800x480 with FT810
+
+
 #if defined(CR10_TFT)
-     // Define whether an FT800 or FT810+ chip is being used
-    //#define USE_FTDI_FT800
-    #define USE_FTDI_FT810
-
-    // Define the display resolution
-    //#define LCD_320x240
-    #define LCD_480x272
-    //#define LCD_800x480
-
     // Defines how to orient the display. An inverted (i.e. upside-down) display
     // is supported on the FT800. The FT810 or better also support a portrait
     // and mirrored orientation.
