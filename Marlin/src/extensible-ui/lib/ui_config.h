@@ -27,7 +27,8 @@
 //#define LCD_VM800N35A       // FTDI 3.5" 320x240 with FT800
 //#define LCD_FT800CB         // Haoyu 5" 480x272 with FT800
 //#define LCD_4DLCD_FT843     // 4D Systems 4.3" 480x272 wuth FT800
-#define LCD_FT810CB         // Haoyu 5" 800x480 with FT810
+//#define LCD_FT810CB_480x272 // Haoyu FT810CB fitted with a 480x272 panel (non-standard)
+#define LCD_FT810CB           // Haoyu 5" 800x480 with FT810
 
 // Define the printer interface or pins used (see "ftdi_eve_pins.h" for definitions):
 

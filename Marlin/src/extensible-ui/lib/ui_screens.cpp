@@ -221,7 +221,7 @@ namespace Theme {
     const int16_t  font_large    = 31;
   #endif
   const float      icon_scale    = 1.0;
-#else
+#elif defined(LCD_480x272)
   #if defined(USE_PORTRAIT_ORIENTATION)
   const int16_t  font_small    = 27;
   const int16_t  font_medium   = 28;
@@ -232,6 +232,18 @@ namespace Theme {
   const int16_t  font_medium   = 28;
   const int16_t  font_large    = 30;
   const float    icon_scale    = 0.6;
+  #endif
+#elif defined(LCD_320x240)
+  #if defined(USE_PORTRAIT_ORIENTATION)
+  const int16_t  font_small    = 26;
+  const int16_t  font_medium   = 27;
+  const int16_t  font_large    = 27;
+  const float    icon_scale    = 0.6;
+  #else
+  const int16_t  font_small    = 26;
+  const int16_t  font_medium   = 27;
+  const int16_t  font_large    = 29;
+  const float    icon_scale    = 0.5;
   #endif
 #endif
 

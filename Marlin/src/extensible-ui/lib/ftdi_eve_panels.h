@@ -214,14 +214,17 @@ namespace FTDI_AO_CLCD {
 #if defined(LCD_VM800B35A)
   using namespace FTDI_VM800B35A;
   #define USE_FTDI_FT800
+  #define LCD_320x240
 
 #elif defined(LCD_FT800CB)
   using namespace FTDI_FT800CB;
   #define USE_FTDI_FT800
+  #define LCD_480x272
 
 #elif defined(LCD_FT810CB)
   using namespace FTDI_FT810CB;
   #define USE_FTDI_FT810
+  #define LCD_800x480
 
 #elif defined(LCD_4DLCD_FT843)
   using namespace FTDI_4DLCD_FT843;
@@ -230,7 +233,12 @@ namespace FTDI_AO_CLCD {
 #elif defined(LCD_AO_CLCD)
   using namespace FTDI_AO_CLCD;
   #define USE_FTDI_FT810
+  #define LCD_800x480
 
+#elif defined(LCD_FT810CB_480x272)
+  using namespace FTDI_FT800CB;
+  #define USE_FTDI_FT810
+  #define LCD_480x272
 #else
   #error Unknown or no panel specified. To add a new panel, modify "ftdi_eve_panels.h"
 #endif
