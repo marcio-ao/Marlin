@@ -125,6 +125,7 @@ class CLCD {
     static void     spi_deselect (void);
 
     static uint8_t  _soft_spi_transfer (uint8_t spiOutByte);
+    static void    _soft_spi_send (uint8_t spiOutByte);
 
     static void     spi_send(uint8_t spiOutByte);
     static uint8_t  spi_recv();

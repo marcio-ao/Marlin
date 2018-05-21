@@ -77,7 +77,7 @@
 
 void CLCD::spi_init (void) {
   SET_OUTPUT(CLCD_MOD_RESET); // Module Reset (a.k.a. PD, not SPI)
-  WRITE(CLCD_MOD_RESET, 1);
+  WRITE(CLCD_MOD_RESET, 0); // start with module in power-down
 
   SET_OUTPUT(CLCD_SPI_CS);
   WRITE(CLCD_SPI_CS, 1);
@@ -98,7 +98,6 @@ void CLCD::spi_init (void) {
   SPI.beginTransaction(SPISettings(14000000, MSBFIRST, SPI_MODE0));
 #endif
 
-  delay(50);
 }
 
 // CLCD SPI - Chip Select
@@ -153,9 +152,29 @@ void CLCD::test_pulse(void)
   }
 #endif
 
+#if defined(CLCD_USE_SOFT_SPI)
+  void CLCD::_soft_spi_send (uint8_t spiOutByte) {
+    uint8_t spiIndex  = 0x80;
+    uint8_t k;
+
+    for(k = 0; k <8; k++) {         // Output each bit of spiOutByte
+      if(spiOutByte & spiIndex) {   // Output MOSI Bit
+        WRITE(CLCD_SOFT_SPI_MOSI, 1);
+      }
+      else {
+        WRITE(CLCD_SOFT_SPI_MOSI, 0);
+      }
+      WRITE(CLCD_SOFT_SPI_SCLK, 1);   // Pulse Clock
+      WRITE(CLCD_SOFT_SPI_SCLK, 0);
+    
+      spiIndex >>= 1;
+    }
+  }
+#endif
+
 void CLCD::spi_send(uint8_t spiOutByte) {
   #if defined(CLCD_USE_SOFT_SPI)
-    _soft_spi_transfer(spiOutByte);
+    _soft_spi_send(spiOutByte);
   #elif defined(USE_MARLIN_IO)
     spiSend(spiOutByte);
   #else
