@@ -22,16 +22,16 @@
 #ifndef _UI_API_H_
 #define _UI_API_H_
 
-#include "../inc/MarlinConfig.h"
+#include "../../inc/MarlinConfig.h"
 
 typedef const __FlashStringHelper *progmem_str;
 
 namespace Extensible_UI_API {
 
-  enum axis_t : unsigned char { X, Y, Z, E0, E1 };
+  enum axis_t : unsigned char { X, Y, Z, E0, E1, E2, E3 };
 
   const uint8_t extruderCount = EXTRUDERS;
-  const uint8_t fanCount      = 1;
+  const uint8_t fanCount      = FAN_COUNT;
 
   // The following methods should be used by the extension module to
   // query or change Marlin's state.
@@ -46,14 +46,30 @@ namespace Extensible_UI_API {
   float getFan_percent(const uint8_t fan);
   float getAxisPosition_mm(const axis_t axis);
   float getAxisSteps_per_mm(const axis_t axis);
+  float getAxisMaxFeedrate_mm_s(const axis_t axis);
+  float getAxisMaxAcceleration_mm_s2(const axis_t axis);
+  float getAxisMaxJerk_mm_s(const axis_t axis);
+  float getMinFeedrate_mm_s();
+  float getMinTravelFeedrate_mm_s();
+  float getPrintingAcceleration_mm_per_s2();
+  float getRetractAcceleration_mm_per_s2();
+  float getTravelAcceleration_mm_per_s2();
+  float getFeedRate_percent();
   uint8_t getProgress_percent();
   uint32_t getProgress_seconds_elapsed();
-  float getFeedRate_percent();
 
   void setTargetTemp_celsius(const uint8_t extruder, float temp);
   void setFan_percent(const uint8_t fan, float percent);
   void setAxisPosition_mm(const axis_t axis, float position, float _feedrate_mm_s);
   void setAxisSteps_per_mm(const axis_t axis, float steps_per_mm);
+  void setAxisMaxFeedrate_mm_s(const axis_t axis, float max_feedrate_mm_s);
+  void setAxisMaxAcceleration_mm_s2(const axis_t axis, float max_acceleration_mm_per_s2);
+  void setAxisMaxJerk_mm_s(const axis_t axis, float max_jerk);
+  void setMinFeedrate_mm_s(float max_feedrate_mm_s);
+  void setMinTravelFeedrate_mm_s(float min_travel_feedrate_mm_s);
+  void setPrintingAcceleration_mm_s2(float acceleration);
+  void setRetractAcceleration_mm_s2(float retract_acceleration);
+  void setTravelAcceleration_mm_s2(float travel_acceleration);
   void setFeedrate_percent(const float percent);
 
   #if HAS_BED_PROBE
@@ -96,7 +112,7 @@ namespace Extensible_UI_API {
   };
 
   // The following event handlers are to be declared by the extension
-  // module and may be called by Marlin.
+  // module and will be called by Marlin.
 
   void onStartup();
   void onUpdate();

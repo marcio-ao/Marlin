@@ -145,6 +145,9 @@ SCREEN_TABLE {
   DECL_SCREEN(ZOffsetScreen),
 #endif
   DECL_SCREEN(FeedrateScreen),
+  DECL_SCREEN(VelocityScreen),
+  DECL_SCREEN(AccelerationScreen),
+  DECL_SCREEN(JerkScreen),
   DECL_SCREEN(TemperatureScreen),
   DECL_SCREEN(CalibrationRegistersScreen),
   DECL_SCREEN(FilesScreen),
@@ -1010,9 +1013,9 @@ void AdvancedSettingsScreen::onRedraw(draw_mode_t what) {
       BTN_TAG(4)                  BTN( BTN_POS(1,1), BTN_SIZE(1,2), F("Z Offset "),                 MENU_BTN_STYLE);
       BTN_TAG(5) BTN_ENABLED(1)   BTN( BTN_POS(1,3), BTN_SIZE(1,1), F("Steps/mm"),                  MENU_BTN_STYLE);
 
-      BTN_TAG(6)  BTN_ENABLED(0)  BTN( BTN_POS(2,1), BTN_SIZE(1,1), F("Velocity "),                MENU_BTN_STYLE);
-      BTN_TAG(7)  BTN_ENABLED(0)  BTN( BTN_POS(2,2), BTN_SIZE(1,1), F("Acceleration"),             MENU_BTN_STYLE);
-      BTN_TAG(8)  BTN_ENABLED(0)  BTN( BTN_POS(2,3), BTN_SIZE(1,1), F("Jerk"),                     MENU_BTN_STYLE);
+      BTN_TAG(6)  BTN_ENABLED(1)  BTN( BTN_POS(2,1), BTN_SIZE(1,1), F("Velocity "),                MENU_BTN_STYLE);
+      BTN_TAG(7)  BTN_ENABLED(1)  BTN( BTN_POS(2,2), BTN_SIZE(1,1), F("Acceleration"),             MENU_BTN_STYLE);
+      BTN_TAG(8)  BTN_ENABLED(1)  BTN( BTN_POS(2,3), BTN_SIZE(1,1), F("Jerk"),                     MENU_BTN_STYLE);
       BTN_TAG(9)  BTN_ENABLED(1)  BTN( BTN_POS(1,4), BTN_SIZE(2,1), F("Recalibrate Screen"),       MENU_BTN_STYLE);
       BTN_TAG(10) BTN_ENABLED(1)  BTN( BTN_POS(1,5), BTN_SIZE(2,1), F("Restore Factory Settings"), MENU_BTN_STYLE);
       BTN_TAG(2)  BTN_ENABLED(1)  BTN( BTN_POS(1,6), BTN_SIZE(2,1), F("Save As Default"),          MENU_BTN_STYLE);
@@ -1030,9 +1033,9 @@ void AdvancedSettingsScreen::onRedraw(draw_mode_t what) {
       BTN_TAG(4)                  BTN( BTN_POS(1,1), BTN_SIZE(1,1), F("Z Offset "),                MENU_BTN_STYLE);
       BTN_TAG(5)  BTN_ENABLED(1)  BTN( BTN_POS(1,2), BTN_SIZE(1,1), F("Steps/mm"),                 MENU_BTN_STYLE);
 
-      BTN_TAG(6)  BTN_ENABLED(0)  BTN( BTN_POS(2,1), BTN_SIZE(1,1), F("Velocity "),                MENU_BTN_STYLE);
-      BTN_TAG(7)  BTN_ENABLED(0)  BTN( BTN_POS(2,2), BTN_SIZE(1,1), F("Acceleration"),             MENU_BTN_STYLE);
-      BTN_TAG(8)  BTN_ENABLED(0)  BTN( BTN_POS(2,3), BTN_SIZE(1,1), F("Jerk"),                     MENU_BTN_STYLE);
+      BTN_TAG(6)  BTN_ENABLED(1)  BTN( BTN_POS(2,1), BTN_SIZE(1,1), F("Velocity "),                MENU_BTN_STYLE);
+      BTN_TAG(7)  BTN_ENABLED(1)  BTN( BTN_POS(2,2), BTN_SIZE(1,1), F("Acceleration"),             MENU_BTN_STYLE);
+      BTN_TAG(8)  BTN_ENABLED(1)  BTN( BTN_POS(2,3), BTN_SIZE(1,1), F("Jerk"),                     MENU_BTN_STYLE);
       BTN_TAG(10) BTN_ENABLED(1)  BTN( BTN_POS(1,3), BTN_SIZE(1,1), F("Restore Failsafe"),         MENU_BTN_STYLE);
 
       BTN_TAG(2)  BTN_ENABLED(1)  BTN( BTN_POS(1,4), BTN_SIZE(1,1), F("Save"),                     MENU_BTN_STYLE);
@@ -1056,6 +1059,9 @@ bool AdvancedSettingsScreen::onTouchStart(uint8_t tag) {
     case 4:  GOTO_SCREEN(ZOffsetScreen);         break;
     #endif
     case 5:  GOTO_SCREEN(StepsScreen);           break;
+    case 6:  GOTO_SCREEN(VelocityScreen);        break;
+    case 7:  GOTO_SCREEN(AccelerationScreen);    break;
+    case 8:  GOTO_SCREEN(JerkScreen);            break;
     case 9:  GOTO_SCREEN(CalibrationScreen);     break;
     case 10: GOTO_SCREEN(RestoreFailsafeScreen); break;
     default:
@@ -1486,7 +1492,7 @@ void StepsScreen::onRedraw(draw_mode_t what) {
   w.color(Theme::y_axis); w.adjuster(   4, PSTR("Y:"),  getAxisSteps_per_mm(Y) );
   w.color(Theme::z_axis); w.adjuster(   6, PSTR("Z:"),  getAxisSteps_per_mm(Z) );
   #if EXTRUDERS == 1
-    w.color(Theme::e_axis); w.adjuster( 6, PSTR("E:"),  getAxisSteps_per_mm(E0) );
+    w.color(Theme::e_axis); w.adjuster( 8, PSTR("E:"),  getAxisSteps_per_mm(E0) );
   #else
     w.color(Theme::e_axis); w.adjuster( 8, PSTR("E0:"), getAxisSteps_per_mm(E0) );
     w.color(Theme::e_axis); w.adjuster(10, PSTR("E1:"), getAxisSteps_per_mm(E1) );
@@ -1575,6 +1581,147 @@ bool FeedrateScreen::onTouchHeld(uint8_t tag) {
     default:
       return false;
   }
+  onRefresh();
+  return true;
+}
+
+/******************************* VELOCITY SCREEN ******************************/
+
+void VelocityScreen::onRedraw(draw_mode_t what) {
+  using namespace Extensible_UI_API;
+
+  widgets_t w(what);
+  w.precision(0);
+  w.units(PSTR(""));
+
+  w.heading(                               PSTR("mm/s"));
+  w.color(Theme::x_axis); w.adjuster(   2, PSTR("X:"),  getAxisMaxFeedrate_mm_s(X) );
+  w.color(Theme::y_axis); w.adjuster(   4, PSTR("Y:"),  getAxisMaxFeedrate_mm_s(Y) );
+  w.color(Theme::z_axis); w.adjuster(   6, PSTR("Z:"),  getAxisMaxFeedrate_mm_s(Z) );
+  #if EXTRUDERS == 1
+    w.color(Theme::e_axis); w.adjuster( 8, PSTR("E:"),  getAxisMaxFeedrate_mm_s(E0) );
+  #else
+    w.color(Theme::e_axis); w.adjuster( 8, PSTR("E0:"), getAxisMaxFeedrate_mm_s(E0) );
+    w.color(Theme::e_axis); w.adjuster(10, PSTR("E1:"), getAxisMaxFeedrate_mm_s(E1) );
+  #endif
+  w.increments();
+}
+
+bool VelocityScreen::onTouchHeld(uint8_t tag) {
+  using namespace Extensible_UI_API;
+
+  float inc = getIncrement();
+  axis_t axis;
+
+  switch(tag) {
+    case  2:  axis = X;  inc *= -1;  break;
+    case  3:  axis = X;  inc *=  1;  break;
+    case  4:  axis = Y;  inc *= -1;  break;
+    case  5:  axis = Y;  inc *=  1;  break;
+    case  6:  axis = Z;  inc *= -1;  break;
+    case  7:  axis = Z;  inc *=  1;  break;
+    case  8:  axis = E0; inc *= -1;  break;
+    case  9:  axis = E0; inc *=  1;  break;
+    #if EXTRUDERS == 2
+    case 10:  axis = E1; inc *= -1;  break;
+    case 11:  axis = E1; inc *=  1;  break;
+    #endif
+    default:
+      return false;
+  }
+
+  setAxisMaxFeedrate_mm_s(axis, getAxisMaxFeedrate_mm_s(axis) + inc);
+  onRefresh();
+  return true;
+}
+
+/******************************* ACCELERATION SCREEN ******************************/
+
+void AccelerationScreen::onRedraw(draw_mode_t what) {
+  using namespace Extensible_UI_API;
+
+  widgets_t w(what);
+  w.precision(0);
+  w.units(PSTR(""));
+
+  w.heading(                               PSTR("mm/s^2"));
+  w.color(Theme::x_axis); w.adjuster(   2, PSTR("X:"),  getAxisMaxAcceleration_mm_s2(X) );
+  w.color(Theme::y_axis); w.adjuster(   4, PSTR("Y:"),  getAxisMaxAcceleration_mm_s2(Y) );
+  w.color(Theme::z_axis); w.adjuster(   6, PSTR("Z:"),  getAxisMaxAcceleration_mm_s2(Z) );
+  #if EXTRUDERS == 1
+    w.color(Theme::e_axis); w.adjuster( 8, PSTR("E:"),  getAxisMaxAcceleration_mm_s2(E0) );
+  #else
+    w.color(Theme::e_axis); w.adjuster( 8, PSTR("E0:"), getAxisMaxAcceleration_mm_s2(E0) );
+    w.color(Theme::e_axis); w.adjuster(10, PSTR("E1:"), getAxisMaxAcceleration_mm_s2(E1) );
+  #endif
+  w.increments();
+}
+
+bool AccelerationScreen::onTouchHeld(uint8_t tag) {
+  using namespace Extensible_UI_API;
+
+  float inc = getIncrement();
+  axis_t axis;
+
+  switch(tag) {
+    case  2:  axis = X;  inc *= -1;  break;
+    case  3:  axis = X;  inc *=  1;  break;
+    case  4:  axis = Y;  inc *= -1;  break;
+    case  5:  axis = Y;  inc *=  1;  break;
+    case  6:  axis = Z;  inc *= -1;  break;
+    case  7:  axis = Z;  inc *=  1;  break;
+    case  8:  axis = E0; inc *= -1;  break;
+    case  9:  axis = E0; inc *=  1;  break;
+    #if EXTRUDERS == 2
+    case 10:  axis = E1; inc *= -1;  break;
+    case 11:  axis = E1; inc *=  1;  break;
+    #endif
+    default:
+      return false;
+  }
+
+  setAxisMaxAcceleration_mm_s2(axis, getAxisMaxAcceleration_mm_s2(axis) + inc);
+  onRefresh();
+  return true;
+}
+
+/************************************** JERK SCREEN ************************************/
+
+void JerkScreen::onRedraw(draw_mode_t what) {
+  using namespace Extensible_UI_API;
+
+  widgets_t w(what);
+  w.precision(1);
+  w.units(PSTR(""));
+
+  w.heading(                               PSTR("mm/s"));
+  w.color(Theme::x_axis); w.adjuster( 2, PSTR("X:"),  getAxisMaxJerk_mm_s(X) );
+  w.color(Theme::y_axis); w.adjuster( 4, PSTR("Y:"),  getAxisMaxJerk_mm_s(Y) );
+  w.color(Theme::z_axis); w.adjuster( 6, PSTR("Z:"),  getAxisMaxJerk_mm_s(Z) );
+  w.color(Theme::e_axis); w.adjuster( 8, PSTR("E:"),  getAxisMaxJerk_mm_s(E0) );
+  w.increments();
+}
+
+bool JerkScreen::onTouchHeld(uint8_t tag) {
+  using namespace Extensible_UI_API;
+
+  float inc = getIncrement();
+  axis_t axis;
+
+  switch(tag) {
+    case  2:  axis = X;  inc *= -1;  break;
+    case  3:  axis = X;  inc *=  1;  break;
+    case  4:  axis = Y;  inc *= -1;  break;
+    case  5:  axis = Y;  inc *=  1;  break;
+    case  6:  axis = Z;  inc *= -1;  break;
+    case  7:  axis = Z;  inc *=  1;  break;
+    case  8:  axis = E0; inc *= -1;  break;
+    case  9:  axis = E0; inc *=  1;  break;
+    default:
+      return false;
+  }
+
+  setAxisMaxJerk_mm_s(axis, getAxisMaxJerk_mm_s(axis) + inc);
   onRefresh();
   return true;
 }

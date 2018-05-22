@@ -44,6 +44,9 @@ enum {
   STEPS_SCREEN_CACHE,
   ZOFFSET_SCREEN_CACHE,
   FEEDRATE_SCREEN_CACHE,
+  VELOCITY_SCREEN_CACHE,
+  ACCELERATION_SCREEN_CACHE,
+  JERK_SCREEN_CACHE,
   FILES_SCREEN_CACHE
 };
 
@@ -271,6 +274,25 @@ class FeedrateScreen : public ValueAdjusters, public CachedScreen<FEEDRATE_SCREE
     static void onRedraw(draw_mode_t what);
     static bool onTouchHeld(uint8_t tag);
 };
+
+class VelocityScreen : public ValueAdjusters, public CachedScreen<VELOCITY_SCREEN_CACHE> {
+  public:
+    static void onRedraw(draw_mode_t what);
+    static bool onTouchHeld(uint8_t tag);
+};
+
+class AccelerationScreen : public ValueAdjusters, public CachedScreen<ACCELERATION_SCREEN_CACHE> {
+  public:
+    static void onRedraw(draw_mode_t what);
+    static bool onTouchHeld(uint8_t tag);
+};
+
+class JerkScreen : public ValueAdjusters, public CachedScreen<JERK_SCREEN_CACHE> {
+  public:
+    static void onRedraw(draw_mode_t what);
+    static bool onTouchHeld(uint8_t tag);
+};
+
 
 class TemperatureScreen : public ValueAdjusters, public CachedScreen<TEMPERATURE_SCREEN_CACHE> {
   public:

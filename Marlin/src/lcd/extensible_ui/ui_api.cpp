@@ -19,18 +19,18 @@
  *   location: <http://www.gnu.org/licenses/>.                              *
  ****************************************************************************/
 
-#include "../Marlin.h"
+#include "../../Marlin.h"
 
 #if ENABLED(EXTENSIBLE_UI)
 
-#include "../gcode/queue.h"
-#include "../module/motion.h"
-#include "../module/planner.h"
-#include "../module/probe.h"
-#include "../module/printcounter.h"
-#include "../module/temperature.h"
-#include "../sd/cardreader.h"
-#include "../libs/duration_t.h"
+#include "../../gcode/queue.h"
+#include "../../module/motion.h"
+#include "../../module/planner.h"
+#include "../../module/probe.h"
+#include "../../module/printcounter.h"
+#include "../../module/temperature.h"
+#include "../../sd/cardreader.h"
+#include "../../libs/duration_t.h"
 
 #include "ui_api.h"
 
@@ -73,6 +73,8 @@ namespace Extensible_UI_API {
       case Z:  return current_position[Z_AXIS];   break;
       case E0: return current_position[E_AXIS];   break;
       case E1: return current_position[E_AXIS+1]; break;
+      case E2: return current_position[E_AXIS+2]; break;
+      case E3: return current_position[E_AXIS+3]; break;
       default: return 0;
     }
   }
@@ -85,6 +87,8 @@ namespace Extensible_UI_API {
       case Z:  destination[Z_AXIS]   = position; break;
       case E0: destination[E_AXIS]   = position; break;
       case E1: destination[E_AXIS+1] = position; break;
+      case E2: destination[E_AXIS+2] = position; break;
+      case E3: destination[E_AXIS+3] = position; break;
     }
 
     float old_feedrate = feedrate_mm_s;
@@ -104,6 +108,9 @@ namespace Extensible_UI_API {
       case Z:  return planner.axis_steps_per_mm[Z_AXIS];
       case E0: return planner.axis_steps_per_mm[E_AXIS];
       case E1: return planner.axis_steps_per_mm[E_AXIS+1];
+      case E2: return planner.axis_steps_per_mm[E_AXIS+2];
+      case E3: return planner.axis_steps_per_mm[E_AXIS+3];
+      default: return 0;
     }
   }
 
@@ -114,7 +121,130 @@ namespace Extensible_UI_API {
       case Z:  planner.axis_steps_per_mm[Z_AXIS]   = steps_per_mm; break;
       case E0: planner.axis_steps_per_mm[E_AXIS]   = steps_per_mm; break;
       case E1: planner.axis_steps_per_mm[E_AXIS+1] = steps_per_mm; break;
+      case E2: planner.axis_steps_per_mm[E_AXIS+2] = steps_per_mm; break;
+      case E3: planner.axis_steps_per_mm[E_AXIS+3] = steps_per_mm; break;
     }
+  }
+
+  float getAxisMaxFeedrate_mm_s(const axis_t axis) {
+    switch(axis) {
+      case X:  return planner.max_feedrate_mm_s[X_AXIS];
+      case Y:  return planner.max_feedrate_mm_s[Y_AXIS];
+      case Z:  return planner.max_feedrate_mm_s[Z_AXIS];
+      case E0: return planner.max_feedrate_mm_s[E_AXIS];
+      case E1: return planner.max_feedrate_mm_s[E_AXIS+1];
+      case E2: return planner.max_feedrate_mm_s[E_AXIS+2];
+      case E3: return planner.max_feedrate_mm_s[E_AXIS+3];
+      default: return 0;
+    }
+  }
+
+  void setAxisMaxFeedrate_mm_s(const axis_t axis, float max_feedrate_mm_s) {
+    switch(axis) {
+      case X:  planner.max_feedrate_mm_s[X_AXIS]   = max_feedrate_mm_s;
+      case Y:  planner.max_feedrate_mm_s[Y_AXIS]   = max_feedrate_mm_s;
+      case Z:  planner.max_feedrate_mm_s[Z_AXIS]   = max_feedrate_mm_s;
+      case E0: planner.max_feedrate_mm_s[E_AXIS]   = max_feedrate_mm_s;
+      case E1: planner.max_feedrate_mm_s[E_AXIS+1] = max_feedrate_mm_s;
+      case E2: planner.max_feedrate_mm_s[E_AXIS+2] = max_feedrate_mm_s;
+      case E3: planner.max_feedrate_mm_s[E_AXIS+3] = max_feedrate_mm_s;
+      default: return 0;
+    }
+  }
+
+  float getAxisMaxAcceleration_mm_s2(const axis_t axis) {
+    switch(axis) {
+      case X:  return planner.max_acceleration_mm_per_s2[X_AXIS];
+      case Y:  return planner.max_acceleration_mm_per_s2[Y_AXIS];
+      case Z:  return planner.max_acceleration_mm_per_s2[Z_AXIS];
+      case E0: return planner.max_acceleration_mm_per_s2[E_AXIS];
+      case E1: return planner.max_acceleration_mm_per_s2[E_AXIS+1];
+      case E2: return planner.max_acceleration_mm_per_s2[E_AXIS+2];
+      case E3: return planner.max_acceleration_mm_per_s2[E_AXIS+3];
+      default: return 0;
+    }
+  }
+
+  void setAxisMaxAcceleration_mm_s2(const axis_t axis, float max_acceleration_mm_per_s2) {
+    switch(axis) {
+      case X:  planner.max_acceleration_mm_per_s2[X_AXIS]   = max_acceleration_mm_per_s2;
+      case Y:  planner.max_acceleration_mm_per_s2[Y_AXIS]   = max_acceleration_mm_per_s2;
+      case Z:  planner.max_acceleration_mm_per_s2[Z_AXIS]   = max_acceleration_mm_per_s2;
+      case E0: planner.max_acceleration_mm_per_s2[E_AXIS]   = max_acceleration_mm_per_s2;
+      case E1: planner.max_acceleration_mm_per_s2[E_AXIS+1] = max_acceleration_mm_per_s2;
+      case E2: planner.max_acceleration_mm_per_s2[E_AXIS+2] = max_acceleration_mm_per_s2;
+      case E3: planner.max_acceleration_mm_per_s2[E_AXIS+3] = max_acceleration_mm_per_s2;
+      default: return 0;
+    }
+  }
+
+  float getAxisMaxJerk_mm_s(const axis_t axis) {
+    switch(axis) {
+      case X:  return planner.max_jerk[X_AXIS];
+      case Y:  return planner.max_jerk[Y_AXIS];
+      case Z:  return planner.max_jerk[Z_AXIS];
+      case E0:
+      case E1:
+      case E2:
+      case E3:
+        return planner.max_jerk[E_AXIS];
+      default: return 0;
+    }
+  }
+
+  void setAxisMaxJerk_mm_s(const axis_t axis, float max_jerk) {
+    switch(axis) {
+      case X:  planner.max_jerk[X_AXIS]   = max_jerk;
+      case Y:  planner.max_jerk[Y_AXIS]   = max_jerk;
+      case Z:  planner.max_jerk[Z_AXIS]   = max_jerk;
+      case E0:
+      case E1:
+      case E2:
+      case E3:
+        planner.max_jerk[E_AXIS]   = max_jerk;
+        break;
+      default: return 0;
+    }
+  }
+
+  float getMinFeedrate_mm_s() {
+    return planner.min_feedrate_mm_s;
+  }
+
+  void setMinFeedrate_mm_s(float max_feedrate_mm_s) {
+    planner.min_feedrate_mm_s = max_feedrate_mm_s;
+  }
+
+  float getMinTravelFeedrate_mm_s() {
+    return planner.min_travel_feedrate_mm_s;
+  }
+
+  void setMinTravelFeedrate_mm_s(float min_travel_feedrate_mm_s) {
+    planner.min_travel_feedrate_mm_s = min_travel_feedrate_mm_s;
+  }
+
+  float getPrintingAcceleration_mm_s2() {
+    return planner.acceleration;
+  }
+
+  float getRetractAcceleration_mm_s2() {
+    return planner.retract_acceleration;
+  }
+
+  float getTravelAcceleration_mm_s2() {
+    return planner.travel_acceleration;
+  }
+
+  void setPrintingAcceleration_mm_per_s2(float acceleration) {
+    return planner.acceleration;
+  }
+
+  void setRetractAcceleration_mm_s2(float retract_acceleration) {
+    return planner.retract_acceleration;
+  }
+
+  void setTravelAcceleration_mm_s2(float travel_acceleration) {
+    return planner.travel_acceleration;
   }
 
   #if HAS_BED_PROBE
@@ -361,6 +491,8 @@ namespace Extensible_UI_API {
 
 } // namespace Extensible_UI_API
 
+// At the moment, we piggy-back off the ultralcd calls, but this could be cleaned up in the future
+
 void lcd_init() {
   #if ENABLED(SDSUPPORT) && PIN_EXISTS(SD_DETECT)
     SET_INPUT_PULLUP(SD_DETECT_PIN);
@@ -388,8 +520,6 @@ void lcd_update()                                                               
   #endif // SDSUPPORT
   Extensible_UI_API::onUpdate();
 }
-
-// At the moment, we piggy-back off the ultralcd calls, but this could change in the future.
 
 bool lcd_hasstatus()                                                             { return true; }
 bool lcd_detected()                                                              { return true; }
