@@ -226,8 +226,8 @@ namespace Theme {
   const float      icon_scale    = 1.0;
 #elif defined(LCD_480x272)
   #if defined(USE_PORTRAIT_ORIENTATION)
-  const int16_t  font_small    = 27;
-  const int16_t  font_medium   = 28;
+  const int16_t  font_small    = 26;
+  const int16_t  font_medium   = 27;
   const int16_t  font_large    = 28;
   const float    icon_scale    = 0.7;
   #else
@@ -296,11 +296,11 @@ void AboutScreen::onRedraw(draw_mode_t what) {
   #define GRID_COLS 4
   #define GRID_ROWS 8
 
-  BTX( BTN_POS(1,2), BTN_SIZE(4,1), F("Color LCD Interface"),          FONT_LRG);
+  BTX( BTN_POS(1,2), BTN_SIZE(4,1), F("Color Touch Panel"), FONT_LRG);
   BTN_TAG(2)
-  BTX( BTN_POS(1,3), BTN_SIZE(4,1), F("(c) 2018 Aleph Objects, Inc."), FONT_LRG);
+  BTX( BTN_POS(1,3), BTN_SIZE(4,1), F("(c) 2018 Aleph Objects, Inc."), FONT_MED);
 
-  BTX( BTN_POS(1,5), BTN_SIZE(4,1), getFirmwareName(), FONT_LRG);
+  BTX( BTN_POS(1,5), BTN_SIZE(4,1), getFirmwareName(), FONT_MED);
 
   BTN_TAG(1) BTN_ENABLED(1) BTN( BTN_POS(2,7), BTN_SIZE(2,1), F("Okay"), MENU_BTN_STYLE);
 
@@ -971,7 +971,7 @@ void TuneScreen::onRedraw(draw_mode_t what) {
         BTN_ENABLED(0)
       #endif
       BTN_TAG(4)                 BTN( BTN_POS(2,1), BTN_SIZE(1,1), F("Z Offset"),           MENU_BTN_STYLE);
-      BTN_TAG(5) BTN_ENABLED(1)  BTN( BTN_POS(2,2), BTN_SIZE(2,1), F("Print Speed"),        MENU_BTN_STYLE);
+      BTN_TAG(5) BTN_ENABLED(1)  BTN( BTN_POS(2,2), BTN_SIZE(1,1), F("Print Speed"),        MENU_BTN_STYLE);
 
       BTN_TAG(1) THEME(back_btn) BTN( BTN_POS(1,3), BTN_SIZE(2,1), F("Back"),               MENU_BTN_STYLE);
       #undef GRID_COLS
@@ -1208,10 +1208,10 @@ void ValueAdjusters::widgets_t::precision(uint8_t decimals) {
 }
 
 #if defined(USE_PORTRAIT_ORIENTATION)
-  #define GRID_COLS  6
+  #define GRID_COLS 13
   #define GRID_ROWS 10
 #else
-  #define GRID_COLS  9
+  #define GRID_COLS 18
   #define GRID_ROWS  6
 #endif
 
@@ -1222,9 +1222,9 @@ ValueAdjusters::widgets_t::widgets_t(draw_mode_t what) : _what(what) {
     cmd.clear(1,1,1);
 
     #if defined(USE_PORTRAIT_ORIENTATION)
-      BTN_TAG(1) THEME(back_btn)  BTN( BTN_POS(1,10), BTN_SIZE(6,1), F("Back"),           MENU_BTN_STYLE);
+      BTN_TAG(1) THEME(back_btn)  BTN( BTN_POS(1,10), BTN_SIZE(13,1), F("Back"),           MENU_BTN_STYLE);
     #else
-      BTN_TAG(1) THEME(back_btn)  BTN( BTN_POS(8,6),  BTN_SIZE(2,1), F("Back"),           MENU_BTN_STYLE);
+      BTN_TAG(1) THEME(back_btn)  BTN( BTN_POS(15,6),  BTN_SIZE(4,1), F("Back"),           MENU_BTN_STYLE);
     #endif
   }
   _line = 1;
@@ -1235,9 +1235,9 @@ void ValueAdjusters::widgets_t::heading(const char *label) {
 
   if(_what & BACKGROUND) {
     #if defined(USE_PORTRAIT_ORIENTATION)
-      BTN_TAG(0) THEME(background) BTN( BTN_POS(1, _line),  BTN_SIZE(6,1), (progmem_str) label, FONT_MED, OPT_FLAT);
+      BTN_TAG(0) THEME(background) BTN( BTN_POS(1, _line),  BTN_SIZE(12,1), (progmem_str) label, FONT_MED, OPT_FLAT);
     #else
-      BTN_TAG(0) THEME(background) BTN( BTN_POS(3, _line),  BTN_SIZE(4,1), (progmem_str) label, FONT_MED, OPT_FLAT);
+      BTN_TAG(0) THEME(background) BTN( BTN_POS(5, _line),  BTN_SIZE(8,1), (progmem_str) label, FONT_MED, OPT_FLAT);
     #endif
   }
 
@@ -1281,13 +1281,13 @@ void ValueAdjusters::widgets_t::_draw_increment_btn(uint8_t line, const uint8_t 
   BTN_TAG(tag)
   switch(pos) {
     #if defined(USE_PORTRAIT_ORIENTATION)
-      case 0: BTN( BTN_POS(3,_line), BTN_SIZE(1,1), progmem_str(label), FONT_SML, OPT_3D); break;
-      case 1: BTN( BTN_POS(4,_line), BTN_SIZE(1,1), progmem_str(label), FONT_SML, OPT_3D); break;
-      case 2: BTN( BTN_POS(5,_line), BTN_SIZE(1,1), progmem_str(label), FONT_SML, OPT_3D); break;
+      case 0: BTN( BTN_POS(5,_line), BTN_SIZE(2,1), progmem_str(label), FONT_SML, OPT_3D); break;
+      case 1: BTN( BTN_POS(7,_line), BTN_SIZE(2,1), progmem_str(label), FONT_SML, OPT_3D); break;
+      case 2: BTN( BTN_POS(9,_line), BTN_SIZE(2,1), progmem_str(label), FONT_SML, OPT_3D); break;
     #else
-      case 0: BTN( BTN_POS(8,2), BTN_SIZE(2,1), progmem_str(label), FONT_MED, OPT_3D); break;
-      case 1: BTN( BTN_POS(8,3), BTN_SIZE(2,1), progmem_str(label), FONT_MED, OPT_3D); break;
-      case 2: BTN( BTN_POS(8,4), BTN_SIZE(2,1), progmem_str(label), FONT_MED, OPT_3D); break;
+      case 0: BTN( BTN_POS(15,2), BTN_SIZE(4,1), progmem_str(label), FONT_MED, OPT_3D); break;
+      case 1: BTN( BTN_POS(15,3), BTN_SIZE(4,1), progmem_str(label), FONT_MED, OPT_3D); break;
+      case 2: BTN( BTN_POS(15,4), BTN_SIZE(4,1), progmem_str(label), FONT_MED, OPT_3D); break;
     #endif
   }
 }
@@ -1297,9 +1297,9 @@ void ValueAdjusters::widgets_t::increments() {
 
   if(_what & BACKGROUND) {
     #if defined(USE_PORTRAIT_ORIENTATION)
-      BTN_TAG(0) THEME(background) BTN( BTN_POS(1, _line), BTN_SIZE(2,1), F("Increment:"),  FONT_SML, OPT_FLAT);
+      BTN_TAG(0) THEME(background) BTN( BTN_POS(1, _line), BTN_SIZE(4,1), F("Increment:"),  FONT_SML, OPT_FLAT);
     #else
-      BTN_TAG(0) THEME(background) BTN( BTN_POS(8,1),      BTN_SIZE(2,1), F("Increment"),   FONT_MED, OPT_FLAT);
+      BTN_TAG(0) THEME(background) BTN( BTN_POS(15,1),     BTN_SIZE(4,1), F("Increment"),   FONT_MED, OPT_FLAT);
     #endif
 
     // Draw all the buttons in the off state.
@@ -1326,10 +1326,10 @@ void ValueAdjusters::widgets_t::adjuster(uint8_t tag, const char *label,float va
 
   if(_what & BACKGROUND) {
     progmem_str   str  = (progmem_str) label;
-    BTN_TAG( 0     ) RGB(_color)       BTN( BTN_POS(3,_line), BTN_SIZE(2,1), F(""),  FONT_SML, OPT_FLAT);
-    BTN_TAG( 0     ) THEME(background) BTN( BTN_POS(1,_line), BTN_SIZE(2,1), str,    FONT_SML, OPT_FLAT);
-    BTN_TAG(tag    ) BTN_ENABLED(1)    BTN( BTN_POS(5,_line), BTN_SIZE(1,1), F("-"), FONT_MED, OPT_3D);
-    BTN_TAG(tag + 1) BTN_ENABLED(1)    BTN( BTN_POS(6,_line), BTN_SIZE(1,1), F("+"), FONT_MED, OPT_3D);
+    BTN_TAG( 0     ) RGB(_color)       BTN( BTN_POS(5,_line),  BTN_SIZE(5,1),  F(""),  FONT_SML, OPT_FLAT);
+    BTN_TAG( 0     ) THEME(background) BTN( BTN_POS(1,_line),  BTN_SIZE(4,1),  str,    FONT_SML, OPT_FLAT);
+    BTN_TAG(tag    ) BTN_ENABLED(1)    BTN( BTN_POS(10,_line), BTN_SIZE(2,1),  F("-"), FONT_MED, OPT_3D);
+    BTN_TAG(tag + 1) BTN_ENABLED(1)    BTN( BTN_POS(12,_line), BTN_SIZE(2,1),  F("+"), FONT_MED, OPT_3D);
   }
 
   if(_what & FOREGROUND) {
@@ -1340,7 +1340,7 @@ void ValueAdjusters::widgets_t::adjuster(uint8_t tag, const char *label,float va
     strcat_P(b, (const char*) _units);
 
     BTN_TAG(0)
-    BTX( BTN_POS(3,_line), BTN_SIZE(2,1), b, FONT_SML);
+    BTX( BTN_POS(5,_line), BTN_SIZE(5,1), b, FONT_SML);
   }
 
   _line++;
@@ -1485,7 +1485,7 @@ void StepsScreen::onRedraw(draw_mode_t what) {
 
   widgets_t w(what);
   w.precision(0);
-  w.units(PSTR(""));
+  w.units(PSTR("st/mm"));
 
   w.heading(                               PSTR("Steps/mm"));
   w.color(Theme::x_axis); w.adjuster(   2, PSTR("X:"),  getAxisSteps_per_mm(X) );
@@ -1592,9 +1592,9 @@ void VelocityScreen::onRedraw(draw_mode_t what) {
 
   widgets_t w(what);
   w.precision(0);
-  w.units(PSTR(""));
+  w.units(PSTR("mm/s"));
 
-  w.heading(                               PSTR("mm/s"));
+  w.heading(                               PSTR("Velocity"));
   w.color(Theme::x_axis); w.adjuster(   2, PSTR("X:"),  getAxisMaxFeedrate_mm_s(X) );
   w.color(Theme::y_axis); w.adjuster(   4, PSTR("Y:"),  getAxisMaxFeedrate_mm_s(Y) );
   w.color(Theme::z_axis); w.adjuster(   6, PSTR("Z:"),  getAxisMaxFeedrate_mm_s(Z) );
@@ -1642,9 +1642,9 @@ void AccelerationScreen::onRedraw(draw_mode_t what) {
 
   widgets_t w(what);
   w.precision(0);
-  w.units(PSTR(""));
+  w.units(PSTR("mm/s^2"));
 
-  w.heading(                               PSTR("mm/s^2"));
+  w.heading(                               PSTR("Max Acceleration"));
   w.color(Theme::x_axis); w.adjuster(   2, PSTR("X:"),  getAxisMaxAcceleration_mm_s2(X) );
   w.color(Theme::y_axis); w.adjuster(   4, PSTR("Y:"),  getAxisMaxAcceleration_mm_s2(Y) );
   w.color(Theme::z_axis); w.adjuster(   6, PSTR("Z:"),  getAxisMaxAcceleration_mm_s2(Z) );
@@ -1692,9 +1692,9 @@ void JerkScreen::onRedraw(draw_mode_t what) {
 
   widgets_t w(what);
   w.precision(1);
-  w.units(PSTR(""));
+  w.units(PSTR("mm/s"));
 
-  w.heading(                               PSTR("mm/s"));
+  w.heading(                             PSTR("Max Jerk"));
   w.color(Theme::x_axis); w.adjuster( 2, PSTR("X:"),  getAxisMaxJerk_mm_s(X) );
   w.color(Theme::y_axis); w.adjuster( 4, PSTR("Y:"),  getAxisMaxJerk_mm_s(Y) );
   w.color(Theme::z_axis); w.adjuster( 6, PSTR("Z:"),  getAxisMaxJerk_mm_s(Z) );
