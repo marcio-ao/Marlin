@@ -154,6 +154,10 @@
   #include "feature/controllerfan.h"
 #endif
 
+#if ENABLED(EXTENSIBLE_UI)
+  #include "lcd/extensible_ui/ui_api.h"
+#endif
+
 bool Running = true;
 
 /**
@@ -577,7 +581,9 @@ void kill(const char* lcd_msg) {
   thermalManager.disable_all_heaters();
   disable_all_steppers();
 
-  #if ENABLED(ULTRA_LCD)
+  #if ENABLED(EXTENSIBLE_UI)
+    Extensible_UI_API::onPrinterKilled(lcd_msg);
+  #elif ENABLED(ULTRA_LCD)
     kill_screen(lcd_msg);
   #else
     UNUSED(lcd_msg);
