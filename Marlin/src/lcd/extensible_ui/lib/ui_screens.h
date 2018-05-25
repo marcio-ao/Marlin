@@ -24,6 +24,7 @@
 #define _UI_SCREENS_
 
 #include "ui_framework.h"
+#include "ui_dl_cache.h"
 
 typedef const __FlashStringHelper *progmem_str;
 
@@ -61,12 +62,13 @@ enum {
 class UncachedScreen {
   public:
     static void onRefresh(){
+      using namespace FTDI;
       CLCD::CommandFifo cmd;
       cmd.cmd(CMD_DLSTART);
 
       current_screen.onRedraw(BOTH);
 
-      cmd.cmd(DL_DISPLAY);
+      cmd.cmd(DL::DL_DISPLAY);
       cmd.cmd(CMD_SWAP);
       cmd.execute();
     }
@@ -76,12 +78,13 @@ template<uint8_t DL_SLOT,uint32_t DL_SIZE = 0>
 class CachedScreen {
   protected:
     static bool storeBackground(){
-      CLCD::DLCache dlcache(DL_SLOT);
+      DLCache dlcache(DL_SLOT);
       return dlcache.store(DL_SIZE);
     }
 
     static void repaintBackground(){
-      CLCD::DLCache dlcache(DL_SLOT);
+      using namespace FTDI;
+      DLCache dlcache(DL_SLOT);
       CLCD::CommandFifo cmd;
 
       cmd.cmd(CMD_DLSTART);
@@ -92,7 +95,8 @@ class CachedScreen {
 
   public:
     static void onRefresh(){
-      CLCD::DLCache dlcache(DL_SLOT);
+      using namespace FTDI;
+      DLCache dlcache(DL_SLOT);
       CLCD::CommandFifo cmd;
 
       cmd.cmd(CMD_DLSTART);
@@ -106,7 +110,7 @@ class CachedScreen {
 
       current_screen.onRedraw(FOREGROUND);
 
-      cmd.cmd(DL_DISPLAY);
+      cmd.cmd(DL::DL_DISPLAY);
       cmd.cmd(CMD_SWAP);
       cmd.execute();
     }
@@ -164,17 +168,11 @@ class ConfirmAbortPrint : public DialogBoxBaseClass {
 
 class StatusScreen : public UIScreen, public CachedScreen<STATUS_SCREEN_CACHE,STATUS_SCREEN_DL_SIZE> {
   private:
-    static void static_axis_position();
-    static void static_temperature();
-    static void static_progress();
-    static void static_media_button();
-    static void static_interaction_buttons();
-    static void static_status_message(const char * const message);
-
-    static void dynamic_axis_position();
-    static void dynamic_temperature();
-    static void dynamic_progress();
-    static void dynamic_interaction_buttons();
+    static void draw_axis_position(draw_mode_t what);
+    static void draw_temperature(draw_mode_t what);
+    static void draw_progress(draw_mode_t what);
+    static void draw_interaction_buttons(draw_mode_t what);
+    static void draw_status_message(draw_mode_t what, const char * const message);
 
   public:
     static void setStatusMessage(const char * message);
@@ -233,9 +231,10 @@ class ValueAdjusters : public UIScreen {
 
       public:
         widgets_t(draw_mode_t what);
-        void color(uint32_t color);
-        void units(const char *units);
-        void precision(uint8_t decimals);
+
+        inline widgets_t &color(uint32_t color)       {_color = color; return *this;}
+        inline widgets_t &units(const char *units)    {_units = units; return *this;}
+        inline widgets_t &precision(uint8_t decimals) {_decimals = decimals; return *this;}
 
         void heading(const char *label);
         void adjuster(uint8_t tag, const char *label, float value=0);
@@ -309,6 +308,14 @@ class FilesScreen : public UIScreen, public CachedScreen<FILES_SCREEN_CACHE> {
     static void onEntry();
     static void onRedraw(draw_mode_t what);
     static bool onTouchStart(uint8_t tag);
+};
+
+class WidgetsScreen : public UIScreen, public UncachedScreen {
+  public:
+    static void onEntry();
+    static void onRedraw(draw_mode_t what);
+    static bool onTouchStart(uint8_t tag);
+    static void onIdle();
 };
 
 #endif // _UI_SCREENS_

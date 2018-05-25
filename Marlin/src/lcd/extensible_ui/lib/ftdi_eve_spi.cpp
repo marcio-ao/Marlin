@@ -29,8 +29,6 @@
 #include "ftdi_eve_constants.h"
 #include "ftdi_eve_functions.h"
 
-#define MULTIPLE_OF_4(val) ((((val)+3)>>2)<<2)
-
 /*************************** I/O COMPATIBILITY ******************************/
 
 // The following functions allow this code to be used outside of Marlin (i.e.
@@ -245,7 +243,6 @@ uint32_t CLCD::mem_read_32 (uint32_t reg_address) {
   return r_data;
 }
 
-
 // MEMORY WRITE FUNCTIONS
 
  // Write 3-Byte Address
@@ -312,168 +309,6 @@ void CLCD::mem_write_32 (uint32_t reg_address, uint32_t w_data) {
   spi_send(w_data >> 16);
   spi_send(w_data >> 24);
   spi_deselect();
-}
-
-/**************************** FT800/810 Co-Processor Command FIFO ****************************/
-
-uint32_t CLCD::CommandFifo::get_reg_cmd_write() {
-  return mem_read_32(REG_CMD_WRITE) & 0x0FFF;
-}
-
-uint32_t CLCD::CommandFifo::get_reg_cmd_read() {
-  return mem_read_32(REG_CMD_READ) & 0x0FFF;
-}
-
-bool CLCD::CommandFifo::is_idle() {
-  return get_reg_cmd_read() == get_reg_cmd_write();
-}
-
-void CLCD::CommandFifo::wait_until_idle() {
-  #if defined(UI_FRAMEWORK_DEBUG)
-    const uint32_t startTime = millis();
-  #endif
-  do {
-    #if defined(UI_FRAMEWORK_DEBUG)
-      if(millis() - startTime > 3) {
-        #if defined (SERIAL_PROTOCOLLNPGM)
-          SERIAL_PROTOCOLLNPGM("Timeout on CommandFifo::Wait_Until_Idle()");
-        #else
-          Serial.println(F("Timeout on CommandFifo::Wait_Until_Idle()"));
-        #endif
-        break;
-      }
-    #endif
-  } while(!is_idle());
-}
-
-#if defined(USE_FTDI_FT800)
-void CLCD::CommandFifo::start() {
-  if(command_write_ptr == 0xFFFFFFFFul) {
-    command_write_ptr = get_reg_cmd_write();
-  }
-}
-
-void CLCD::CommandFifo::execute() {
-  if(command_write_ptr != 0xFFFFFFFFul) {
-    mem_write_32(REG_CMD_WRITE, command_write_ptr);
-  }
-}
-
-void CLCD::CommandFifo::reset() {
-  mem_write_32(REG_CMD_WRITE, 0x00000000);
-  mem_write_32(REG_CMD_READ,  0x00000000);
-  command_write_ptr = 0xFFFFFFFFul;
-};
-
-template <class T> void CLCD::CommandFifo::_write_unaligned(T data, uint16_t len) {
-  const char *ptr = (const char*)data;
-  uint32_t bytes_tail, bytes_head;
-  uint32_t command_read_ptr;
-
-  #if defined(UI_FRAMEWORK_DEBUG)
-  if(command_write_ptr == 0xFFFFFFFFul) {
-    #if defined (SERIAL_PROTOCOLLNPGM)
-      SERIAL_PROTOCOLLNPGM("Attempt to write to FIFO before CommandFifo::Cmd_Start().");
-    #else
-      Serial.println(F("Attempt to write to FIFO before CommandFifo::Cmd_Start()."));
-    #endif
-  }
-  #endif
-
-  /* Wait until there is enough space in the circular buffer for the transfer */
-  do {
-    command_read_ptr = get_reg_cmd_read();
-    if (command_read_ptr <= command_write_ptr) {
-      bytes_tail = 4096U - command_write_ptr;
-      bytes_head = command_read_ptr;
-    } else {
-      bytes_tail = command_read_ptr - command_write_ptr;
-      bytes_head = 0;
-    }
-  } while((bytes_tail + bytes_head) < len);
-
-  /* Write as many bytes as possible following REG_CMD_WRITE */
-  uint16_t bytes_to_write = min(len, bytes_tail);
-  mem_write_bulk (RAM_CMD + command_write_ptr, T(ptr), bytes_to_write);
-  command_write_ptr += bytes_to_write;
-  ptr  += bytes_to_write;
-  len  -= bytes_to_write;
-
-  if(len > 0) {
-    /* Write remaining bytes at start of circular buffer */
-    mem_write_bulk (RAM_CMD, T(ptr), len);
-    command_write_ptr = len;
-  }
-
-  if(command_write_ptr == 4096U) {
-    command_write_ptr = 0;
-  }
-}
-
-// Writes len bytes into the FIFO, if len is not
-// divisible by four, zero bytes will be written
-// to align to the boundary.
-
-template <class T> void CLCD::CommandFifo::write(T data, uint16_t len) {
-  const uint8_t padding = MULTIPLE_OF_4(len) - len;
-
-  uint8_t pad_bytes[] = {0, 0, 0, 0};
-  _write_unaligned(data,      len);
-  _write_unaligned(pad_bytes, padding);
-}
-#else
-uint32_t CLCD::CommandFifo::getRegCmdBSpace() {
-  return mem_read_32(REG_CMDB_SPACE)  & 0x0FFF;
-}
-
-void CLCD::CommandFifo::start() {
-}
-
-void CLCD::CommandFifo::execute() {
-}
-
-void CLCD::CommandFifo::reset() {
-  mem_write_32(REG_CMD_WRITE, 0x00000000);
-  mem_write_32(REG_CMD_READ,  0x00000000);
-};
-
-// Writes len bytes into the FIFO, if len is not
-// divisible by four, zero bytes will be written
-// to align to the boundary.
-
-template <class T> void CLCD::CommandFifo::write(T data, uint16_t len) {
-  const uint8_t padding = MULTIPLE_OF_4(len) - len;
-
-  // The FT810 provides a special register that can be used
-  // for writing data without us having to do our own FIFO
-  // management.
-  uint32_t Command_Space = getRegCmdBSpace();
-  while(Command_Space < len + padding) {
-    Command_Space = getRegCmdBSpace();
-  }
-  mem_write_bulk(REG_CMDB_WRITE, data, len, padding);
-}
-#endif
-
-// CO_PROCESSOR COMMANDS
-
-// Writes a 32-bit (4 Bytes) Value to the Co-processor Command Buffer FIFO
-void CLCD::CommandFifo::cmd (uint32_t cmd32) {
-  write(&cmd32, sizeof(uint32_t));
-}
-
-// Writes a data structure - always a multiple of 32 bits - to the Co_Processor FIFO.
-// Data structure includes the 32-bit Co_Processor command.
-void CLCD::CommandFifo::cmd (void* data, uint16_t len) {
-  write(data, len);
-}
-
-void CLCD::CommandFifo::str (const char * const data) {
-  write(data, strlen(data)+1);
-}
-
-void CLCD::CommandFifo::str (progmem_str data) {
-  write(data, strlen_P((const char*)data)+1);
 }
 
 #endif // EXTENSIBLE_UI
