@@ -851,7 +851,7 @@ void TuneScreen::onRedraw(draw_mode_t what) {
       #endif
                                .button( BTN_POS(1,3), BTN_SIZE(2,1), F("Z Offset"))
        .tag(5).enabled(1)      .button( BTN_POS(1,4), BTN_SIZE(2,1), F("Print Speed"))
-       .tag(1).THEME(back_btn) .button( BTN_POS(1,5), BTN_SIZE(2,1), F("Back"))
+       .tag(1).THEME(back_btn) .button( BTN_POS(1,5), BTN_SIZE(2,1), F("Back"));
       #undef GRID_COLS
       #undef GRID_ROWS
     #else
