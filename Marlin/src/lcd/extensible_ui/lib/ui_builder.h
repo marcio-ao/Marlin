@@ -107,39 +107,39 @@
 
 class CommandProcessor : public CLCD::CommandFifo {
   private:
-    int16_t  _font    = 26;
+    typedef bool btn_style_func_t(uint8_t tag, uint8_t &style, uint16_t &options, bool post);
+
+    static btn_style_func_t  *_btn_style_callback;
+    int8_t  _font = 26, _tag = 0;
+    uint8_t _style = 0;
+
+  protected:
+    enum {
+      STYLE_DISABLED = 0x01
+    };
 
   public:
+    inline CommandProcessor& set_button_style_callback(const btn_style_func_t *func) {_btn_style_callback = func; return *this;}
+
     inline CommandProcessor& cmd     (uint32_t cmd32)           {CLCD::CommandFifo::cmd(cmd32); return *this;}
     inline CommandProcessor& cmd     (void* data, uint16_t len) {CLCD::CommandFifo::cmd(data, len); return *this;}
 
     inline CommandProcessor& fgcolor (uint32_t rgb)             {cmd(FTDI::CMD_FGCOLOR); cmd(rgb); return *this;}
     inline CommandProcessor& bgcolor (uint32_t rgb)             {cmd(FTDI::CMD_BGCOLOR); cmd(rgb); return *this;}
-    inline CommandProcessor& tag     (uint8_t  tag)             {cmd(FTDI::TAG(tag)); return *this;}
+    inline CommandProcessor& tag     (uint8_t  tag)             {_tag = tag; cmd(FTDI::TAG(tag)); return *this;}
 
     inline CommandProcessor& font    (int16_t  font)            {_font = font; return *this;}
 
-    template<class style>
-    inline CommandProcessor& enabled(bool enabled) {
-      using namespace FTDI;
-      if(enabled) {
-        cmd(COLOR_RGB(style::rgb_enabled))
-           .fgcolor(style::fg_enabled);
-      } else {
-        cmd(COLOR_RGB(style::rgb_disabled))
-           .fgcolor(style::fg_disabled)
-           .cmd(TAG(0));
-      }
-      return *this;
-    }
+    inline CommandProcessor& enabled (bool enabled)             {if(!enabled) _style |= STYLE_DISABLED; else _style &= ~STYLE_DISABLED; return *this;}
+    inline CommandProcessor& style   (uint8_t style)            {_style = style; return *this;}
 
     template<typename T>
     FORCEDINLINE CommandProcessor& toggle(int16_t x, int16_t y, int16_t w, int16_t h, T text, bool state, uint16_t options = FTDI::OPT_3D) {
       FontMetrics fm;
       CLCD::get_font_metrics(_font, fm);
       const int16_t widget_h    = fm.height * 20.0/16;
-      const int16_t outer_bar_r = widget_h / 2;
-      const int16_t knob_r      = outer_bar_r - 1.5;
+      //const int16_t outer_bar_r = widget_h / 2;
+      //const int16_t knob_r      = outer_bar_r - 1.5;
       // The y coordinate of the toggle is the baseline of the text,
       // so we must introduce a fudge factor based on the line height to
       // actually center the control.
@@ -219,8 +219,12 @@ class CommandProcessor : public CLCD::CommandFifo {
 
     template<typename T>
     CommandProcessor& button(int16_t x, int16_t y, int16_t w, int16_t h, T text, uint16_t options = FTDI::OPT_3D) {
+      using namespace FTDI;
+      bool styleModified = false;
+      if(_btn_style_callback) styleModified = _btn_style_callback(_tag, _style, options, false);
       CLCD::CommandFifo::button(x, y, w, h, _font, options);
       CLCD::CommandFifo::str(text);
+      if(_btn_style_callback && styleModified) _btn_style_callback(_tag, _style, options, true);
       return *this;
     }
 

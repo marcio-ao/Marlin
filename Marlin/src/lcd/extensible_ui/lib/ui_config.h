@@ -78,4 +78,7 @@
 //#define USE_PORTRAIT_ORIENTATION
 //#define USE_MIRRORED_ORIENTATION
 
+// Enable this to debug the event framework
+#define UI_FRAMEWORK_DEBUG
+
 #endif // _UI_CONFIG_H_

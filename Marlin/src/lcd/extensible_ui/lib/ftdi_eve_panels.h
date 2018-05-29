@@ -87,7 +87,7 @@ namespace FTDI_FT800CB {
   const bool Use_Crystal              =  true; // 0 = use internal oscillator, 1 = module has a crystal populated
   const bool GPIO_1_Audio_Shutdown    = false;
 
-  const uint16_t touch_threshold      =  2000; /* touch-sensitivity */
+  const uint16_t touch_threshold      =  1200; /* touch-sensitivity */
   const uint32_t default_transform_a  =  0x00008100;
   const uint32_t default_transform_b  =  0x00000000;
   const uint32_t default_transform_c  =  0xFFF18000;

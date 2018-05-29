@@ -41,8 +41,7 @@ using namespace FTDI;
 #define N_ELEMENTS(a) (sizeof(a)/sizeof(a[0]))
 
 #define THEME(t) fgcolor(Theme::t)
-#define BTN_EN_THEME(en, theme) enabled<Theme::theme ## _btn>(en)
-#define BTN_ENABLED(en)         enabled<Theme::default_btn>(en)
+#define BTN_EN_THEME(en, theme) enabled(en)
 
 /****************************** SCREEN STATIC DATA *************************/
 
@@ -83,6 +82,62 @@ SCREEN_TABLE {
 };
 
 SCREEN_TABLE_POST
+
+/****************** BUTTON HIGHTLIGHTING ROUTINE ***********************/
+
+enum {
+  STYLE_DISABLED = 0x01,
+  STYLE_RED_BTN  = 0x02
+};
+
+void UIScreenWithStyles::onEntry() {
+  CommandProcessor cmd;
+  cmd.set_button_style_callback(buttonStyleCallback);
+  UIScreen::onEntry();
+}
+
+bool UIScreenWithStyles::buttonStyleCallback(uint8_t tag, uint8_t &style, uint16_t &options, bool post) {
+  using namespace FTDI;
+  CommandProcessor cmd;
+
+  if(post) {
+    default_button_colors();
+    return false;
+  }
+
+  if(tag != 0 && get_pressed_tag() == tag) {
+    options = OPT_FLAT;
+    return false;
+  }
+
+  if(style & STYLE_RED_BTN) {
+    if(style & STYLE_DISABLED) {
+      cmd.cmd(COLOR_RGB(Theme::red_btn::rgb_disabled))
+         .fgcolor(Theme::red_btn::fg_disabled)
+         .tag(0);
+      style &= ~STYLE_DISABLED; // Clear the disabled flag
+    } else {
+      cmd.cmd(COLOR_RGB(Theme::red_btn::rgb_enabled))
+         .fgcolor(Theme::red_btn::fg_enabled);
+    }
+    return true;              // Call me again to reset the colors
+  }
+
+  if(style & STYLE_DISABLED) {
+    cmd.cmd(COLOR_RGB(Theme::default_btn::rgb_disabled))
+       .fgcolor(Theme::default_btn::fg_disabled)
+       .tag(0);
+    style &= ~STYLE_DISABLED; // Clear the disabled flag
+    return true;              // Call me again to reset the colors
+  }
+}
+
+void UIScreenWithStyles::default_button_colors() {
+  using namespace FTDI;
+  CommandProcessor cmd;
+  cmd.cmd(COLOR_RGB(Theme::default_btn::rgb_enabled))
+     .fgcolor(Theme::default_btn::fg_enabled);
+}
 
 /******************************** BOOT SCREEN ****************************/
 
@@ -126,13 +181,13 @@ void AboutScreen::onRedraw(draw_mode_t what) {
   cmd       .font(Theme::font_large) .text(  BTN_POS(1,2), BTN_SIZE(4,1), F("Color Touch Panel"))
      .tag(2).font(Theme::font_medium).text(  BTN_POS(1,3), BTN_SIZE(4,1), F("(c) 2018 Aleph Objects, Inc."))
                                      .text(  BTN_POS(1,5), BTN_SIZE(4,1), getFirmwareName())
-     .tag(1).BTN_ENABLED(1)          .button(BTN_POS(2,7), BTN_SIZE(2,1), F("Okay"));
+     .tag(1)                         .button(BTN_POS(2,7), BTN_SIZE(2,1), F("Okay"));
 
   #undef GRID_COLS
   #undef GRID_ROWS
 }
 
-bool AboutScreen::onTouchStart(uint8_t tag) {
+bool AboutScreen::onTouchEnd(uint8_t tag) {
   switch(tag) {
     case 1:        GOTO_PREVIOUS();                         return true;
     case 2:        GOTO_SCREEN(CalibrationRegistersScreen); return true;
@@ -162,19 +217,19 @@ void DialogBoxBaseClass::drawDialog(const progmem_str lines[], size_t n_lines, p
 
   cmd.font(Theme::font_medium);
   if(btn1 && btn2) {
-    cmd.tag(1).BTN_ENABLED(1).button( BTN_POS(1,8), BTN_SIZE(1,1), btn1);
-    cmd.tag(2).BTN_ENABLED(1).button( BTN_POS(2,8), BTN_SIZE(1,1), btn2);
+    cmd.tag(1).button( BTN_POS(1,8), BTN_SIZE(1,1), btn1);
+    cmd.tag(2).button( BTN_POS(2,8), BTN_SIZE(1,1), btn2);
   } else if(btn1) {
-    cmd.tag(1).BTN_ENABLED(1).button( BTN_POS(1,8), BTN_SIZE(2,1), btn1);
+    cmd.tag(1).button( BTN_POS(1,8), BTN_SIZE(2,1), btn1);
   } else if(btn2) {
-    cmd.tag(2).BTN_ENABLED(1).button( BTN_POS(1,8), BTN_SIZE(2,1), btn2);
+    cmd.tag(2).button( BTN_POS(1,8), BTN_SIZE(2,1), btn2);
   }
 
   #undef GRID_COLS
   #undef GRID_ROWS
 }
 
-bool DialogBoxBaseClass::onTouchStart(uint8_t tag) {
+bool DialogBoxBaseClass::onTouchEnd(uint8_t tag) {
   switch(tag) {
     case 1: GOTO_PREVIOUS(); return true;
     case 2: GOTO_PREVIOUS(); return true;
@@ -225,7 +280,7 @@ void RestoreFailsafeScreen::onRedraw(draw_mode_t what) {
   }
 }
 
-bool RestoreFailsafeScreen::onTouchStart(uint8_t tag) {
+bool RestoreFailsafeScreen::onTouchEnd(uint8_t tag) {
   using namespace Extensible_UI_API;
 
   switch(tag) {
@@ -237,7 +292,7 @@ bool RestoreFailsafeScreen::onTouchStart(uint8_t tag) {
       current_screen.forget();
       return true;
     default:
-      return DialogBoxBaseClass::onTouchStart(tag);
+      return DialogBoxBaseClass::onTouchEnd(tag);
   }
 }
 
@@ -253,7 +308,7 @@ void ConfirmAbortPrint::onRedraw(draw_mode_t what) {
   }
 }
 
-bool ConfirmAbortPrint::onTouchStart(uint8_t tag) {
+bool ConfirmAbortPrint::onTouchEnd(uint8_t tag) {
   using namespace Extensible_UI_API;
 
   switch(tag) {
@@ -269,7 +324,7 @@ bool ConfirmAbortPrint::onTouchStart(uint8_t tag) {
       stopPrint();
       return true;
     default:
-      return DialogBoxBaseClass::onTouchStart(tag);
+      return DialogBoxBaseClass::onTouchEnd(tag);
   }
 }
 
@@ -532,23 +587,17 @@ void StatusScreen::draw_progress(draw_mode_t what) {
 
 void StatusScreen::draw_interaction_buttons(draw_mode_t what) {
   CommandProcessor cmd;
+  default_button_colors();
 
   #define GRID_COLS 4
 
   if(what & BACKGROUND) {
-    cmd.font(Theme::font_medium)
-    #if defined(USE_PORTRAIT_ORIENTATION)
-       .tag(4).BTN_ENABLED(1).button( BTN_POS(3,9), BTN_SIZE(2,1), F("MENU"));
-      #else
-       .tag(4).BTN_ENABLED(1).button( BTN_POS(4,7), BTN_SIZE(1,2), F("MENU"));
-    #endif
-
     using namespace Extensible_UI_API;
 
     // Draw the media icon
 
     if(isMediaInserted()) {
-      cmd.tag(3).BTN_ENABLED(1);
+      cmd.tag(3);
     } else {
       cmd.tag(0)
          .cmd(COLOR_RGB(Theme::status_bg))
@@ -578,27 +627,26 @@ void StatusScreen::draw_interaction_buttons(draw_mode_t what) {
        .icon  (BTN_POS(3,7), BTN_SIZE(1,2), TD_Icon_Info, Theme::icon_scale);
     #endif
 
-    cmd.BTN_ENABLED(1); // Reset colors
+    cmd.cmd(COLOR_RGB(0xFFFFFF)).fgcolor(Theme::default_btn::fg_enabled); // Reset foreground color
   }
 
   if(what & FOREGROUND) {
     using namespace Extensible_UI_API;
     CommandProcessor cmd;
-
-    if(isPrintingFromMedia()) {
-      cmd.tag(1)
-         .THEME(stop_btn);
-    } else {
-      cmd.tag(0)
-         .cmd(COLOR_RGB(Theme::status_bg))
-         .THEME(status_bg);
-    }
-
-    cmd.font(Theme::font_medium)
+    cmd
+       .font(Theme::font_medium)
+       .style(STYLE_RED_BTN)
+       .enabled(isPrintingFromMedia())
     #if defined(USE_PORTRAIT_ORIENTATION)
-       .button( BTN_POS(1,8), BTN_SIZE(4,1), F("STOP"));
+       .tag(1).button( BTN_POS(1,8), BTN_SIZE(4,1), F("STOP"))
     #else
-       .button( BTN_POS(1,7), BTN_SIZE(2,2), F("STOP"));
+       .tag(1).button( BTN_POS(1,7), BTN_SIZE(2,2), F("STOP"))
+    #endif
+       .style(0)
+      #if defined(USE_PORTRAIT_ORIENTATION)
+       .tag(4).button( BTN_POS(3,9), BTN_SIZE(2,1), F("MENU"));
+      #else
+       .tag(4).button( BTN_POS(4,7), BTN_SIZE(1,2), F("MENU"));
     #endif
   }
 
@@ -609,7 +657,6 @@ void StatusScreen::draw_status_message(draw_mode_t what, const char * const mess
   #define GRID_COLS 1
   if(what & BACKGROUND) {
     CommandProcessor cmd;
-
     cmd.THEME(status_msg)
        .tag(0)
        .font(Theme::font_large)
@@ -684,7 +731,7 @@ void StatusScreen::onIdle() {
   onRefresh();
 }
 
-bool StatusScreen::onTouchStart(uint8_t tag) {
+bool StatusScreen::onTouchEnd(uint8_t tag) {
   using namespace Extensible_UI_API;
 
   switch(tag) {
@@ -722,42 +769,47 @@ void MenuScreen::onRedraw(draw_mode_t what) {
   if(what & BACKGROUND) {
     CommandProcessor cmd;
     cmd.cmd(CLEAR_COLOR_RGB(Theme::background))
-       .cmd(CLEAR(true,true,true))
-       .font(Theme::font_medium)
+       .cmd(CLEAR(true,true,true));
+  }
+
+  if(what & FOREGROUND) {
+    CommandProcessor cmd;
+    default_button_colors();
+    cmd.font(Theme::font_medium)
     #if defined(USE_PORTRAIT_ORIENTATION)
       #define GRID_ROWS 7
       #define GRID_COLS 2
-        .tag(2).BTN_ENABLED(1).button( BTN_POS(1,1), BTN_SIZE(1,1), F("Auto Home"))
-        .tag(3).BTN_ENABLED(1).button( BTN_POS(2,1), BTN_SIZE(1,1), F("Level X Axis"))
-        .tag(4).BTN_ENABLED(1).button( BTN_POS(1,2), BTN_SIZE(1,1), F("Move Axis"))
-        .tag(5).BTN_ENABLED(1).button( BTN_POS(2,2), BTN_SIZE(1,1), F("Motors Off"))
-        .tag(6).BTN_ENABLED(1).button( BTN_POS(1,3), BTN_SIZE(2,1), F("Temperature"))
-        .tag(7).BTN_ENABLED(0).button( BTN_POS(1,4), BTN_SIZE(2,1), F("Change Filament"))
-        .tag(8).BTN_ENABLED(1).button( BTN_POS(1,5), BTN_SIZE(2,1), F("Advanced Settings"))
-        .tag(9).BTN_ENABLED(1).button( BTN_POS(1,6), BTN_SIZE(2,1), F("About Firmware"))
+        .tag(2).enabled(1).button( BTN_POS(1,1), BTN_SIZE(1,1), F("Auto Home"))
+        .tag(3).enabled(1).button( BTN_POS(2,1), BTN_SIZE(1,1), F("Level X Axis"))
+        .tag(4).enabled(1).button( BTN_POS(1,2), BTN_SIZE(1,1), F("Move Axis"))
+        .tag(5).enabled(1).button( BTN_POS(2,2), BTN_SIZE(1,1), F("Motors Off"))
+        .tag(6).enabled(1).button( BTN_POS(1,3), BTN_SIZE(2,1), F("Temperature"))
+        .tag(7).enabled(0).button( BTN_POS(1,4), BTN_SIZE(2,1), F("Change Filament"))
+        .tag(8).enabled(1).button( BTN_POS(1,5), BTN_SIZE(2,1), F("Advanced Settings"))
+        .tag(9).enabled(1).button( BTN_POS(1,6), BTN_SIZE(2,1), F("About Firmware"))
         .THEME(back_btn)
-        .tag(1).BTN_ENABLED(1).button( BTN_POS(1,7), BTN_SIZE(2,1), F("Back"));
+        .tag(1).enabled(1).button( BTN_POS(1,7), BTN_SIZE(2,1), F("Back"));
       #undef GRID_COLS
       #undef GRID_ROWS
     #else
       #define GRID_ROWS 5
       #define GRID_COLS 2
-        .tag(2).BTN_ENABLED(1).button( BTN_POS(1,1), BTN_SIZE(1,1), F("Auto Home"))
-        .tag(3).BTN_ENABLED(1).button( BTN_POS(2,1), BTN_SIZE(1,1), F("Level X Axis"))
-        .tag(4).BTN_ENABLED(1).button( BTN_POS(1,2), BTN_SIZE(1,1), F("Move Axis"))
-        .tag(5).BTN_ENABLED(1).button( BTN_POS(2,2), BTN_SIZE(1,1), F("Motors Off"))
-        .tag(6).BTN_ENABLED(1).button( BTN_POS(1,3), BTN_SIZE(1,1), F("Temperature"))
-        .tag(7).BTN_ENABLED(0).button( BTN_POS(2,3), BTN_SIZE(1,1), F("Change Filament"))
-        .tag(8).BTN_ENABLED(1).button( BTN_POS(1,4), BTN_SIZE(1,1), F("Advanced Settings"))
-        .tag(9).BTN_ENABLED(1).button( BTN_POS(2,4), BTN_SIZE(1,1), F("About Firmware"))
-        .tag(1).BTN_ENABLED(1).button( BTN_POS(1,5), BTN_SIZE(2,1), F("Back"));
+        .tag(2).enabled(1).button( BTN_POS(1,1), BTN_SIZE(1,1), F("Auto Home"))
+        .tag(3).enabled(1).button( BTN_POS(2,1), BTN_SIZE(1,1), F("Level X Axis"))
+        .tag(4).enabled(1).button( BTN_POS(1,2), BTN_SIZE(1,1), F("Move Axis"))
+        .tag(5).enabled(1).button( BTN_POS(2,2), BTN_SIZE(1,1), F("Motors Off"))
+        .tag(6).enabled(1).button( BTN_POS(1,3), BTN_SIZE(1,1), F("Temperature"))
+        .tag(7).enabled(0).button( BTN_POS(2,3), BTN_SIZE(1,1), F("Change Filament"))
+        .tag(8).enabled(1).button( BTN_POS(1,4), BTN_SIZE(1,1), F("Advanced Settings"))
+        .tag(9).enabled(1).button( BTN_POS(2,4), BTN_SIZE(1,1), F("About Firmware"))
+        .tag(1).enabled(1).button( BTN_POS(1,5), BTN_SIZE(2,1), F("Back"));
       #undef GRID_COLS
       #undef GRID_ROWS
     #endif
   }
 }
 
-bool MenuScreen::onTouchStart(uint8_t tag) {
+bool MenuScreen::onTouchEnd(uint8_t tag) {
   using namespace Extensible_UI_API;
 
   switch(tag) {
@@ -789,32 +841,32 @@ void TuneScreen::onRedraw(draw_mode_t what) {
     #if defined(USE_PORTRAIT_ORIENTATION)
       #define GRID_ROWS 5
       #define GRID_COLS 2
-       .tag(2).BTN_ENABLED(1)  .button( BTN_POS(1,1), BTN_SIZE(2,1), F("Temperature"))
-       .tag(3).BTN_ENABLED(0)  .button( BTN_POS(1,2), BTN_SIZE(2,1), F("Change Filament"))
+       .tag(2).enabled(1)  .button( BTN_POS(1,1), BTN_SIZE(2,1), F("Temperature"))
+       .tag(3).enabled(0)  .button( BTN_POS(1,2), BTN_SIZE(2,1), F("Change Filament"))
        .tag(4)
       #if HAS_BED_PROBE
-        .BTN_ENABLED(1)
+        .enabled(1)
       #else
-        .BTN_ENABLED(0)
+        .enabled(0)
       #endif
                                .button( BTN_POS(1,3), BTN_SIZE(2,1), F("Z Offset"))
-       .tag(5).BTN_ENABLED(1)  .button( BTN_POS(1,4), BTN_SIZE(2,1), F("Print Speed"))
+       .tag(5).enabled(1)      .button( BTN_POS(1,4), BTN_SIZE(2,1), F("Print Speed"))
        .tag(1).THEME(back_btn) .button( BTN_POS(1,5), BTN_SIZE(2,1), F("Back"))
       #undef GRID_COLS
       #undef GRID_ROWS
     #else
       #define GRID_ROWS 3
       #define GRID_COLS 2
-       .tag(2).BTN_ENABLED(1)  .button( BTN_POS(1,1), BTN_SIZE(1,1), F("Temperature"))
-       .tag(3).BTN_ENABLED(0)  .button( BTN_POS(1,2), BTN_SIZE(1,1), F("Change Filament"))
+       .tag(2).enabled(1)      .button( BTN_POS(1,1), BTN_SIZE(1,1), F("Temperature"))
+       .tag(3).enabled(0)      .button( BTN_POS(1,2), BTN_SIZE(1,1), F("Change Filament"))
        .tag(4)
       #if HAS_BED_PROBE
-       .BTN_ENABLED(1)
+       .enabled(1)
       #else
-       .BTN_ENABLED(0)
+       .enabled(0)
       #endif
                                .button( BTN_POS(2,1), BTN_SIZE(1,1), F("Z Offset"))
-       .tag(5).BTN_ENABLED(1)  .button( BTN_POS(2,2), BTN_SIZE(1,1), F("Print Speed"))
+       .tag(5).enabled(1)      .button( BTN_POS(2,2), BTN_SIZE(1,1), F("Print Speed"))
        .tag(1).THEME(back_btn) .button( BTN_POS(1,3), BTN_SIZE(2,1), F("Back"));
       #undef GRID_COLS
       #undef GRID_ROWS
@@ -822,7 +874,7 @@ void TuneScreen::onRedraw(draw_mode_t what) {
   }
 }
 
-bool TuneScreen::onTouchStart(uint8_t tag) {
+bool TuneScreen::onTouchEnd(uint8_t tag) {
   switch(tag) {
     case 1:  GOTO_PREVIOUS();                    break;
     case 2:  GOTO_SCREEN(TemperatureScreen);     break;
@@ -842,18 +894,23 @@ void AdvancedSettingsScreen::onRedraw(draw_mode_t what) {
   if(what & BACKGROUND) {
     CommandProcessor cmd;
     cmd.cmd(CLEAR_COLOR_RGB(Theme::background))
-       .cmd(CLEAR(true,true,true))
-       .font(Theme::font_medium)
+       .cmd(CLEAR(true,true,true));
+  }
+
+  if(what & FOREGROUND) {
+    CommandProcessor cmd;
+    default_button_colors();
+    cmd.font(Theme::font_medium)
     #if defined(USE_PORTRAIT_ORIENTATION)
       #define GRID_ROWS 7
       #define GRID_COLS 2
       #if HAS_BED_PROBE
-        .BTN_ENABLED(1)
+        .enabled(1)
       #else
-        .BTN_ENABLED(0)
+        .enabled(0)
       #endif
       .tag(4) .button( BTN_POS(1,1), BTN_SIZE(1,2), F("Z Offset "))
-      .BTN_ENABLED(1)
+      .enabled(1)
       .tag(5) .button( BTN_POS(1,3), BTN_SIZE(1,1), F("Steps/mm"))
       .tag(6) .button( BTN_POS(2,1), BTN_SIZE(1,1), F("Velocity "))
       .tag(7) .button( BTN_POS(2,2), BTN_SIZE(1,1), F("Acceleration"))
@@ -869,12 +926,12 @@ void AdvancedSettingsScreen::onRedraw(draw_mode_t what) {
       #define GRID_ROWS 4
       #define GRID_COLS 2
       #if HAS_BED_PROBE
-        .BTN_ENABLED(1)
+        .enabled(1)
       #else
-        .BTN_ENABLED(0)
+        .enabled(0)
       #endif
       .tag(4) .button( BTN_POS(1,1), BTN_SIZE(1,1), F("Z Offset "))
-      .BTN_ENABLED(1)
+      .enabled(1)
       .tag(5) .button( BTN_POS(1,2), BTN_SIZE(1,1), F("Steps/mm"))
       .tag(6) .button( BTN_POS(2,1), BTN_SIZE(1,1), F("Velocity "))
       .tag(7) .button( BTN_POS(2,2), BTN_SIZE(1,1), F("Acceleration"))
@@ -889,7 +946,7 @@ void AdvancedSettingsScreen::onRedraw(draw_mode_t what) {
   }
 }
 
-bool AdvancedSettingsScreen::onTouchStart(uint8_t tag) {
+bool AdvancedSettingsScreen::onTouchEnd(uint8_t tag) {
   using namespace Extensible_UI_API;
 
   switch(tag) {
@@ -995,15 +1052,19 @@ ValueAdjusters::widgets_t::widgets_t(draw_mode_t what) : _what(what) {
   if(what & BACKGROUND) {
     CommandProcessor cmd;
     cmd.cmd(CLEAR_COLOR_RGB(Theme::background))
-       .cmd(CLEAR(true,true,true))
-       .font(Theme::font_medium)
+       .cmd(CLEAR(true,true,true));
+  }
 
+  if(what & FOREGROUND) {
+    CommandProcessor cmd;
+    cmd.font(Theme::font_medium)
     #if defined(USE_PORTRAIT_ORIENTATION)
        .THEME(back_btn).tag(1).button( BTN_POS(1,10), BTN_SIZE(13,1), F("Back"));
     #else
        .THEME(back_btn).tag(1).button( BTN_POS(15,6), BTN_SIZE(4,1), F("Back"));
     #endif
   }
+
   _line = 1;
 }
 
@@ -1035,6 +1096,16 @@ void ValueAdjusters::widgets_t::_draw_increment_btn(uint8_t line, const uint8_t 
   CommandProcessor  cmd;
   const char        *label = PSTR("?");
   uint8_t            pos;
+
+  if(screen_data.ValueAdjusters.increment == 0) {
+    screen_data.ValueAdjusters.increment = tag; // Set the default value to be the first.
+  }
+
+  if(screen_data.ValueAdjusters.increment == tag) {
+    cmd.THEME(toggle_on);
+  } else {
+    cmd.THEME(toggle_off);
+  }
 
   switch(tag) {
     case 240: label = PSTR(   ".001"); pos = _decimals - 3; break;
@@ -1081,23 +1152,18 @@ void ValueAdjusters::widgets_t::increments() {
     cmd.THEME(background)
        .tag(0)
     #if defined(USE_PORTRAIT_ORIENTATION)
-       .font(Theme::font_small).button( BTN_POS(1, _line), BTN_SIZE(4,1), F("Increment:"), OPT_FLAT);
+       .font(Theme::font_small).button( BTN_POS(1, _line),  BTN_SIZE(4,1), F("Increment:"), OPT_FLAT);
     #else
        .font(Theme::font_medium).button( BTN_POS(15,1),     BTN_SIZE(4,1), F("Increment:"), OPT_FLAT);
     #endif
-
-    // Draw all the buttons in the off state.
-    cmd.THEME(toggle_off);
-    _draw_increment_btn(_line+1, 243 - _decimals);
-    _draw_increment_btn(_line+1, 244 - _decimals);
-    _draw_increment_btn(_line+1, 245 - _decimals);
 
     screen_data.ValueAdjusters.increment = 243 - _decimals;
   }
 
   if(_what & FOREGROUND) {
-    cmd.THEME(toggle_on);
-    _draw_increment_btn(_line+1, screen_data.ValueAdjusters.increment);
+      _draw_increment_btn(_line+1, 244 - _decimals);
+      _draw_increment_btn(_line+1, 243 - _decimals);
+      _draw_increment_btn(_line+1, 245 - _decimals);
   }
 
   _line += 2;
@@ -1108,16 +1174,22 @@ void ValueAdjusters::widgets_t::adjuster(uint8_t tag, const char *label,float va
 
   if(_what & BACKGROUND) {
     progmem_str   str  = (progmem_str) label;
-    cmd.BTN_ENABLED(1)
+    cmd.enabled(1)
        .font(Theme::font_small)
        .fgcolor(_color)  .tag(0    ).button( BTN_POS(5,_line),  BTN_SIZE(5,1),  F(""),  OPT_FLAT)
-       .THEME(background).tag(0    ).button( BTN_POS(1,_line),  BTN_SIZE(4,1),  str,    OPT_FLAT)
-       .font(Theme::font_medium)   .tag(tag  ).button( BTN_POS(10,_line), BTN_SIZE(2,1),  F("-"), OPT_3D)
-                         .tag(tag+1).button( BTN_POS(12,_line), BTN_SIZE(2,1),  F("+"), OPT_3D);
+       .THEME(background).tag(0    ).button( BTN_POS(1,_line),  BTN_SIZE(4,1),  str,    OPT_FLAT);
   }
 
   if(_what & FOREGROUND) {
     char b[32];
+
+    progmem_str   str  = (progmem_str) label;
+
+    default_button_colors();
+    cmd.enabled(1)
+       .font(Theme::font_medium)
+       .tag(tag  ).button( BTN_POS(10,_line), BTN_SIZE(2,1),  F("-"), OPT_3D)
+       .tag(tag+1).button( BTN_POS(12,_line), BTN_SIZE(2,1),  F("+"), OPT_3D);
 
     dtostrf(value, 5, _decimals, b);
     strcat_P(b, PSTR(" "));
@@ -1136,17 +1208,16 @@ void ValueAdjusters::widgets_t::adjuster(uint8_t tag, const char *label,float va
 #undef GRID_ROWS
 
 void ValueAdjusters::onEntry() {
-  screen_data.ValueAdjusters.increment = 242;
+  screen_data.ValueAdjusters.increment = 0; // This will force the increment to be picked while drawing.
   UIScreen::onEntry();
 }
 
-bool ValueAdjusters::onTouchStart(uint8_t tag) {
+bool ValueAdjusters::onTouchEnd(uint8_t tag) {
   switch(tag) {
     case 1:           GOTO_PREVIOUS();                             return true;
     case 240 ... 245: screen_data.ValueAdjusters.increment = tag;  break;
     default:          return current_screen.onTouchHeld(tag);
   }
-  current_screen.onRefresh();
   return true;
 }
 
@@ -1610,10 +1681,10 @@ void FilesScreen::onRedraw(draw_mode_t what) {
     #define MARGIN_B 5
     const uint8_t y = GRID_ROWS - footer_h + 1;
     const uint8_t h = footer_h;
-    cmd.BTN_ENABLED(true)
+    cmd.enabled(true)
        .THEME(back_btn).tag(backTag).button( BTN_POS(1,y), BTN_SIZE(3,h), F("Back"));
 
-    cmd.BTN_ENABLED(itemSelected);
+    cmd.enabled(itemSelected);
     if(dirSelected) {
       cmd.tag(244).button( BTN_POS(4, y), BTN_SIZE(3,h), F("Open"));
     } else {
@@ -1630,7 +1701,7 @@ void FilesScreen::onRedraw(draw_mode_t what) {
   }
 }
 
-bool FilesScreen::onTouchStart(uint8_t tag) {
+bool FilesScreen::onTouchEnd(uint8_t tag) {
   using namespace Extensible_UI_API;
 
   switch(tag) {
@@ -1718,18 +1789,20 @@ void WidgetsScreen::onRedraw(draw_mode_t what) {
   if(show_grid) DRAW_LAYOUT_GRID
 }
 
-bool WidgetsScreen::onTouchStart(uint8_t tag) {
+bool WidgetsScreen::onTouchEnd(uint8_t tag) {
   switch(tag) {
     case 1: start_tracking (BTN_POS(1,2), BTN_SIZE(1,3), 1, true);  break;
     case 2: start_tracking (BTN_POS(1,5), BTN_SIZE(1,3), 2, true);  break;
     case 3: start_tracking (BTN_POS(3,3), BTN_SIZE(2,1), 3, false); break;
     case 4: start_tracking (BTN_POS(3,3), BTN_SIZE(2,1), 4, false); break;
-    case 5: show_grid = !show_grid; onRefresh(); break;
-    default: return false;
+    case 5: show_grid = !show_grid; break;
+    default: break;
   }
 
   #undef GRID_COLS
   #undef GRID_ROWS
+
+  return false;
 }
 
 void WidgetsScreen::onIdle() {
@@ -1796,7 +1869,7 @@ void CalibrationRegistersScreen::onRedraw(draw_mode_t what) {
   sound.play(js_bach_joy);
 }
 
-bool CalibrationRegistersScreen::onTouchStart(uint8_t tag) {
+bool CalibrationRegistersScreen::onTouchEnd(uint8_t tag) {
   switch(tag) {
     case 1:        GOTO_PREVIOUS();                 break;
     default:

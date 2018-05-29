@@ -140,6 +140,7 @@ class CLCD {
     static void enable (void);
     static void disable (void);
     static void set_backlight (uint16_t freq, uint8_t duty);
+    static void set_brightness (uint8_t duty);
     static void host_cmd (unsigned char host_command, unsigned char byte2);
 
     static void get_font_metrics (uint8_t font, struct FontMetrics &fm);
@@ -193,8 +194,8 @@ class CLCD::CommandFifo {
 
     void execute(void);
 
-    inline void cmd(uint32_t cmd32)           {write((void*)&cmd32, sizeof(uint32_t));}
-    inline void cmd(void* data, uint16_t len) {write(data, len);}
+    void cmd(uint32_t cmd32);
+    void cmd(void* data, uint16_t len);
 
     #if defined(USE_FTDI_FT810)
     void set_rotate(uint8_t rotation);

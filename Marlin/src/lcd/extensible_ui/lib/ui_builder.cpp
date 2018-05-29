@@ -1,10 +1,9 @@
-/*******************
- * ui_event_loop.h *
- *******************/
+/******************
+ * ui_builder.cpp *
+ ******************/
 
 /****************************************************************************
- *   Written By Mark Pelletier  2017 - Aleph Objects, Inc.                  *
- *   Written By Marcio Teixeira 2018 - Aleph Objects, Inc.                  *
+ *   Written By Marcio Teixeira 2018                                        *
  *                                                                          *
  *   This program is free software: you can redistribute it and/or modify   *
  *   it under the terms of the GNU General Public License as published by   *
@@ -20,16 +19,17 @@
  *   location: <http://www.gnu.org/licenses/>.                              *
  ****************************************************************************/
 
-#ifndef _UI_EVENT_LOOP_
-#define _UI_EVENT_LOOP_
+#include "ui.h"
 
-#define DISPLAY_UPDATE_INTERVAL    1000
-#define TRACKING_UPDATE_INTERVAL     50
-#define TOUCH_REPEATS_PER_SECOND      4
-#define DEBOUNCE_PERIOD             100
+#if ENABLED(EXTENSIBLE_UI)
 
-void enable_touch_sound(bool enabled);
-void start_tracking(int16_t x, int16_t y, int16_t w, int16_t h, int16_t tag, bool rotary);
-uint8_t get_pressed_tag();
+#include "ftdi_eve_constants.h"
+#include "ftdi_eve_functions.h"
+#include "ftdi_eve_panels.h"
+#include "ftdi_eve_dl.h"
 
-#endif // _UI_EVENT_LOOP_
+#include "ui_builder.h"
+
+CommandProcessor::btn_style_func_t  *CommandProcessor::_btn_style_callback = NULL;
+
+#endif // EXTENSIBLE_UI

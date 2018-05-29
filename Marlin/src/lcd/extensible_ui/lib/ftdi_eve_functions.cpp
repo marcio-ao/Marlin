@@ -45,6 +45,10 @@ void CLCD::set_backlight (uint16_t Freq, uint8_t Duty) {
   mem_write_8(REG_PWM_DUTY, Duty);
 }
 
+void CLCD::set_brightness (uint8_t brightness) {
+  mem_write_8(REG_PWM_DUTY, brightness>>1);
+}
+
 void CLCD::turn_on_backlight (void) {
   set_backlight(0x00FA, 128);
 }
@@ -80,6 +84,14 @@ void CLCD::flash_write_rgb332_bitmap(uint32_t mem_address, const unsigned char* 
 #if defined(USE_FTDI_FT800)
 uint32_t CLCD::CommandFifo::command_write_ptr = 0xFFFFFFFFul;
 #endif
+
+void CLCD::CommandFifo::cmd(uint32_t cmd32) {
+  write((void*)&cmd32, sizeof(uint32_t));
+}
+
+void CLCD::CommandFifo::cmd(void* data, uint16_t len) {
+  write(data, len);
+}
 
 // This sends the a text command to the command preprocessor, must be followed by str()
 void CLCD::CommandFifo::button(int16_t x, int16_t y, int16_t w, int16_t h, int16_t font,  uint16_t option) {
@@ -495,7 +507,7 @@ void CLCD::CommandFifo::reset() {
 // divisible by four, zero bytes will be written
 // to align to the boundary.
 
-template <class T> void CLCD::CommandFifo::write(void* data, uint16_t len) {
+template <class T> void CLCD::CommandFifo::write(T data, uint16_t len) {
   const uint8_t padding = MULTIPLE_OF_4(len) - len;
 
   // The FT810 provides a special register that can be used
@@ -547,28 +559,18 @@ void CLCD::init (void) {
    else {
      delay(1);
    }
-
+   if(counter == 250) {
+     #if defined(UI_FRAMEWORK_DEBUG)
+       #if defined (SERIAL_ECHOLNPAIR)
+         SERIAL_ECHOLNPAIR("Timeout waiting for device ID, should be 124, got ", device_id);
+       #else
+         Serial.print(F("Timeout waiting for device ID, should be 7C, got "));
+         Serial.println(device_id, HEX);
+       #endif
+     #endif
+   }
   }
 
-  #if defined(UI_FRAMEWORK_DEBUG)
-  if(device_id != 0x7C) {
-    #if defined (SERIAL_PROTOCOLLNPAIR)
-      SERIAL_PROTOCOLLNPAIR("Incorrect device ID, should be 7C, got ", Device_ID);
-    #else
-      Serial.print(F("Incorrect device ID, should be 7C, got "));
-      Serial.println(device_id, HEX);
-    #endif
-  } else {
-    #if defined (SERIAL_PROTOCOLLNPGM)
-      SERIAL_PROTOCOLLNPGM("Device is correct ");
-    #else
-      Serial.println(F("Device is correct "));
-    #endif
-  }
-  #endif // UI_FRAMEWORK_DEBUG
-
-  //mem_write_8(REG_GPIO, 0x00);  // Turn OFF Display Enable (GPIO Bit 7); - disabled because reset-default already
-  //mem_write_8(REG_PCLK, 0x00);  // Turn OFF LCD PCLK - disabled because reset-default already
   mem_write_8(REG_PWM_DUTY, 0);   // turn off Backlight, Frequency already is set to 250Hz default
 
   /* Configure the FT8xx Registers */

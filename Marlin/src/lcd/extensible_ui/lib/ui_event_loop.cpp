@@ -37,9 +37,21 @@
 
 using namespace FTDI;
 
+enum {
+  UNPRESSED       = 0xFF, //255
+  IGNORE_UNPRESS  = 0xFE, //254
+  DEBOUNCING      = 0xFD  //253
+};
+
 tiny_interval_t    touch_timer;
 tiny_interval_t    refresh_timer;
-bool is_tracking = false;
+bool is_tracking       = false;
+bool touch_sound       = true;
+uint8_t pressed_state  = UNPRESSED;
+
+void enable_touch_sound(bool enabled) {
+    touch_sound = enabled;
+}
 
 void start_tracking(int16_t x, int16_t y, int16_t w, int16_t h, int16_t tag, bool rotary) {
   CommandProcessor cmd;
@@ -56,6 +68,14 @@ void stop_tracking() {
   cmd.execute();
 }
 
+uint8_t get_pressed_tag() {
+  if(pressed_state < DEBOUNCING) {
+    return pressed_state;
+  } else {
+    return 0;
+  }
+}
+
 namespace Extensible_UI_API {
   void onStartup() {
     using namespace Extensible_UI_API;
@@ -68,13 +88,6 @@ namespace Extensible_UI_API {
 
   void onUpdate() {
     using namespace Extensible_UI_API;
-
-    enum {
-      UNPRESSED       = 0xFF, //255
-      IGNORE_UNPRESS  = 0xFE, //254
-      DEBOUNCING      = 0xFD  //253
-    };
-    static uint8_t pressed_state  = UNPRESSED;
 
     sound.onIdle();
 
@@ -107,12 +120,15 @@ namespace Extensible_UI_API {
             #endif
           #endif
 
+          pressed_state = tag;
+
           // When the user taps on a button, activate the onTouchStart handler
           const uint8_t lastScreen = current_screen.getScreen();
 
+          current_screen.onRefresh();
           if(current_screen.onTouchStart(tag)) {
             touch_timer.wait_for(1000 / TOUCH_REPEATS_PER_SECOND);
-            sound.play(Theme::press_sound);
+            if(touch_sound) sound.play(Theme::press_sound);
           }
 
           if(lastScreen != current_screen.getScreen()) {
@@ -128,8 +144,6 @@ namespace Extensible_UI_API {
                 Serial.println(tag);
               #endif
             #endif
-          } else {
-            pressed_state = tag;
           }
         }
         break;
@@ -137,7 +151,7 @@ namespace Extensible_UI_API {
         if(tag == 0) {
           if(touch_timer.elapsed()) {
             pressed_state = UNPRESSED;
-            sound.play(Theme::unpress_sound);
+            if(touch_sound) sound.play(Theme::unpress_sound);
           }
         } else {
           pressed_state = IGNORE_UNPRESS;
@@ -154,7 +168,7 @@ namespace Extensible_UI_API {
         if(tag == pressed_state) {
           // The user is holding down a button.
           if(touch_timer.elapsed() && current_screen.onTouchHeld(tag)) {
-            sound.play(Theme::repeat_sound);
+            if(touch_sound) sound.play(Theme::repeat_sound);
             touch_timer.wait_for(1000 / TOUCH_REPEATS_PER_SECOND);
           }
         }
@@ -168,7 +182,10 @@ namespace Extensible_UI_API {
             #endif
           #endif
 
-          current_screen.onTouchEnd(pressed_state);
+          const uint8_t saved_pressed_state = pressed_state;
+          pressed_state = 0;
+          current_screen.onTouchEnd(saved_pressed_state);
+          current_screen.onRefresh();
           // Ignore subsequent presses for a while to avoid bouncing
           touch_timer.wait_for(DEBOUNCE_PERIOD);
           pressed_state = DEBOUNCING;

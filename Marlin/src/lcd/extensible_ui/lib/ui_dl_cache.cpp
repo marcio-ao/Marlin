@@ -180,13 +180,13 @@ void DLCache::append() {
     cmd.wait_until_idle();
     #if defined (SERIAL_PROTOCOLLNPAIR)
       SERIAL_PROTOCOLPAIR("Appending to DL from RAMG cache, bytes: ", dl_size);
-      SERIAL_PROTOCOLPAIR(" (REG_CMD_DL: ", mem_read_32(REG_CMD_DL));
+      SERIAL_PROTOCOLPAIR(" (REG_CMD_DL: ", CLCD::mem_read_32(REG_CMD_DL));
       SERIAL_PROTOCOLLNPGM(")");
     #else
       Serial.print(F("Appending to DL from RAMG cache, bytes: "));
       Serial.print(dl_size);
       Serial.print(F(" (REG_CMD_DL: "));
-      Serial.print(mem_read_32(REG_CMD_DL));
+      Serial.print(CLCD::mem_read_32(REG_CMD_DL));
       Serial.println(F(")"));
     #endif
   #endif // DL_CACHE_DISABLED

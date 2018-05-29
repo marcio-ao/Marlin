@@ -42,21 +42,6 @@ namespace Theme {
   const uint32_t toggle_on     = theme_light;
   const uint32_t toggle_off    = theme_darkest;
 
-  // Disabled vs enabled buttons
-  struct default_btn {
-    static const uint32_t rgb_enabled  = 0xFFFFFF;
-    static const uint32_t fg_enabled   = theme_darkest;
-    static const uint32_t rgb_disabled = theme_dark;
-    static const uint32_t fg_disabled  = theme_dark;
-  };
-
-  struct light_btn {
-    static const uint32_t rgb_enabled  = 0xFFFFFF;
-    static const uint32_t fg_enabled   = theme_light;
-    static const uint32_t rgb_disabled = theme_dark;
-    static const uint32_t fg_disabled  = theme_dark;
-  };
-
   // Files screens
 
   const uint32_t files_selected = theme_light;
@@ -84,6 +69,28 @@ namespace Theme {
   const uint32_t transformE    = 0x7010D0;
   const uint32_t transformF    = 0x8010D0;
   const uint32_t transformVal  = 0x104010;
+
+  // Disabled vs enabled buttons
+  struct default_btn {
+    static const uint32_t rgb_enabled  = 0xFFFFFF;
+    static const uint32_t fg_enabled   = theme_darkest;
+    static const uint32_t rgb_disabled = theme_dark;
+    static const uint32_t fg_disabled  = theme_dark;
+  };
+
+  struct light_btn {
+    static const uint32_t rgb_enabled  = 0xFFFFFF;
+    static const uint32_t fg_enabled   = theme_light;
+    static const uint32_t rgb_disabled = theme_dark;
+    static const uint32_t fg_disabled  = theme_dark;
+  };
+
+  struct red_btn {
+    static const uint32_t rgb_enabled  = 0xFFFFFF;
+    static const uint32_t fg_enabled   = 0xF02020;
+    static const uint32_t rgb_disabled = status_bg;
+    static const uint32_t fg_disabled  = status_bg;
+  };
 
 #if defined(LCD_800x480)
   #if defined(USE_PORTRAIT_ORIENTATION)

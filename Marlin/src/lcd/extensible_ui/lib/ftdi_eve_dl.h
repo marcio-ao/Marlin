@@ -49,7 +49,7 @@ namespace FTDI {
    inline uint32_t BITMAP_LAYOUT(uint8_t format, uint8_t linestride, uint8_t height)
                                                                 {return (7UL<<24)|(((format)&31UL)<<19)|(((linestride)&1023UL)<<9)|(((height)&511UL)<<0);}
    inline uint32_t BITMAP_SIZE(uint8_t filter, bool wrapx, bool wrapy, uint16_t width, uint16_t height)
-                                                                {return (8UL<<24)|(((filter)&1UL)<<20)|((wrapx?1:0)<<19)|((wrapy?1:0)<<18)|(((width)&511UL)<<9)|(((height)&511UL)<<0);}
+                                                                {return (8UL<<24)|(((filter)&1UL)<<20)|((wrapx?1UL:0UL)<<19)|((wrapy?1UL:0UL)<<18)|(((width)&511UL)<<9)|(((height)&511UL)<<0);}
    inline uint32_t BITMAP_TRANSFORM_A(uint16_t a)               {return (21UL<<24)|(((a)&131071UL)<<0);}
    inline uint32_t BITMAP_TRANSFORM_B(uint16_t b)               {return (22UL<<24)|(((b)&131071UL)<<0);}
    inline uint32_t BITMAP_TRANSFORM_C(uint16_t c)               {return (23UL<<24)|(((c)&16777215UL)<<0);}
@@ -59,7 +59,7 @@ namespace FTDI {
    inline uint32_t BLEND_FUNC(uint8_t src,uint8_t dst)          {return (11UL<<24)|(((src)&7UL)<<3)|(((dst)&7UL)<<0);}
    inline uint32_t CALL(uint16_t dest)                          {return (29UL<<24)|(((dest)&65535UL)<<0);}
    inline uint32_t CELL(uint8_t cell)                           {return (6UL<<24)|(((cell)&127UL)<<0);}
-   inline uint32_t CLEAR(bool c,bool s,bool t)                  {return DL::CLEAR|((c?1:0)<<2)|((s?1:0)<<1)|((t?1:0)<<0);}
+   inline uint32_t CLEAR(bool c,bool s,bool t)                  {return DL::CLEAR|((c?1UL:0UL)<<2)|((s?1UL:0UL)<<1)|((t?1UL:0UL)<<0);}
    inline uint32_t CLEAR_COLOR_A(uint8_t alpha)                 {return (15UL<<24)|(((alpha)&255UL)<<0);}
    inline uint32_t CLEAR_COLOR_RGB(uint8_t red, uint8_t green, uint8_t blue)
                                                                 {return DL::CLEAR_COLOR_RGB|(((red)&255UL)<<16)|(((green)&255UL)<<8)|(((blue)&255UL)<<0);}
@@ -67,7 +67,7 @@ namespace FTDI {
    inline uint32_t CLEAR_STENCIL(uint8_t s)                     {return (17UL<<24)|(((s)&255UL)<<0);}
    inline uint32_t CLEAR_TAG(uint8_t s)                         {return (18UL<<24)|(((s)&255UL)<<0);}
    inline uint32_t COLOR_A(uint8_t alpha)                       {return (16UL<<24)|(((alpha)&255UL)<<0);}
-   inline uint32_t COLOR_MASK(bool r, bool g, bool b, bool a)   {return (32UL<<24)|((r?1:0)<<3)|((g?1:0)<<2)|((b?1:0)<<1)|((a?1:0)<<0);}
+   inline uint32_t COLOR_MASK(bool r, bool g, bool b, bool a)   {return (32UL<<24)|((r?1UL:0UL)<<3)|((g?1UL:0UL)<<2)|((b?1UL:0UL)<<1)|((a?1UL:0UL)<<0);}
    inline uint32_t COLOR_RGB(uint8_t red,uint8_t green,uint8_t blue)
                                                                 {return (4UL<<24)|(((red)&255UL)<<16)|(((green)&255UL)<<8)|(((blue)&255UL)<<0);}
    inline uint32_t COLOR_RGB(uint32_t rgb)                      {return (4UL<<24)|rgb;}
@@ -85,7 +85,6 @@ namespace FTDI {
    inline uint32_t STENCIL_MASK(uint8_t mask)                   {return (19UL<<24)|(((mask)&255UL)<<0);}
    inline uint32_t STENCIL_OP(uint8_t sfail, uint8_t spass)     {return (12UL<<24)|(((sfail)&7UL)<<3)|(((spass)&7UL)<<0);}
    inline uint32_t TAG(uint8_t s)                               {return (3UL<<24)|(((s)&255UL)<<0);}
-   inline uint32_t _TAG(uint8_t s)                              {return (3UL<<24)|(((s)&255UL)<<0);}
    inline uint32_t TAG_MASK(bool mask)                          {return (20UL<<24)|((mask?1:0)<<0);}
    inline uint32_t VERTEX2F(uint16_t x, uint16_t y)             {return (1UL<<30)|(((x)&32767UL)<<15)|(((y)&32767UL)<<0);}
    inline uint32_t VERTEX2II(uint16_t x,uint16_t y, uint8_t handle = 0, uint8_t cell = 0)

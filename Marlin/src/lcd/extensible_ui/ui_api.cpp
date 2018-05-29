@@ -137,13 +137,13 @@ namespace Extensible_UI_API {
 
   void setAxisMaxFeedrate_mm_s(const axis_t axis, float max_feedrate_mm_s) {
     switch(axis) {
-      case X:  planner.max_feedrate_mm_s[X_AXIS]   = max_feedrate_mm_s;
-      case Y:  planner.max_feedrate_mm_s[Y_AXIS]   = max_feedrate_mm_s;
-      case Z:  planner.max_feedrate_mm_s[Z_AXIS]   = max_feedrate_mm_s;
-      case E0: planner.max_feedrate_mm_s[E_AXIS]   = max_feedrate_mm_s;
-      case E1: planner.max_feedrate_mm_s[E_AXIS+1] = max_feedrate_mm_s;
-      case E2: planner.max_feedrate_mm_s[E_AXIS+2] = max_feedrate_mm_s;
-      case E3: planner.max_feedrate_mm_s[E_AXIS+3] = max_feedrate_mm_s;
+      case X:  planner.max_feedrate_mm_s[X_AXIS]   = max_feedrate_mm_s; break;
+      case Y:  planner.max_feedrate_mm_s[Y_AXIS]   = max_feedrate_mm_s; break;
+      case Z:  planner.max_feedrate_mm_s[Z_AXIS]   = max_feedrate_mm_s; break;
+      case E0: planner.max_feedrate_mm_s[E_AXIS]   = max_feedrate_mm_s; break;
+      case E1: planner.max_feedrate_mm_s[E_AXIS+1] = max_feedrate_mm_s; break;
+      case E2: planner.max_feedrate_mm_s[E_AXIS+2] = max_feedrate_mm_s; break;
+      case E3: planner.max_feedrate_mm_s[E_AXIS+3] = max_feedrate_mm_s; break;
       default: return;
     }
   }
@@ -163,13 +163,13 @@ namespace Extensible_UI_API {
 
   void setAxisMaxAcceleration_mm_s2(const axis_t axis, float max_acceleration_mm_per_s2) {
     switch(axis) {
-      case X:  planner.max_acceleration_mm_per_s2[X_AXIS]   = max_acceleration_mm_per_s2;
-      case Y:  planner.max_acceleration_mm_per_s2[Y_AXIS]   = max_acceleration_mm_per_s2;
-      case Z:  planner.max_acceleration_mm_per_s2[Z_AXIS]   = max_acceleration_mm_per_s2;
-      case E0: planner.max_acceleration_mm_per_s2[E_AXIS]   = max_acceleration_mm_per_s2;
-      case E1: planner.max_acceleration_mm_per_s2[E_AXIS+1] = max_acceleration_mm_per_s2;
-      case E2: planner.max_acceleration_mm_per_s2[E_AXIS+2] = max_acceleration_mm_per_s2;
-      case E3: planner.max_acceleration_mm_per_s2[E_AXIS+3] = max_acceleration_mm_per_s2;
+      case X:  planner.max_acceleration_mm_per_s2[X_AXIS]   = max_acceleration_mm_per_s2; break;
+      case Y:  planner.max_acceleration_mm_per_s2[Y_AXIS]   = max_acceleration_mm_per_s2; break;
+      case Z:  planner.max_acceleration_mm_per_s2[Z_AXIS]   = max_acceleration_mm_per_s2; break;
+      case E0: planner.max_acceleration_mm_per_s2[E_AXIS]   = max_acceleration_mm_per_s2; break;
+      case E1: planner.max_acceleration_mm_per_s2[E_AXIS+1] = max_acceleration_mm_per_s2; break;
+      case E2: planner.max_acceleration_mm_per_s2[E_AXIS+2] = max_acceleration_mm_per_s2; break;
+      case E3: planner.max_acceleration_mm_per_s2[E_AXIS+3] = max_acceleration_mm_per_s2; break;
       default: return;
     }
   }
@@ -190,15 +190,13 @@ namespace Extensible_UI_API {
 
   void setAxisMaxJerk_mm_s(const axis_t axis, float max_jerk) {
     switch(axis) {
-      case X:  planner.max_jerk[X_AXIS]   = max_jerk;
-      case Y:  planner.max_jerk[Y_AXIS]   = max_jerk;
-      case Z:  planner.max_jerk[Z_AXIS]   = max_jerk;
+      case X:  planner.max_jerk[X_AXIS]   = max_jerk; break;
+      case Y:  planner.max_jerk[Y_AXIS]   = max_jerk; break;
+      case Z:  planner.max_jerk[Z_AXIS]   = max_jerk; break;
       case E0:
       case E1:
       case E2:
-      case E3:
-        planner.max_jerk[E_AXIS]   = max_jerk;
-        break;
+      case E3: planner.max_jerk[E_AXIS]   = max_jerk; break;
       default: return;
     }
   }
