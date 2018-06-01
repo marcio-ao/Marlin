@@ -328,4 +328,13 @@ class WidgetsScreen : public UIScreenWithStyles, public UncachedScreen {
     static void onIdle();
 };
 
+class MediaPlayerScreen : public UIScreenWithStyles, public UncachedScreen {
+  public:
+    static void lookForAutoPlayMedia();
+
+    static void onEntry();
+    static void onRedraw(draw_mode_t what);
+    static void onIdle();
+};
+
 #endif // _UI_SCREENS_

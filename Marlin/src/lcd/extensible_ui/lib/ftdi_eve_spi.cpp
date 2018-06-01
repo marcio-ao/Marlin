@@ -103,6 +103,7 @@ void CLCD::spi_init (void) {
 // CLCD SPI - Chip Select
 void CLCD::spi_select (void) {
   WRITE(CLCD_SPI_CS, 0);
+  delayMicroseconds(1);
 }
 
 // CLCD SPI - Chip Deselect

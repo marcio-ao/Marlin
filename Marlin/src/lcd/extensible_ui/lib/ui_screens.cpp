@@ -22,6 +22,9 @@
 
 #include "ui.h"
 
+#include "../../../sd/SdFile.h"
+#include "../../../sd/cardreader.h"
+
 #if ENABLED(EXTENSIBLE_UI)
 
 #include "ftdi_eve_constants.h"
@@ -79,6 +82,7 @@ SCREEN_TABLE {
   DECL_SCREEN(TemperatureScreen),
   DECL_SCREEN(CalibrationRegistersScreen),
   DECL_SCREEN(FilesScreen),
+  DECL_SCREEN(MediaPlayerScreen),
 };
 
 SCREEN_TABLE_POST
@@ -841,8 +845,8 @@ void TuneScreen::onRedraw(draw_mode_t what) {
     #if defined(USE_PORTRAIT_ORIENTATION)
       #define GRID_ROWS 5
       #define GRID_COLS 2
-       .tag(2).enabled(1)  .button( BTN_POS(1,1), BTN_SIZE(2,1), F("Temperature"))
-       .tag(3).enabled(0)  .button( BTN_POS(1,2), BTN_SIZE(2,1), F("Change Filament"))
+       .tag(2).enabled(1)      .button( BTN_POS(1,1), BTN_SIZE(2,1), F("Temperature"))
+       .tag(3).enabled(0)      .button( BTN_POS(1,2), BTN_SIZE(2,1), F("Change Filament"))
        .tag(4)
       #if HAS_BED_PROBE
         .enabled(1)
@@ -1242,7 +1246,7 @@ void MoveAxisScreen::onRedraw(draw_mode_t what) {
   w.precision(1);
   w.units(PSTR("mm"));
 
-  w.heading(                                PSTR("Move Axis"));
+  w.heading(                             PSTR("Move Axis"));
   w.color(Theme::x_axis  ).adjuster(  2, PSTR("X:"),  getAxisPosition_mm(X));
   w.color(Theme::y_axis  ).adjuster(  4, PSTR("Y:"),  getAxisPosition_mm(Y));
   w.color(Theme::z_axis  ).adjuster(  6, PSTR("Z:"),  getAxisPosition_mm(Z));
@@ -1250,7 +1254,7 @@ void MoveAxisScreen::onRedraw(draw_mode_t what) {
     w.color(Theme::e_axis).adjuster(  8, PSTR("E0:"), getAxisPosition_mm(E0));
   #else
     w.color(Theme::e_axis).adjuster(  8, PSTR("E0:"), getAxisPosition_mm(E0));
-    w.color(Theme::x_axis).adjuster( 10, PSTR("E1:"), getAxisPosition_mm(E1));
+    w.color(Theme::e_axis).adjuster( 10, PSTR("E1:"), getAxisPosition_mm(E1));
   #endif
   w.increments();
 }
@@ -1296,7 +1300,7 @@ void TemperatureScreen::onRedraw(draw_mode_t what) {
 
   w.precision(0).color(Theme::temp).units(PSTR("C"));
 
-  w.heading(       PSTR("Temperature:"));
+  w.heading(         PSTR("Temperature:"));
   #if EXTRUDERS == 1
     w.adjuster(   2, PSTR("Nozzle:"),       getTargetTemp_celsius(1));
   #else
@@ -1337,7 +1341,7 @@ void StepsScreen::onRedraw(draw_mode_t what) {
   w.precision(0);
   w.units(PSTR("st/mm"));
 
-  w.heading(                               PSTR("Steps/mm"));
+  w.heading(                            PSTR("Steps/mm"));
   w.color(Theme::x_axis).adjuster(   2, PSTR("X:"),  getAxisSteps_per_mm(X) );
   w.color(Theme::y_axis).adjuster(   4, PSTR("Y:"),  getAxisSteps_per_mm(Y) );
   w.color(Theme::z_axis).adjuster(   6, PSTR("Z:"),  getAxisSteps_per_mm(Z) );
@@ -1387,7 +1391,7 @@ bool StepsScreen::onTouchHeld(uint8_t tag) {
     widgets_t w(what);
     w.precision(3).units(PSTR("mm"));
 
-    w.heading(     PSTR("Z Offset"));
+    w.heading(                          PSTR("Z Offset"));
     w.color(Theme::z_axis).adjuster(4,  PSTR("Z Offset:"), getZOffset_mm());
     w.increments();
   }
@@ -1442,7 +1446,7 @@ void VelocityScreen::onRedraw(draw_mode_t what) {
   w.precision(0);
   w.units(PSTR("mm/s"));
 
-  w.heading(                               PSTR("Velocity"));
+  w.heading(                            PSTR("Velocity"));
   w.color(Theme::x_axis).adjuster(   2, PSTR("X:"),  getAxisMaxFeedrate_mm_s(X) );
   w.color(Theme::y_axis).adjuster(   4, PSTR("Y:"),  getAxisMaxFeedrate_mm_s(Y) );
   w.color(Theme::z_axis).adjuster(   6, PSTR("Z:"),  getAxisMaxFeedrate_mm_s(Z) );
@@ -1492,7 +1496,7 @@ void AccelerationScreen::onRedraw(draw_mode_t what) {
   w.precision(0);
   w.units(PSTR("mm/s^2"));
 
-  w.heading(                               PSTR("Max Acceleration"));
+  w.heading(                            PSTR("Max Acceleration"));
   w.color(Theme::x_axis).adjuster(   2, PSTR("X:"),  getAxisMaxAcceleration_mm_s2(X) );
   w.color(Theme::y_axis).adjuster(   4, PSTR("Y:"),  getAxisMaxAcceleration_mm_s2(Y) );
   w.color(Theme::z_axis).adjuster(   6, PSTR("Z:"),  getAxisMaxAcceleration_mm_s2(Z) );
@@ -1542,7 +1546,7 @@ void JerkScreen::onRedraw(draw_mode_t what) {
   w.precision(1);
   w.units(PSTR("mm/s"));
 
-  w.heading(                             PSTR("Max Jerk"));
+  w.heading(                          PSTR("Max Jerk"));
   w.color(Theme::x_axis).adjuster( 2, PSTR("X:"),  getAxisMaxJerk_mm_s(X) );
   w.color(Theme::y_axis).adjuster( 4, PSTR("Y:"),  getAxisMaxJerk_mm_s(Y) );
   w.color(Theme::z_axis).adjuster( 6, PSTR("Z:"),  getAxisMaxJerk_mm_s(Z) );
@@ -1878,6 +1882,124 @@ bool CalibrationRegistersScreen::onTouchEnd(uint8_t tag) {
   return true;
 }
 
+/***************************** MEDIA DEMO SCREEN ***************************/
+
+void MediaPlayerScreen::onEntry() {
+  UIScreen::onEntry();
+  CLCD::turn_on_backlight();
+  FTDI::SoundPlayer::set_volume(255);
+}
+
+void MediaPlayerScreen::onRedraw(draw_mode_t what) {
+}
+
+void MediaPlayerScreen::onIdle() {
+}
+
+void MediaPlayerScreen::lookForAutoPlayMedia() {
+    Sd2Card card;
+    SdVolume volume;
+    SdFile root, file;
+    card.init(SPI_SPEED, SDSS);
+    volume.init(&card);
+    root.openRoot(&volume);
+
+    const uint32_t bottom_of_RAMG = RAM_G + 0x100000;
+    const uint32_t block_size  = 512;
+    const uint32_t fifo_block1 = bottom_of_RAMG - block_size * 2;
+    const uint32_t fifo_block2 = fifo_block1 + block_size;
+    const uint32_t write_offset = 0;
+
+    // Media test
+    char buf[512];
+    strcpy_P(buf, PSTR("AUTOPLAY.AVI"));
+    if(root.exists(buf)) {
+      StatusScreen::setStatusMessage(F("AVI Found"));
+
+      if(!file.open(root, buf, O_READ)) {
+        SERIAL_PROTOCOLLNPGM("Failed to open file");
+        return;
+      }
+
+      CommandProcessor cmd;
+      cmd.cmd(CMD_DLSTART)
+         .cmd(CLEAR_COLOR_RGB(0x00FF00))
+         .cmd(CLEAR(true,true,true));
+
+      cmd.mediafifo(fifo_block1, block_size*2);
+      cmd.playvideo(OPT_FULLSCREEN | OPT_MEDIAFIFO | OPT_NOTEAR);
+      cmd.execute();
+
+      uint32_t totalBytes = 0;
+      int16_t  nBytes;
+
+      // Load first block into 1st half of FIFO
+
+      noInterrupts();
+
+      nBytes = file.read(buf, block_size);
+      if(nBytes == -1) return;
+      CLCD::mem_write_bulk (fifo_block1, buf, nBytes);
+
+      // Start processing odd numbered block
+      CLCD::mem_write_32(REG_MEDIAFIFO_WRITE, write_offset + nBytes);
+      totalBytes += nBytes;
+      if(nBytes != block_size) return;
+
+      while(1) {
+        uint32_t mediafifo_read;
+
+        // Read even numbered block into 2nd half of FIFO,
+        // while odd numbered block is processing.
+
+        nBytes = file.read(buf, block_size);
+        if(nBytes == -1) break;
+        CLCD::mem_write_bulk (fifo_block2, buf, nBytes);
+
+        // Wait for FTDI810 to finish odd numbered block
+
+        mediafifo_read = CLCD::mem_read_32(REG_MEDIAFIFO_READ);
+        while(mediafifo_read != block_size) {
+          mediafifo_read = CLCD::mem_read_32(REG_MEDIAFIFO_READ);
+          watchdog_reset();
+        }
+
+        // Start processing even numbered block
+
+        CLCD::mem_write_32(REG_MEDIAFIFO_WRITE, write_offset + (nBytes == block_size) ? 0 : block_size + nBytes);
+        totalBytes += nBytes;
+        if(nBytes != block_size) break;
+
+        // Read odd numbered block into 1st half of FIFO
+
+        nBytes = file.read(buf, block_size);
+        if(nBytes == -1) break;
+        CLCD::mem_write_bulk (fifo_block1, buf, nBytes);
+
+        // Wait for FTDI810 to finish even numbered block
+
+        mediafifo_read = CLCD::mem_read_32(REG_MEDIAFIFO_READ);
+        while(mediafifo_read != 0) {
+          mediafifo_read = CLCD::mem_read_32(REG_MEDIAFIFO_READ);
+          watchdog_reset();
+        }
+
+        // Start processing odd numbered block
+
+        CLCD::mem_write_32(REG_MEDIAFIFO_WRITE, write_offset + nBytes);
+        totalBytes += nBytes;
+        if(nBytes != block_size) break;
+
+        watchdog_reset();
+      }
+
+      interrupts();
+
+      SERIAL_ECHOLNPAIR("Done playing video, bytes: ", totalBytes);
+      file.close();
+    }
+}
+
 /***************************** MARLIN CALLBACKS  ***************************/
 
 namespace Extensible_UI_API {
@@ -1888,6 +2010,8 @@ namespace Extensible_UI_API {
   void onMediaInserted() {
     StatusScreen::setStatusMessage(F(MSG_SD_INSERTED));
     sound.play(media_inserted);
+
+    MediaPlayerScreen::lookForAutoPlayMedia();
   }
 
   void onMediaRemoved() {

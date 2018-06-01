@@ -367,6 +367,72 @@ void CLCD::CommandFifo::track(int16_t x, int16_t y, int16_t w, int16_t h, uint16
   cmd( &cmd_data, sizeof(cmd_data) );
 }
 
+void CLCD::CommandFifo::sketch    (int16_t x, int16_t y, uint16_t w, uint16_t h, uint32_t ptr, uint16_t format) {
+  struct {
+    uint32_t type = CMD_SKETCH;
+    int16_t   x;
+    int16_t   y;
+    uint16_t  w;
+    uint16_t  h;
+    uint32_t  ptr;
+    uint16_t  format;
+  } cmd_data;
+
+  cmd_data.x       = x;
+  cmd_data.y       = y;
+  cmd_data.w       = w;
+  cmd_data.h       = h;
+  cmd_data.ptr     = ptr;
+  cmd_data.format  = format;
+
+  cmd( &cmd_data, sizeof(cmd_data) );
+}
+
+void CLCD::CommandFifo::mediafifo(uint32_t ptr, uint32_t size) {
+  struct {
+    uint32_t type = CMD_MEDIAFIFO;
+    uint32_t ptr;
+    uint32_t size;
+  } cmd_data;
+
+  cmd_data.ptr  = ptr;
+  cmd_data.size = size;
+
+  cmd( &cmd_data, sizeof(cmd_data) );
+}
+
+void CLCD::CommandFifo::videostart() {
+  struct {
+    uint32_t type = CMD_VIDEOSTART;
+  } cmd_data;
+
+  cmd( &cmd_data, sizeof(cmd_data) );
+}
+
+void CLCD::CommandFifo::videoframe(uint32_t dst, uint32_t ptr) {
+  struct {
+    uint32_t type = CMD_VIDEOFRAME;
+    uint32_t dst;
+    uint32_t ptr;
+  } cmd_data;
+
+  cmd_data.dst = dst;
+  cmd_data.ptr = ptr;
+
+  cmd( &cmd_data, sizeof(cmd_data) );
+}
+
+void CLCD::CommandFifo::playvideo(uint32_t options) {
+  struct {
+    uint32_t type = CMD_PLAYVIDEO;
+    uint32_t options;
+  } cmd_data;
+
+  cmd_data.options = options;
+
+  cmd( &cmd_data, sizeof(cmd_data) );
+}
+
 #if defined(USE_FTDI_FT810)
 void CLCD::CommandFifo::set_rotate (uint8_t rotation) {
   struct {
@@ -574,19 +640,19 @@ void CLCD::init (void) {
   mem_write_8(REG_PWM_DUTY, 0);   // turn off Backlight, Frequency already is set to 250Hz default
 
   /* Configure the FT8xx Registers */
-  mem_write_16(REG_HCYCLE,  Hcycle);
-  mem_write_16(REG_HOFFSET, Hoffset);
-  mem_write_16(REG_HSYNC0,  Hsync0);
-  mem_write_16(REG_HSYNC1,  Hsync1);
-  mem_write_16(REG_VCYCLE,  Vcycle);
-  mem_write_16(REG_VOFFSET, Voffset);
-  mem_write_16(REG_VSYNC0,  Vsync0);
-  mem_write_16(REG_VSYNC1,  Vsync1);
-  mem_write_16(REG_HSIZE,   Hsize);
-  mem_write_16(REG_VSIZE,   Vsize);
-  mem_write_8(REG_SWIZZLE,  Swizzle);
-  mem_write_8(REG_PCLK_POL, Pclkpol);
-  mem_write_8(REG_CSPREAD,  CSpread);
+  mem_write_16(REG_HCYCLE,  FTDI::Hcycle);
+  mem_write_16(REG_HOFFSET, FTDI::Hoffset);
+  mem_write_16(REG_HSYNC0,  FTDI::Hsync0);
+  mem_write_16(REG_HSYNC1,  FTDI::Hsync1);
+  mem_write_16(REG_VCYCLE,  FTDI::Vcycle);
+  mem_write_16(REG_VOFFSET, FTDI::Voffset);
+  mem_write_16(REG_VSYNC0,  FTDI::Vsync0);
+  mem_write_16(REG_VSYNC1,  FTDI::Vsync1);
+  mem_write_16(REG_HSIZE,   FTDI::Hsize);
+  mem_write_16(REG_VSIZE,   FTDI::Vsize);
+  mem_write_8(REG_SWIZZLE,  FTDI::Swizzle);
+  mem_write_8(REG_PCLK_POL, FTDI::Pclkpol);
+  mem_write_8(REG_CSPREAD,  FTDI::CSpread);
 
   /* write a basic display-list to get things started */
 	mem_write_32(RAM_DL,      DL::CLEAR_COLOR_RGB);
@@ -618,12 +684,12 @@ void CLCD::init (void) {
   CommandFifo::reset();
 
   // Set Initial Values for Touch Transform Registers
-  mem_write_32(REG_TOUCH_TRANSFORM_A, default_transform_a);
-  mem_write_32(REG_TOUCH_TRANSFORM_B, default_transform_b);
-  mem_write_32(REG_TOUCH_TRANSFORM_C, default_transform_c);
-  mem_write_32(REG_TOUCH_TRANSFORM_D, default_transform_d);
-  mem_write_32(REG_TOUCH_TRANSFORM_E, default_transform_e);
-  mem_write_32(REG_TOUCH_TRANSFORM_F, default_transform_f);
+  mem_write_32(REG_TOUCH_TRANSFORM_A, FTDI::default_transform_a);
+  mem_write_32(REG_TOUCH_TRANSFORM_B, FTDI::default_transform_b);
+  mem_write_32(REG_TOUCH_TRANSFORM_C, FTDI::default_transform_c);
+  mem_write_32(REG_TOUCH_TRANSFORM_D, FTDI::default_transform_d);
+  mem_write_32(REG_TOUCH_TRANSFORM_E, FTDI::default_transform_e);
+  mem_write_32(REG_TOUCH_TRANSFORM_F, FTDI::default_transform_f);
 
   #if defined(USE_FTDI_FT810)
     // Set the initial display orientation. On the FT810, we use the command

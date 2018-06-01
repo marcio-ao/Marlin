@@ -115,9 +115,6 @@ class CLCD {
     static void     mem_read_addr  (uint32_t reg_address);
     static void     mem_write_addr (uint32_t reg_address);
     static void     mem_read_bulk  (uint32_t reg_address, uint8_t *data, uint16_t len);
-    static void     mem_write_bulk (uint32_t reg_address, const void *data, uint16_t len, uint8_t padding = 0);
-    static void     mem_write_bulk (uint32_t reg_address, progmem_str str, uint16_t len, uint8_t padding = 0);
-
   public:
     static uint8_t  mem_read_8   (uint32_t reg_address);
     static uint16_t mem_read_16  (uint32_t reg_address);
@@ -125,6 +122,8 @@ class CLCD {
     static void     mem_write_8  (uint32_t reg_address, uint8_t w_data);
     static void     mem_write_16 (uint32_t reg_address, uint16_t w_data);
     static void     mem_write_32 (uint32_t reg_address, uint32_t w_data);
+    static void     mem_write_bulk (uint32_t reg_address, const void *data, uint16_t len, uint8_t padding = 0);
+    static void     mem_write_bulk (uint32_t reg_address, progmem_str str, uint16_t len, uint8_t padding = 0);
 
     static inline uint32_t pack_rgb(uint8_t r, uint8_t g, uint8_t b) {
       return (uint32_t(r) << 16) | (uint32_t(g) << 8) | uint32_t(b);
@@ -208,6 +207,11 @@ class CLCD::CommandFifo {
     void slider    (int16_t x, int16_t y, int16_t w, int16_t h, uint16_t options, uint16_t val, uint16_t range);
     void progress  (int16_t x, int16_t y, int16_t w, int16_t h, uint16_t options, uint16_t val, uint16_t range);
     void scrollbar (int16_t x, int16_t y, int16_t w, int16_t h, uint16_t options, uint16_t val, uint16_t size, uint16_t range);
+    void sketch    (int16_t x, int16_t y, uint16_t w, uint16_t h, uint32_t ptr, uint16_t format);
+    void mediafifo (uint32_t ptr, uint32_t size);
+    void playvideo (uint32_t options);
+    void videostart();
+    void videoframe(uint32_t dst, uint32_t ptr);
 
     // All the following must be followed by str()
     void text      (int16_t x, int16_t y,                       int16_t font, uint16_t options);

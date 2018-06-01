@@ -70,29 +70,52 @@ namespace Extensible_UI_API {
       case Y:  return current_position[Y_AXIS];
       case Z:  return current_position[Z_AXIS];
       case E0: return current_position[E_AXIS];
-      case E1: return current_position[E_AXIS+1];
-      case E2: return current_position[E_AXIS+2];
-      case E3: return current_position[E_AXIS+3];
+      case E1: return current_position[E_AXIS];
+      case E2: return current_position[E_AXIS];
+      case E3: return current_position[E_AXIS];
       default: return 0;
     }
   }
 
   void setAxisPosition_mm(const axis_t axis, float position, float _feedrate_mm_s) {
+    #if EXTRUDERS > 1
+      const int8_t old_extruder = active_extruder;
+    #endif
+    switch(axis) {
+      case X:
+      case Y:
+      case Z:
+        break;
+      case E0: active_extruder = 0; break;
+      #if EXTRUDERS > 1
+        case E1: active_extruder = 1; break;
+        #if EXTRUDERS > 2
+        case E2: active_extruder = 2; break;
+          #if EXTRUDERS > 3
+          case E3: active_extruder = 3; break;
+          #endif
+        #endif
+      #endif
+      default: return;
+    }
     set_destination_from_current();
     switch(axis) {
-      case X:  destination[X_AXIS]   = position; break;
-      case Y:  destination[Y_AXIS]   = position; break;
-      case Z:  destination[Z_AXIS]   = position; break;
-      case E0: destination[E_AXIS]   = position; break;
-      case E1: destination[E_AXIS+1] = position; break;
-      case E2: destination[E_AXIS+2] = position; break;
-      case E3: destination[E_AXIS+3] = position; break;
+      case X:  destination[X_AXIS] = position; break;
+      case Y:  destination[Y_AXIS] = position; break;
+      case Z:  destination[Z_AXIS] = position; break;
+      case E0: destination[E_AXIS] = position; break;
+      case E1: destination[E_AXIS] = position; break;
+      case E2: destination[E_AXIS] = position; break;
+      case E3: destination[E_AXIS] = position; break;
     }
 
     float old_feedrate = feedrate_mm_s;
     feedrate_mm_s = _feedrate_mm_s;
     prepare_move_to_destination();
     feedrate_mm_s = old_feedrate;
+    #if EXTRUDERS > 1
+      active_extruder = old_extruder;
+    #endif
   }
 
   bool isMoving() { return planner.has_blocks_queued(); }
