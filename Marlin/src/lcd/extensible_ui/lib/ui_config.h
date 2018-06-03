@@ -24,7 +24,7 @@
 
 // Define the display module used (see "ftdi_eve_panels.h" for definitions)
 
-//#define LCD_VM800N35A       // FTDI 3.5" 320x240 with FT800
+//#define LCD_VM800B35A       // FTDI 3.5" 320x240 with FT800
 #define LCD_FT800CB         // Haoyu 5" 480x272 with FT800
 //#define LCD_4DLCD_FT843     // 4D Systems 4.3" 480x272 wuth FT800
 //#define LCD_FT810CB_480x272 // Haoyu FT810CB fitted with a 480x272 panel (non-standard)
