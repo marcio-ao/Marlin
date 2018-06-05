@@ -207,7 +207,7 @@ void CLCD::mem_read_addr (uint32_t reg_address) {
 void CLCD::mem_read_bulk (uint32_t reg_address, uint8_t *data, uint16_t len) {
   spi_select();
   mem_read_addr(reg_address);
-  #if defined(USE_MARLIN_IO)
+  #if defined(USE_MARLIN_IO) && !defined(CLCD_USE_SOFT_SPI)
     spiRead(data, len);
   #else
     while(len--) {
@@ -264,7 +264,7 @@ void CLCD::mem_write_bulk (uint32_t reg_address, const void *data, uint16_t len,
   mem_write_addr(reg_address);
   // Write data bytes
   while(len--) {
-    #if defined(USE_MARLIN_IO)
+    #if defined(USE_MARLIN_IO) && !defined(CLCD_USE_SOFT_SPI)
       spiSend(*p++);
     #else
       spi_send(*p++);
@@ -283,7 +283,7 @@ void CLCD::mem_write_bulk (uint32_t reg_address, progmem_str str, uint16_t len, 
   mem_write_addr(reg_address);
   // Write data bytes
   while(len--) {
-    #if defined(USE_MARLIN_IO)
+    #if defined(USE_MARLIN_IO) && !defined(CLCD_USE_SOFT_SPI)
       spiSend(pgm_read_byte(p++));
     #else
       spi_send(pgm_read_byte(p++));
