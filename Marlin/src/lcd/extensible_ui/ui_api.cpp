@@ -40,6 +40,14 @@ inline float clamp(const float value, const float minimum, const float maximum) 
 
 namespace Extensible_UI_API {
 
+  void delay_ms(unsigned long ms) {
+    safe_delay(ms);
+  }
+
+  void yield() {
+    thermalManager.manage_heater();
+  }
+
   float getActualTemp_celsius(const uint8_t extruder) {
     if (extruder)
       return thermalManager.degHotend(extruder-1);

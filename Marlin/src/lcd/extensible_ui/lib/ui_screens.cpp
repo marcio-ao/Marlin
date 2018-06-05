@@ -134,6 +134,7 @@ bool UIScreenWithStyles::buttonStyleCallback(uint8_t tag, uint8_t &style, uint16
     style &= ~STYLE_DISABLED; // Clear the disabled flag
     return true;              // Call me again to reset the colors
   }
+  return false;
 }
 
 void UIScreenWithStyles::default_button_colors() {
@@ -1025,7 +1026,7 @@ void CalibrationScreen::onRedraw(draw_mode_t what) {
 }
 
 void CalibrationScreen::onIdle() {
-  if(CommandProcessor::is_idle()) {
+  if(!CommandProcessor::is_processing()) {
     #if defined(UI_FRAMEWORK_DEBUG)
       #if defined (SERIAL_PROTOCOLLNPGM)
         SERIAL_PROTOCOLLNPGM("Calibration finished");
@@ -1160,8 +1161,6 @@ void ValueAdjusters::widgets_t::increments() {
     #else
        .font(Theme::font_medium).button( BTN_POS(15,1),     BTN_SIZE(4,1), F("Increment:"), OPT_FLAT);
     #endif
-
-    screen_data.ValueAdjusters.increment = 243 - _decimals;
   }
 
   if(_what & FOREGROUND) {
@@ -1186,8 +1185,6 @@ void ValueAdjusters::widgets_t::adjuster(uint8_t tag, const char *label,float va
 
   if(_what & FOREGROUND) {
     char b[32];
-
-    progmem_str   str  = (progmem_str) label;
 
     default_button_colors();
     cmd.enabled(1)
@@ -1897,107 +1894,106 @@ void MediaPlayerScreen::onIdle() {
 }
 
 void MediaPlayerScreen::lookForAutoPlayMedia() {
-    Sd2Card card;
+  #if defined(USE_FTDI_FT810)
+    char     buf[512];
+    Sd2Card  card;
     SdVolume volume;
-    SdFile root, file;
+    SdFile   root, file;
+
+    // Check to see if a video file exists
+
     card.init(SPI_SPEED, SDSS);
     volume.init(&card);
     root.openRoot(&volume);
 
-    const uint32_t bottom_of_RAMG = RAM_G + 0x100000;
-    const uint32_t block_size  = 512;
-    const uint32_t fifo_block1 = bottom_of_RAMG - block_size * 2;
-    const uint32_t fifo_block2 = fifo_block1 + block_size;
-    const uint32_t write_offset = 0;
-
-    // Media test
-    char buf[512];
     strcpy_P(buf, PSTR("AUTOPLAY.AVI"));
-    if(root.exists(buf)) {
-      StatusScreen::setStatusMessage(F("AVI Found"));
 
-      if(!file.open(root, buf, O_READ)) {
-        SERIAL_PROTOCOLLNPGM("Failed to open file");
-        return;
-      }
+    if(!root.exists(buf)) return;
 
-      CommandProcessor cmd;
-      cmd.cmd(CMD_DLSTART)
-         .cmd(CLEAR_COLOR_RGB(0x00FF00))
-         .cmd(CLEAR(true,true,true));
-
-      cmd.mediafifo(fifo_block1, block_size*2);
-      cmd.playvideo(OPT_FULLSCREEN | OPT_MEDIAFIFO | OPT_NOTEAR);
-      cmd.execute();
-
-      uint32_t totalBytes = 0;
-      int16_t  nBytes;
-
-      // Load first block into 1st half of FIFO
-
-      noInterrupts();
-
-      nBytes = file.read(buf, block_size);
-      if(nBytes == -1) return;
-      CLCD::mem_write_bulk (fifo_block1, buf, nBytes);
-
-      // Start processing odd numbered block
-      CLCD::mem_write_32(REG_MEDIAFIFO_WRITE, write_offset + nBytes);
-      totalBytes += nBytes;
-      if(nBytes != block_size) return;
-
-      while(1) {
-        uint32_t mediafifo_read;
-
-        // Read even numbered block into 2nd half of FIFO,
-        // while odd numbered block is processing.
-
-        nBytes = file.read(buf, block_size);
-        if(nBytes == -1) break;
-        CLCD::mem_write_bulk (fifo_block2, buf, nBytes);
-
-        // Wait for FTDI810 to finish odd numbered block
-
-        mediafifo_read = CLCD::mem_read_32(REG_MEDIAFIFO_READ);
-        while(mediafifo_read != block_size) {
-          mediafifo_read = CLCD::mem_read_32(REG_MEDIAFIFO_READ);
-          watchdog_reset();
-        }
-
-        // Start processing even numbered block
-
-        CLCD::mem_write_32(REG_MEDIAFIFO_WRITE, write_offset + (nBytes == block_size) ? 0 : block_size + nBytes);
-        totalBytes += nBytes;
-        if(nBytes != block_size) break;
-
-        // Read odd numbered block into 1st half of FIFO
-
-        nBytes = file.read(buf, block_size);
-        if(nBytes == -1) break;
-        CLCD::mem_write_bulk (fifo_block1, buf, nBytes);
-
-        // Wait for FTDI810 to finish even numbered block
-
-        mediafifo_read = CLCD::mem_read_32(REG_MEDIAFIFO_READ);
-        while(mediafifo_read != 0) {
-          mediafifo_read = CLCD::mem_read_32(REG_MEDIAFIFO_READ);
-          watchdog_reset();
-        }
-
-        // Start processing odd numbered block
-
-        CLCD::mem_write_32(REG_MEDIAFIFO_WRITE, write_offset + nBytes);
-        totalBytes += nBytes;
-        if(nBytes != block_size) break;
-
-        watchdog_reset();
-      }
-
-      interrupts();
-
-      SERIAL_ECHOLNPAIR("Done playing video, bytes: ", totalBytes);
-      file.close();
+    if(!file.open(root, buf, O_READ)) {
+      #ifdef SERIAL_PROTOCOLLNPGM
+        SERIAL_PROTOCOLLNPGM("Failed to open AUTOPLAY.AVI");
+      #else
+        Serial.println("Failed to open AUTOPLAY.AVI");
+      #endif
+      return;
     }
+
+    #ifdef SERIAL_PROTOCOLLNPGM
+      SERIAL_PROTOCOLLNPGM("Starting to play AUTOPLAY.AVI");
+    #else
+      Serial.println("Starting to play AUTOPLAY.AVI");
+    #endif
+
+    // Set up the media FIFO on the end of RAMG, as the top of RAMG
+    // will be used as the framebuffer.
+
+    const uint32_t block_size = 512;
+    const uint32_t fifo_size  = block_size * 2;
+    const uint32_t fifo_start = RAM_G + RAM_G_SIZE - fifo_size;
+
+    CommandProcessor cmd;
+    cmd.cmd(CMD_DLSTART)
+       .cmd(CLEAR_COLOR_RGB(0x00FF00))
+       .cmd(CLEAR(true,true,true))
+       .mediafifo(fifo_start, fifo_size)
+       .playvideo(OPT_FULLSCREEN | OPT_MEDIAFIFO | OPT_NOTEAR)
+       .execute();
+
+    uint32_t writePtr = 0;
+    int16_t  nBytes;
+
+    uint32_t t = millis();
+    uint8_t timeouts;
+
+    do {
+      // Write block n
+      nBytes = file.read(buf, block_size);
+      if(nBytes == -1) break;
+
+      if(millis() - t > 10) {
+        Extensible_UI_API::yield();
+        watchdog_reset();
+        t = millis();
+      }
+
+      CLCD::mem_write_bulk (fifo_start + writePtr, buf, nBytes);
+
+      // Wait for FTDI810 to finish playing block n-1
+      timeouts = 20;
+      do {
+        if(millis() - t > 10) {
+          Extensible_UI_API::yield();
+          watchdog_reset();
+          t = millis();
+          timeouts--;
+          if(timeouts == 0) {
+            SERIAL_PROTOCOLLNPGM("Timeout playing video");
+            return;
+          }
+        }
+      } while(CLCD::mem_read_32(REG_MEDIAFIFO_READ) != writePtr);
+
+      // Start playing block n
+      writePtr = (writePtr + nBytes) % fifo_size;
+      CLCD::mem_write_32(REG_MEDIAFIFO_WRITE, writePtr);
+    } while(nBytes == block_size);
+
+    file.close();
+
+    #ifdef SERIAL_PROTOCOLLNPGM
+      SERIAL_PROTOCOLLNPGM("Done playing video");
+    #else
+      Serial.println("Done playing video");
+    #endif
+
+    // Since playing media overwrites RAMG, we need to reinitialize
+    // everything that is stored in RAMG.
+
+    cmd.cmd(CMD_DLSTART).execute();
+    DLCache::init();
+    StatusScreen::onStartup();
+  #endif
 }
 
 /***************************** MARLIN CALLBACKS  ***************************/

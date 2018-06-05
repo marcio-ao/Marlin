@@ -77,6 +77,9 @@ namespace Extensible_UI_API {
     void incrementZOffset_mm(const float z_offset);
   #endif
 
+  void delay_ms(unsigned long ms);
+  void yield(); // Within lengthy loop, call this periodically
+
   void enqueueCommands(progmem_str gcode);
 
   bool isPrintingFromMedia();

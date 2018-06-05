@@ -25,26 +25,38 @@
 
 /******************* TINY INTERVAL CLASS ***********************/
 
-/* tiny_interval() downsamples a 32-bit millis() value
+/* Helpful Reference:
+ *
+ *  https://arduino.stackexchange.com/questions/12587/how-can-i-handle-the-millis-rollover
+ */
+
+/* tiny_interval_t downsamples a 32-bit millis() value
    into a 8-bit value which can record periods of
    a few seconds with a rougly 1/16th of second
    resolution. This allows us to measure small
    intervals without needing to use four-byte counters.
-
-   However, dues to wrap-arounds, this class may
-   have a burst of misfires every 16 seconds or so and
-   thus should only be used where this is harmless and
-   memory savings outweigh accuracy.
  */
-class tiny_interval_t {
+class tiny_time_t {
   private:
-    uint8_t end;
+    friend class tiny_timer_t;
+    uint8_t _duration;
+
+    static uint8_t tiny_time(uint32_t ms) {return ms / 64;};
 
   public:
-    static uint8_t tiny_interval(uint32_t ms) {return uint8_t(ms / 64);}
+    tiny_time_t()            : _duration(0) {}
+    tiny_time_t(uint32_t ms) : _duration(tiny_time(ms)) {}
+    tiny_time_t & operator=   (uint32_t ms) {_duration = tiny_time(ms); return *this;}
+    bool          operator == (uint32_t ms) {return _duration == tiny_time(ms);}
+};
 
-    void wait_for(uint32_t ms);
-    bool elapsed();
+class tiny_timer_t {
+  private:
+    uint8_t _start;
+
+  public:
+    void start();
+    bool elapsed(tiny_time_t interval);
 };
 
 /******************* SOUND HELPER CLASS ************************/
@@ -63,8 +75,9 @@ namespace FTDI {
       static const PROGMEM sound_t silence[];
 
     private:
-      const sound_t *sequence;
-      uint8_t       next;
+      const sound_t    *sequence;
+      tiny_timer_t     timer;
+      tiny_time_t      wait;
 
       note_t frequency_to_midi_note(const uint16_t frequency);
 

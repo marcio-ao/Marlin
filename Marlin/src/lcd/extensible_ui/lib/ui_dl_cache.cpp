@@ -22,7 +22,7 @@
 
 #include "ui.h"
 
-#if defined(EXTENSIBLE_UI)
+#if ENABLED(EXTENSIBLE_UI)
 
 #include "ftdi_eve_panels.h"
 #include "ftdi_eve_constants.h"
@@ -84,6 +84,24 @@ bool DLCache::has_data() {
   #endif
 }
 
+bool DLCache::wait_until_idle() {
+  const unsigned long startTime = millis();
+  do {
+    if((millis() - startTime) > 250) {
+      #if defined (SERIAL_PROTOCOLLNPGM)
+        SERIAL_PROTOCOLLNPGM("Timeout on DL_Cache::Wait_Until_Idle()");
+      #else
+        Serial.println(F("Timeout on DL_Cache::Wait_Until_Idle()"));
+      #endif
+      return false;
+    }
+    #if ENABLED(EXTENSIBLE_UI)
+      Extensible_UI_API::yield();
+    #endif
+  } while(CLCD::CommandFifo::is_processing());
+  return true;
+}
+
 /* This caches the current display list in RAMG so
  * that it can be appended later. The memory is
  * dynamically allocated following DL_FREE_ADDR.
@@ -99,7 +117,8 @@ bool DLCache::store(uint32_t num_bytes /* = 0*/) {
 
   // Execute any commands already in the FIFO
   cmd.execute();
-  cmd.wait_until_idle();
+  if(!wait_until_idle())
+    return false;
 
   // Figure out how long the display list is
   uint32_t new_dl_size = CLCD::mem_read_32(REG_CMD_DL) & 0x1FFF;
@@ -177,7 +196,7 @@ void DLCache::append() {
   #endif
   #if defined(UI_FRAMEWORK_DEBUG)
     cmd.execute();
-    cmd.wait_until_idle();
+    wait_until_idle();
     #if defined (SERIAL_PROTOCOLLNPAIR)
       SERIAL_PROTOCOLPAIR("Appending to DL from RAMG cache, bytes: ", dl_size);
       SERIAL_PROTOCOLPAIR(" (REG_CMD_DL: ", CLCD::mem_read_32(REG_CMD_DL));

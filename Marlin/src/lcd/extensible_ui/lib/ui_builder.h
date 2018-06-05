@@ -123,6 +123,7 @@ class CommandProcessor : public CLCD::CommandFifo {
 
     inline CommandProcessor& cmd     (uint32_t cmd32)           {CLCD::CommandFifo::cmd(cmd32); return *this;}
     inline CommandProcessor& cmd     (void* data, uint16_t len) {CLCD::CommandFifo::cmd(data, len); return *this;}
+    inline CommandProcessor& execute()                          {CLCD::CommandFifo::execute(); return *this;}
 
     inline CommandProcessor& fgcolor (uint32_t rgb)             {cmd(FTDI::CMD_FGCOLOR); cmd(rgb); return *this;}
     inline CommandProcessor& bgcolor (uint32_t rgb)             {cmd(FTDI::CMD_BGCOLOR); cmd(rgb); return *this;}
@@ -132,6 +133,9 @@ class CommandProcessor : public CLCD::CommandFifo {
 
     inline CommandProcessor& enabled (bool enabled)             {if(!enabled) _style |= STYLE_DISABLED; else _style &= ~STYLE_DISABLED; return *this;}
     inline CommandProcessor& style   (uint8_t style)            {_style = style; return *this;}
+
+    inline CommandProcessor& mediafifo (uint32_t p, uint32_t s) {CLCD::CommandFifo::mediafifo(p, s); return *this;}
+    inline CommandProcessor& playvideo(uint32_t options)        {CLCD::CommandFifo::playvideo(options); return *this;}
 
     template<typename T>
     FORCEDINLINE CommandProcessor& toggle(int16_t x, int16_t y, int16_t w, int16_t h, T text, bool state, uint16_t options = FTDI::OPT_3D) {
@@ -232,6 +236,11 @@ class CommandProcessor : public CLCD::CommandFifo {
     CommandProcessor& keys(int16_t x, int16_t y, int16_t w, int16_t h, T keys, uint16_t options = FTDI::OPT_3D) {
       CLCD::CommandFifo::keys(x, y, w, h, _font, options);
       CLCD::CommandFifo::str(keys);
+      return *this;
+    }
+
+    inline CommandProcessor& sketch(int16_t x, int16_t y, uint16_t w, uint16_t h, uint32_t ptr, uint16_t format) {
+      CLCD::CommandFifo::sketch(x, y, w, h, ptr, format);
       return *this;
     }
 };

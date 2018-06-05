@@ -170,9 +170,6 @@ struct FontMetrics {
 
 class CLCD::CommandFifo {
   protected:
-    static uint32_t get_reg_cmd_write();
-    static uint32_t get_reg_cmd_read();
-
     #if defined(USE_FTDI_FT800)
       static uint32_t command_write_ptr;
       template <class T> void _write_unaligned(T data, uint16_t len);
@@ -188,8 +185,7 @@ class CLCD::CommandFifo {
     CommandFifo() {start();}
 
     static void reset (void);
-    static bool is_idle();
-    static void wait_until_idle();
+    static bool is_processing();
 
     void execute(void);
 

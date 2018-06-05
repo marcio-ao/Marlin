@@ -92,7 +92,7 @@ namespace FTDI {
 
     // The following functions *must* be inlined since we are relying on the compiler to do
     // substitution of the constants from the data structure rather than actually storing
-    // it in PROGMEM (which would fail, since we are not using pgm_read_near to read them).
+    // it in PROGMEM (which would fail, since we are not using pgm_read to read them).
     // Plus, by inlining, all the equations are evaluated at compile-time as everything
     // should be a constant.
 

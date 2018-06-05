@@ -24,21 +24,21 @@
 
 // Define the display module used (see "ftdi_eve_panels.h" for definitions)
 
-//#define LCD_VM800N35A       // FTDI 3.5" 320x240 with FT800
+//#define LCD_VM800B35A       // FTDI 3.5" 320x240 with FT800
 #define LCD_FT800CB         // Haoyu 5" 480x272 with FT800
 //#define LCD_4DLCD_FT843     // 4D Systems 4.3" 480x272 wuth FT800
 //#define LCD_FT810CB_480x272 // Haoyu FT810CB fitted with a 480x272 panel (non-standard)
-//#define LCD_FT810CB           // Haoyu 5" 800x480 with FT810
+//#define LCD_FT810CB         // Haoyu 5" 800x480 with FT810
 //#define LCD_AO_CLCD           // Aleph Objects 800x480 Touch UI with FT810
 
 
 // Define the printer interface or pins used (see "ftdi_eve_pins.h" for definitions):
 
 //#define CR10_TFT
-#define AO_CLCD_PINOUT_REV_B_EXP1 // Uses UltraLCD EXP1 connector, old wiring
+//#define AO_CLCD_PINOUT_REV_B_EXP1 // Uses UltraLCD EXP1 connector, old wiring
 //#define AO_CLCD_PINOUT_REV_C_EXP1 // Uses UltraLCD EXP1 connector, new wiring
 //#define AO_CLCD_PINOUT_REV_C_EXP2    // Uses UltraLCD EXP2 connector, new wiring
-//#define OTHER_PIN_LAYOUT
+#define OTHER_PIN_LAYOUT
 
 // Otherwise. Define all the pins manually:
 
@@ -79,6 +79,6 @@
 //#define USE_MIRRORED_ORIENTATION
 
 // Enable this to debug the event framework
-#define UI_FRAMEWORK_DEBUG
+//#define UI_FRAMEWORK_DEBUG
 
 #endif // _UI_CONFIG_H_

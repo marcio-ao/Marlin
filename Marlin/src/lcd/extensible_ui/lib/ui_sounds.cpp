@@ -30,23 +30,18 @@
 
 /******************* TINY INTERVAL CLASS ***********************/
 
-bool tiny_interval_t::elapsed() {
-  uint8_t now = tiny_interval(millis());
-  if(now > end) {
+bool tiny_timer_t::elapsed(tiny_time_t duration) {
+  uint8_t now = tiny_time_t::tiny_time(millis());
+  uint8_t elapsed = now - _start;
+  if(elapsed >= duration._duration) {
     return true;
   } else {
     return false;
   }
 }
 
-void tiny_interval_t::wait_for(uint32_t ms) {
-  uint32_t now = millis();
-  end = tiny_interval(now + ms);
-  if(tiny_interval(now + ms*2) < end) {
-    // Avoid special case where timer
-    // might get wedged and stop firing.
-    end = 0;
-  }
+void tiny_timer_t::start() {
+  _start = tiny_time_t::tiny_time(millis());
 }
 
 /******************* SOUND HELPER CLASS ************************/
@@ -87,13 +82,13 @@ namespace FTDI {
 
     // Schedule silence to squelch the note after the duration expires.
     sequence = silence;
-    next = tiny_interval_t::tiny_interval(millis() + duration_ms);
+    wait = duration_ms;
+    timer.start();
   }
 
   void SoundPlayer::play(const sound_t* seq) {
     sequence = seq;
-    // Delaying the start of the sound seems to prevent glitches. Not sure why...
-    next     = tiny_interval_t::tiny_interval(millis()+250);
+    wait     = 0;
   }
 
   bool SoundPlayer::is_sound_playing() {
@@ -103,25 +98,20 @@ namespace FTDI {
   void SoundPlayer::onIdle() {
     if(!sequence) return;
 
-    const uint8_t tiny_millis = tiny_interval_t::tiny_interval(millis());
-    const bool ready_for_next_note = (next == WAIT) ? !is_sound_playing() : (tiny_millis > next);
+    const bool ready_for_next_note = (wait == 0) ? !is_sound_playing() : timer.elapsed(wait);
 
     if(ready_for_next_note) {
-      const effect_t fx = effect_t(pgm_read_byte_near(&sequence->effect));
-      const note_t   nt =   note_t(pgm_read_byte_near(&sequence->note));
-      const uint16_t ms = uint32_t(pgm_read_byte_near(&sequence->sixteenths)) * 1000 / 16;
+      const effect_t fx = effect_t(pgm_read_byte(&sequence->effect));
+      const note_t   nt =   note_t(pgm_read_byte(&sequence->note));
+      const uint16_t ms = uint32_t(pgm_read_byte(&sequence->sixteenths)) * 1000 / 16;
 
       if(ms == 0 && fx == SILENCE && nt == 0) {
         sequence = 0;
         play(SILENCE, REST);
       } else {
-        #if defined(UI_FRAMEWORK_DEBUG)
-          #if defined (SERIAL_PROTOCOLLNPAIR)
-            SERIAL_PROTOCOLLNPAIR("Scheduling note in ", ms);
-          #endif
-        #endif
-        next =   (ms == WAIT) ? 0       : (tiny_interval_t::tiny_interval(millis() + ms));
-        play(fx, (nt == 0)    ? NOTE_C4 : nt);
+        play(fx, (nt == 0) ? NOTE_C4 : nt);
+        wait = ms;
+        timer.start();
         sequence++;
       }
     }

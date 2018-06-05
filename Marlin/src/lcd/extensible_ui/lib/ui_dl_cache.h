@@ -55,6 +55,8 @@ class DLCache {
     void load_slot();
     static void save_slot(uint8_t dl_slot, uint32_t dl_addr, uint32_t dl_size);
 
+    bool wait_until_idle();
+
   public:
     static void init();
 

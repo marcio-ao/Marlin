@@ -43,8 +43,8 @@ enum {
   DEBOUNCING      = 0xFD  //253
 };
 
-tiny_interval_t    touch_timer;
-tiny_interval_t    refresh_timer;
+tiny_timer_t    touch_timer;
+tiny_timer_t    refresh_timer;
 bool is_tracking       = false;
 bool touch_sound       = true;
 uint8_t pressed_state  = UNPRESSED;
@@ -58,7 +58,7 @@ void start_tracking(int16_t x, int16_t y, int16_t w, int16_t h, int16_t tag, boo
   cmd.track(x, y, w, h, tag, rotary);
   cmd.execute();
   is_tracking = true;
-  refresh_timer.wait_for(TRACKING_UPDATE_INTERVAL);
+  refresh_timer.start();
 }
 
 void stop_tracking() {
@@ -91,18 +91,18 @@ namespace Extensible_UI_API {
 
     sound.onIdle();
 
-    if(refresh_timer.elapsed()) {
-      refresh_timer.wait_for(is_tracking ? TRACKING_UPDATE_INTERVAL : DISPLAY_UPDATE_INTERVAL);
+    if(refresh_timer.elapsed(is_tracking ? TRACKING_UPDATE_INTERVAL : DISPLAY_UPDATE_INTERVAL)) {
       current_screen.onIdle();
       if(is_tracking && !CLCD::is_touching()) {
         stop_tracking();
       }
+      refresh_timer.start();
     }
 
     // If the LCD is processing commands, don't check
     // for tags since they may be changing and could
     // cause spurious events.
-    if(!CLCD::CommandFifo::is_idle()) {
+    if(CLCD::CommandFifo::is_processing()) {
       return;
     }
 
@@ -127,7 +127,7 @@ namespace Extensible_UI_API {
 
           current_screen.onRefresh();
           if(current_screen.onTouchStart(tag)) {
-            touch_timer.wait_for(1000 / TOUCH_REPEATS_PER_SECOND);
+            touch_timer.start();
             if(touch_sound) sound.play(Theme::press_sound);
           }
 
@@ -149,7 +149,7 @@ namespace Extensible_UI_API {
         break;
       case DEBOUNCING:
         if(tag == 0) {
-          if(touch_timer.elapsed()) {
+          if(touch_timer.elapsed(DEBOUNCE_PERIOD)) {
             pressed_state = UNPRESSED;
             if(touch_sound) sound.play(Theme::unpress_sound);
           }
@@ -160,16 +160,16 @@ namespace Extensible_UI_API {
       case IGNORE_UNPRESS:
         if(tag == 0) {
           // Ignore subsequent presses for a while to avoid bouncing
-          touch_timer.wait_for(DEBOUNCE_PERIOD);
+          touch_timer.start();
           pressed_state = DEBOUNCING;
         }
         break;
       default: // PRESSED
         if(tag == pressed_state) {
           // The user is holding down a button.
-          if(touch_timer.elapsed() && current_screen.onTouchHeld(tag)) {
+          if(touch_timer.elapsed(1000 / TOUCH_REPEATS_PER_SECOND) && current_screen.onTouchHeld(tag)) {
             if(touch_sound) sound.play(Theme::repeat_sound);
-            touch_timer.wait_for(1000 / TOUCH_REPEATS_PER_SECOND);
+            touch_timer.start();
           }
         }
         else if(tag == 0) {
@@ -187,7 +187,7 @@ namespace Extensible_UI_API {
           current_screen.onTouchEnd(saved_pressed_state);
           current_screen.onRefresh();
           // Ignore subsequent presses for a while to avoid bouncing
-          touch_timer.wait_for(DEBOUNCE_PERIOD);
+          touch_timer.start();
           pressed_state = DEBOUNCING;
         }
         break;

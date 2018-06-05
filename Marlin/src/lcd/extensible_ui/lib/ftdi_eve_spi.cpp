@@ -207,9 +207,13 @@ void CLCD::mem_read_addr (uint32_t reg_address) {
 void CLCD::mem_read_bulk (uint32_t reg_address, uint8_t *data, uint16_t len) {
   spi_select();
   mem_read_addr(reg_address);
-  while(len--) {
-    *data++ = spi_recv();
-  }
+  #if defined(USE_MARLIN_IO)
+    spiRead(data, len);
+  #else
+    while(len--) {
+      *data++ = spi_recv();
+    }
+  #endif
   spi_deselect();
 }
 
@@ -260,7 +264,11 @@ void CLCD::mem_write_bulk (uint32_t reg_address, const void *data, uint16_t len,
   mem_write_addr(reg_address);
   // Write data bytes
   while(len--) {
-    spi_send(*p++);
+    #if defined(USE_MARLIN_IO)
+      spiSend(*p++);
+    #else
+      spi_send(*p++);
+    #endif
   }
   // Write padding bytes
   while(padding--) {
@@ -275,7 +283,11 @@ void CLCD::mem_write_bulk (uint32_t reg_address, progmem_str str, uint16_t len, 
   mem_write_addr(reg_address);
   // Write data bytes
   while(len--) {
-    spi_send(pgm_read_byte_near(p++));
+    #if defined(USE_MARLIN_IO)
+      spiSend(pgm_read_byte(p++));
+    #else
+      spi_send(pgm_read_byte(p++));
+    #endif
   }
   // Write padding bytes
   while(padding--) {

@@ -51,8 +51,8 @@ typedef enum {
 
 #define GET_METHOD(type, method) reinterpret_cast<method##_func_t*>( \
   sizeof(functionTable[type].method##_ptr) == 2 ? \
-    pgm_read_word_near(&functionTable[type].method##_ptr) : \
-    pgm_read_dword_near(&functionTable[type].method##_ptr) \
+    pgm_read_word_far(&functionTable[type].method##_ptr) : \
+    pgm_read_dword_far(&functionTable[type].method##_ptr) \
   )
 #define SCREEN_TABLE             PROGMEM const ScreenRef::table_t ScreenRef::functionTable[] =
 #define SCREEN_TABLE_POST        const uint8_t ScreenRef::functionTableSize = sizeof(ScreenRef::functionTable)/sizeof(ScreenRef::functionTable[0]);

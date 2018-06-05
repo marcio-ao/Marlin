@@ -74,8 +74,7 @@ void CLCD::host_cmd (unsigned char host_command, unsigned char byte2) {  // Send
 void CLCD::flash_write_rgb332_bitmap(uint32_t mem_address, const unsigned char* p_rgb332_array, uint16_t num_bytes)
 {
   for(unsigned int i = 0; i < num_bytes; i++) {
-    unsigned char flash_byte = pgm_read_byte_near(p_rgb332_array + i);
-    mem_write_8((mem_address + i), flash_byte);
+    mem_write_8((mem_address + i), pgm_read_byte(p_rgb332_array + i));
   }
 }
 
@@ -367,7 +366,7 @@ void CLCD::CommandFifo::track(int16_t x, int16_t y, int16_t w, int16_t h, uint16
   cmd( &cmd_data, sizeof(cmd_data) );
 }
 
-void CLCD::CommandFifo::sketch    (int16_t x, int16_t y, uint16_t w, uint16_t h, uint32_t ptr, uint16_t format) {
+void CLCD::CommandFifo::sketch(int16_t x, int16_t y, uint16_t w, uint16_t h, uint32_t ptr, uint16_t format) {
   struct {
     uint32_t type = CMD_SKETCH;
     int16_t   x;
@@ -448,34 +447,8 @@ void CLCD::CommandFifo::set_rotate (uint8_t rotation) {
 
 /**************************** FT800/810 Co-Processor Command FIFO ****************************/
 
-uint32_t CLCD::CommandFifo::get_reg_cmd_write() {
-  return mem_read_32(REG_CMD_WRITE) & 0x0FFF;
-}
-
-uint32_t CLCD::CommandFifo::get_reg_cmd_read() {
-  return mem_read_32(REG_CMD_READ) & 0x0FFF;
-}
-
-bool CLCD::CommandFifo::is_idle() {
-  return get_reg_cmd_read() == get_reg_cmd_write();
-}
-
-void CLCD::CommandFifo::wait_until_idle() {
-  #if defined(UI_FRAMEWORK_DEBUG)
-    const uint32_t startTime = millis();
-  #endif
-  do {
-    #if defined(UI_FRAMEWORK_DEBUG)
-      if(millis() - startTime > 3) {
-        #if defined (SERIAL_PROTOCOLLNPGM)
-          SERIAL_PROTOCOLLNPGM("Timeout on CommandFifo::Wait_Until_Idle()");
-        #else
-          Serial.println(F("Timeout on CommandFifo::Wait_Until_Idle()"));
-        #endif
-        break;
-      }
-    #endif
-  } while(!is_idle());
+bool CLCD::CommandFifo::is_processing() {
+  return (mem_read_32(REG_CMD_READ) & 0x0FFF) != (mem_read_32(REG_CMD_WRITE) & 0x0FFF);
 }
 
 #if defined(USE_FTDI_FT800)
@@ -514,7 +487,7 @@ template <class T> void CLCD::CommandFifo::_write_unaligned(T data, uint16_t len
 
   /* Wait until there is enough space in the circular buffer for the transfer */
   do {
-    command_read_ptr = get_reg_cmd_read();
+    command_read_ptr = mem_read_32(REG_CMD_READ) & 0x0FFF;
     if (command_read_ptr <= command_write_ptr) {
       bytes_tail = 4096U - command_write_ptr;
       bytes_head = command_read_ptr;
@@ -554,10 +527,6 @@ template <class T> void CLCD::CommandFifo::write(T data, uint16_t len) {
   _write_unaligned(pad_bytes, padding);
 }
 #else
-uint32_t CLCD::CommandFifo::getRegCmdBSpace() {
-  return mem_read_32(REG_CMDB_SPACE)  & 0x0FFF;
-}
-
 void CLCD::CommandFifo::start() {
 }
 
@@ -579,9 +548,29 @@ template <class T> void CLCD::CommandFifo::write(T data, uint16_t len) {
   // The FT810 provides a special register that can be used
   // for writing data without us having to do our own FIFO
   // management.
-  uint32_t Command_Space = getRegCmdBSpace();
-  while(Command_Space < len + padding) {
-    Command_Space = getRegCmdBSpace();
+  uint16_t Command_Space = mem_read_32(REG_CMDB_SPACE) & 0x0FFF;
+  if(Command_Space < (len + padding)) {
+    #if defined(UI_FRAMEWORK_DEBUG)
+      #if defined (SERIAL_ECHOLNPAIR)
+        SERIAL_ECHOPAIR("Waiting for ", len + padding);
+        SERIAL_ECHOLNPAIR(" bytes in command queue, now free: ", Command_Space);
+      #else
+        Serial.print(F("Waiting for "));
+        Serial.print(len + padding);
+        Serial.print(F(" bytes in command queue, now free: "));
+        Serial.print(Command_Space);
+      #endif
+    #endif
+    do {
+      Command_Space = mem_read_32(REG_CMDB_SPACE) & 0x0FFF;
+    } while(Command_Space < len + padding);
+    #if defined(UI_FRAMEWORK_DEBUG)
+      #if defined (SERIAL_PROTOCOLLNPGM)
+        SERIAL_PROTOCOLLNPGM("... done");
+      #else
+        Serial.println(F("... done"));
+      #endif
+    #endif
   }
   mem_write_bulk(REG_CMDB_WRITE, data, len, padding);
 }
@@ -617,7 +606,7 @@ void CLCD::init (void) {
 
   /* read the device-id until it returns 0x7c or times out, should take less than 150ms */
   uint8_t counter;
-  for(counter=0;counter<250;counter++) {
+  for(counter = 0; counter < 250; counter++) {
    uint8_t device_id = mem_read_8(REG_ID);            // Read Device ID, Should Be 0x7C;
    if(device_id == 0x7c) {
      break;
