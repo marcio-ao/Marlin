@@ -51,6 +51,10 @@
 
 #include <stdint.h>
 
+#define ST7920_DELAY_1 DELAY_NS(600)
+#define ST7920_DELAY_2 DELAY_NS(750)
+#define ST7920_DELAY_3 DELAY_NS(750)
+
 // --------------------------------------------------------------------------
 // Defines
 // --------------------------------------------------------------------------
@@ -84,8 +88,11 @@ typedef int8_t pin_t;
   #define analogInputToDigitalPin(p) ((p < 12u) ? (p) + 54u : -1)
 #endif
 
-#define CRITICAL_SECTION_START  unsigned char _sreg = SREG; cli();
-#define CRITICAL_SECTION_END    SREG = _sreg;
+#define CRITICAL_SECTION_START  uint32_t primask = __get_PRIMASK(); __disable_irq()
+#define CRITICAL_SECTION_END    if (!primask) __enable_irq()
+#define ISRS_ENABLED() (!__get_PRIMASK())
+#define ENABLE_ISRS()  __enable_irq()
+#define DISABLE_ISRS() __disable_irq()
 
 #undef sq
 #define sq(x) ((x)*(x))
