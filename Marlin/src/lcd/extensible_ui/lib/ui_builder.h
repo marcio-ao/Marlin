@@ -82,13 +82,13 @@
     cmd.cmd(LINE_WIDTH(4)); \
     for(int i = 1; i < GRID_COLS; i++) { \
       cmd.cmd(BEGIN(LINES)); \
-      cmd.cmd(VERTEX2II(GRID_X(i),0)); \
-      cmd.cmd(VERTEX2II(GRID_X(i),Vsize)); \
+      cmd.cmd(VERTEX2F(GRID_X(i) *16, 0         *16)); \
+      cmd.cmd(VERTEX2F(GRID_X(i) *16, Vsize     *16)); \
     } \
     for(int i = 1; i < GRID_ROWS; i++) { \
       cmd.cmd(BEGIN(LINES)); \
-      cmd.cmd(VERTEX2II(0,     GRID_Y(i))); \
-      cmd.cmd(VERTEX2II(Hsize, GRID_Y(i))); \
+      cmd.cmd(VERTEX2F(0         *16, GRID_Y(i) *16)); \
+      cmd.cmd(VERTEX2F(Hsize     *16, GRID_Y(i) *16)); \
     } \
     cmd.cmd(LINE_WIDTH(16)); \
   }

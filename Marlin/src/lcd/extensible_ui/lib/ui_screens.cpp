@@ -733,7 +733,12 @@ void StatusScreen::onEntry() {
 }
 
 void StatusScreen::onIdle() {
-  onRefresh();
+  static tiny_timer_t status_timer;
+
+  if(status_timer.elapsed(DISPLAY_UPDATE_INTERVAL)) {
+    onRefresh();
+    status_timer.start();
+  }
 }
 
 bool StatusScreen::onTouchEnd(uint8_t tag) {
@@ -1910,7 +1915,7 @@ void MediaPlayerScreen::lookForAutoPlayMedia() {
 
     if(!root.exists(buf)) return;
 
-    if(!file.open(root, buf, O_READ)) {
+    if(!file.open(&root, buf, O_READ)) {
       #ifdef SERIAL_PROTOCOLLNPGM
         SERIAL_PROTOCOLLNPGM("Failed to open AUTOPLAY.AVI");
       #else

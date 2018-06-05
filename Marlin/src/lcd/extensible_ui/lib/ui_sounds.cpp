@@ -88,7 +88,8 @@ namespace FTDI {
 
   void SoundPlayer::play(const sound_t* seq) {
     sequence = seq;
-    wait     = 0;
+    wait     = 250; // Adding this delay causes the note to not be clipped, not sure why.
+    timer.start();
   }
 
   bool SoundPlayer::is_sound_playing() {
@@ -117,5 +118,11 @@ namespace FTDI {
     }
   }
 } // namespace FTDI
+
+namespace Extensible_UI_API {
+  void onPlayTone(const uint16_t frequency, const uint16_t duration) {
+    FTDI::sound.play_tone(frequency, duration);
+  }
+}
 
 #endif // EXTENSIBLE_UI

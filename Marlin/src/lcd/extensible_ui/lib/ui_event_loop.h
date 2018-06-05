@@ -24,7 +24,7 @@
 #define _UI_EVENT_LOOP_
 
 #define DISPLAY_UPDATE_INTERVAL    1000
-#define TRACKING_UPDATE_INTERVAL     50
+#define TOUCH_UPDATE_INTERVAL        50
 #define TOUCH_REPEATS_PER_SECOND      4
 #define DEBOUNCE_PERIOD             100
 

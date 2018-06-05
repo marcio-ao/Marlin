@@ -43,8 +43,7 @@ enum {
   DEBOUNCING      = 0xFD  //253
 };
 
-tiny_timer_t    touch_timer;
-tiny_timer_t    refresh_timer;
+tiny_timer_t            touch_timer;
 bool is_tracking       = false;
 bool touch_sound       = true;
 uint8_t pressed_state  = UNPRESSED;
@@ -58,7 +57,6 @@ void start_tracking(int16_t x, int16_t y, int16_t w, int16_t h, int16_t tag, boo
   cmd.track(x, y, w, h, tag, rotary);
   cmd.execute();
   is_tracking = true;
-  refresh_timer.start();
 }
 
 void stop_tracking() {
@@ -87,23 +85,18 @@ namespace Extensible_UI_API {
   }
 
   void onUpdate() {
-    using namespace Extensible_UI_API;
-
     sound.onIdle();
-
-    if(refresh_timer.elapsed(is_tracking ? TRACKING_UPDATE_INTERVAL : DISPLAY_UPDATE_INTERVAL)) {
-      current_screen.onIdle();
-      if(is_tracking && !CLCD::is_touching()) {
-        stop_tracking();
-      }
-      refresh_timer.start();
-    }
+    current_screen.onIdle();
 
     // If the LCD is processing commands, don't check
     // for tags since they may be changing and could
     // cause spurious events.
-    if(CLCD::CommandFifo::is_processing()) {
+    if(!touch_timer.elapsed(TOUCH_UPDATE_INTERVAL) || CLCD::CommandFifo::is_processing()) {
       return;
+    }
+
+    if(is_tracking && !CLCD::is_touching()) {
+      stop_tracking();
     }
 
     const uint8_t tag = CLCD::get_tag();
@@ -145,6 +138,8 @@ namespace Extensible_UI_API {
               #endif
             #endif
           }
+        } else {
+          touch_timer.start();
         }
         break;
       case DEBOUNCING:
@@ -192,10 +187,6 @@ namespace Extensible_UI_API {
         }
         break;
     }
-  }
-
-  void onPlayTone(const uint16_t frequency, const uint16_t duration) {
-    sound.play_tone(frequency, duration);
   }
 }
 
