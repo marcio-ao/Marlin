@@ -38,7 +38,7 @@ enum {
   STATUS_SCREEN_CACHE,
   MENU_SCREEN_CACHE,
   TUNE_SCREEN_CACHE,
-  DIALOG_BOX_CACHE,
+  ALERT_BOX_CACHE,
   ADVANCED_SETTINGS_SCREEN_CACHE,
   MOVE_AXIS_SCREEN_CACHE,
   TEMPERATURE_SCREEN_CACHE,
@@ -55,7 +55,7 @@ enum {
 // cache, so we reserve a large chunk of memory for the DL cache
 
 #define STATUS_SCREEN_DL_SIZE        2048
-#define DIALOG_BOX_DL_SIZE           3072
+#define ALERT_BOX_DL_SIZE            3072
 
 /************************** REFRESH METHOD SHIMS ***************************/
 
@@ -79,7 +79,15 @@ class CachedScreen {
   protected:
     static bool storeBackground(){
       DLCache dlcache(DL_SLOT);
-      return dlcache.store(DL_SIZE);
+      if(!dlcache.store(DL_SIZE)) {
+        #if defined (SERIAL_PROTOCOLLNPAIR)
+          SERIAL_PROTOCOLLN("CachedScreen::storeBackground() failed: not enough DL cache space");
+        #else
+          Serial.print(CachedScreen::storeBackground() failed: not enough DL cache space);
+        #endif
+        return false;
+      }
+      return true;
     }
 
     static void repaintBackground(){
@@ -148,29 +156,31 @@ class KillScreen {
     static void show(progmem_str msg);
 };
 
-class DialogBoxBaseClass : public UIScreenWithStyles, public CachedScreen<DIALOG_BOX_CACHE,DIALOG_BOX_DL_SIZE>  {
+class DialogBoxBaseClass : public UIScreenWithStyles  {
   protected:
-    static void drawDialog(const progmem_str lines[], size_t n_lines, progmem_str btn1, progmem_str btn2);
+    static void drawMessage(const progmem_str line1, const progmem_str line2 = 0, const progmem_str line3 = 0);
+    static void drawYesNoButtons();
+    static void drawOkayButton();
+
     static void onRedraw(draw_mode_t what) {};
   public:
-    static void onEntry();
     static bool onTouchEnd(uint8_t tag);
 };
 
-class AlertBoxScreen : public DialogBoxBaseClass {
+class AlertBoxScreen : public DialogBoxBaseClass, public CachedScreen<ALERT_BOX_CACHE,ALERT_BOX_DL_SIZE> {
   public:
     static void onEntry();
     static void onRedraw(draw_mode_t what);
     static void show(const progmem_str line1, const progmem_str line2 = 0, const progmem_str line3 = 0);
 };
 
-class RestoreFailsafeScreen : public DialogBoxBaseClass {
+class RestoreFailsafeScreen : public DialogBoxBaseClass, public UncachedScreen {
   public:
     static void onRedraw(draw_mode_t what);
     static bool onTouchEnd(uint8_t tag);
 };
 
-class ConfirmAbortPrint : public DialogBoxBaseClass {
+class ConfirmAbortPrint : public DialogBoxBaseClass, public UncachedScreen {
   public:
     static void onRedraw(draw_mode_t what);
     static bool onTouchEnd(uint8_t tag);

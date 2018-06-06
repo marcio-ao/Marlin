@@ -202,37 +202,37 @@ bool AboutScreen::onTouchEnd(uint8_t tag) {
 
 /**************************** GENERIC DIALOG BOX SCREEN ****************************/
 
-void DialogBoxBaseClass::onEntry() {
-  repaintBackground();
-  UIScreen::onEntry();
-}
+#define GRID_COLS 2
+#define GRID_ROWS 8
 
-void DialogBoxBaseClass::drawDialog(const progmem_str lines[], size_t n_lines, progmem_str btn1, progmem_str btn2 ) {
+void DialogBoxBaseClass::drawMessage(const progmem_str line1, const progmem_str line2, const progmem_str line3) {
+  progmem_str lines[] = {line1, line2, line3};
+  const uint8_t n_lines = line3 ? 3 : line2 ? 2 : 1;
   CommandProcessor cmd;
-  cmd.cmd(CLEAR_COLOR_RGB(Theme::background));
-  cmd.cmd(CLEAR(true,true,true));
-
-  #define GRID_COLS 2
-  #define GRID_ROWS 8
-
+  cmd.cmd(CMD_DLSTART)
+     .cmd(CLEAR_COLOR_RGB(Theme::background))
+     .cmd(CLEAR(true,true,true));
   cmd.font(Theme::font_large);
   for(uint8_t line = 0; line < n_lines; line++) {
     cmd.text  ( BTN_POS(1,3-n_lines/2+line), BTN_SIZE(2,1), lines[line]);
   }
-
-  cmd.font(Theme::font_medium);
-  if(btn1 && btn2) {
-    cmd.tag(1).button( BTN_POS(1,8), BTN_SIZE(1,1), btn1);
-    cmd.tag(2).button( BTN_POS(2,8), BTN_SIZE(1,1), btn2);
-  } else if(btn1) {
-    cmd.tag(1).button( BTN_POS(1,8), BTN_SIZE(2,1), btn1);
-  } else if(btn2) {
-    cmd.tag(2).button( BTN_POS(1,8), BTN_SIZE(2,1), btn2);
-  }
-
-  #undef GRID_COLS
-  #undef GRID_ROWS
 }
+
+void DialogBoxBaseClass::drawYesNoButtons() {
+  CommandProcessor cmd;
+  cmd.font(Theme::font_medium)
+     .tag(1).button( BTN_POS(1,8), BTN_SIZE(1,1), F("Yes"))
+     .tag(2).button( BTN_POS(2,8), BTN_SIZE(1,1), F("No"));
+}
+
+void DialogBoxBaseClass::drawOkayButton() {
+  CommandProcessor cmd;
+  cmd.font(Theme::font_medium)
+     .tag(1).button( BTN_POS(1,8), BTN_SIZE(2,1), F("Okay"));
+}
+
+#undef GRID_COLS
+#undef GRID_ROWS
 
 bool DialogBoxBaseClass::onTouchEnd(uint8_t tag) {
   switch(tag) {
@@ -246,51 +246,35 @@ bool DialogBoxBaseClass::onTouchEnd(uint8_t tag) {
 
 void AlertBoxScreen::onEntry() {
   UIScreen::onEntry();
+  sound.play(c_maj_arpeggio, PLAY_ASYNCHRONOUS);
 }
 
 void AlertBoxScreen::onRedraw(draw_mode_t what) {
-  DialogBoxBaseClass::onRedraw(what);
+  if(what & FOREGROUND) {
+    drawOkayButton();
+  }
 }
 
 void AlertBoxScreen::show(const progmem_str line1, const progmem_str line2, const progmem_str line3) {
-  CommandProcessor cmd;
-  cmd.cmd(CMD_DLSTART);
-
-  progmem_str lines[] = {line1, line2, line3};
-  drawDialog(lines, line3 ? 3 : line2 ? 2 : 1, F("Okay"), 0);
-
-  if(!storeBackground()) {
-    #if defined (SERIAL_PROTOCOLLNPAIR)
-      SERIAL_PROTOCOLLN("Unable to set the confirmation message, not enough DL cache space");
-    #else
-      #if defined(UI_FRAMEWORK_DEBUG)
-        Serial.print(F("Unable to set the confirmation message, not enough DL cache space"));
-      #endif
-    #endif
-  }
-
-  sound.play(c_maj_arpeggio, PLAY_SYNCHRONOUS);
+  drawMessage(line1, line2, line3);
+  storeBackground();
   GOTO_SCREEN(AlertBoxScreen);
 }
 
 /**************************** RESTORE FAILSAFE SCREEN ***************************/
 
 void RestoreFailsafeScreen::onRedraw(draw_mode_t what) {
-  if(what & BACKGROUND) {
-    progmem_str lines[] = {
-      F("Are you sure?"),
-      F("Customizations will be lost.")
-    };
-    drawDialog(lines, N_ELEMENTS(lines), F("Yes"), F("No"));
-  }
+  drawMessage(
+    F("Are you sure?"),
+    F("Customizations will be lost.")
+  );
+  drawYesNoButtons();
 }
 
 bool RestoreFailsafeScreen::onTouchEnd(uint8_t tag) {
-  using namespace Extensible_UI_API;
-
   switch(tag) {
     case 1:
-      enqueueCommands(F("M502\nM500"));
+      Extensible_UI_API::enqueueCommands(F("M502\nM500"));
       AlertBoxScreen::show(F("Factory settings restored."));
       // Remove RestoreFailsafeScreen from the stack
       // so the alert box doesn't return to it.
@@ -301,32 +285,21 @@ bool RestoreFailsafeScreen::onTouchEnd(uint8_t tag) {
   }
 }
 
-/**************************** RESTORE FAILSAFE SCREEN ***************************/
+/**************************** CONFIRM ABORT SCREEN ***************************/
 
 void ConfirmAbortPrint::onRedraw(draw_mode_t what) {
-  if(what & BACKGROUND) {
-    progmem_str lines[] = {
-      F("Are you sure you want"),
-      F("to stop the print?")
-    };
-    drawDialog(lines, N_ELEMENTS(lines), F("Yes"), F("No"));
-  }
+  drawMessage(
+    F("Are you sure you want"),
+    F("to stop the print?")
+  );
+  drawYesNoButtons();
 }
 
 bool ConfirmAbortPrint::onTouchEnd(uint8_t tag) {
-  using namespace Extensible_UI_API;
-
   switch(tag) {
     case 1:
-      #if defined (SERIAL_PROTOCOLLNPAIR)
-        SERIAL_PROTOCOLLN("Abort confirmed");
-      #else
-        #if defined(UI_FRAMEWORK_DEBUG)
-          Serial.print(F("Abort confirmed"));
-        #endif
-      #endif
       GOTO_PREVIOUS();
-      stopPrint();
+      Extensible_UI_API::stopPrint();
       return true;
     default:
       return DialogBoxBaseClass::onTouchEnd(tag);
@@ -685,17 +658,7 @@ void StatusScreen::setStatusMessage(const char * const message) {
   draw_axis_position(BACKGROUND);
   draw_status_message(BACKGROUND, message);
   draw_interaction_buttons(BACKGROUND);
-
-  if(!storeBackground()) {
-    #if defined (SERIAL_PROTOCOLLNPAIR)
-      SERIAL_PROTOCOLLNPAIR("Unable to set the status message, not enough DL cache space: ", message);
-    #else
-      #if defined(UI_FRAMEWORK_DEBUG)
-        Serial.print(F("Unable to set the status message, not enough DL cache space: "));
-        Serial.println(message);
-      #endif
-    #endif
-  }
+  storeBackground();
 
   if(current_screen.getType() == current_screen.lookupScreen(StatusScreen::onRedraw)) {
     current_screen.onRefresh();
