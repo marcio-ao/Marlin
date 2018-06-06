@@ -86,10 +86,21 @@ namespace FTDI {
     timer.start();
   }
 
-  void SoundPlayer::play(const sound_t* seq) {
+  void SoundPlayer::play(const sound_t* seq, play_mode_t mode) {
     sequence = seq;
     wait     = 250; // Adding this delay causes the note to not be clipped, not sure why.
     timer.start();
+
+    if(mode == PLAY_ASYNCHRONOUS) return;
+
+    // If playing synchronously, then play all the notes here
+
+    while(has_more_notes()) {
+      onIdle();
+      #if defined(_MARLIN_CONFIG_H_)
+        Extensible_UI_API::yield();
+      #endif
+    }
   }
 
   bool SoundPlayer::is_sound_playing() {

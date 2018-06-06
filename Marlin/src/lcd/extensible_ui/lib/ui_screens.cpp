@@ -171,7 +171,7 @@ void BootScreen::onIdle() {
 
 void AboutScreen::onEntry() {
   UIScreen::onEntry();
-  sound.play(chimes);
+  sound.play(chimes, PLAY_ASYNCHRONOUS);
 }
 
 void AboutScreen::onRedraw(draw_mode_t what) {
@@ -269,7 +269,7 @@ void AlertBoxScreen::show(const progmem_str line1, const progmem_str line2, cons
     #endif
   }
 
-  sound.play(c_maj_arpeggio);
+  sound.play(c_maj_arpeggio, PLAY_SYNCHRONOUS);
   GOTO_SCREEN(AlertBoxScreen);
 }
 
@@ -361,13 +361,7 @@ void KillScreen::show(progmem_str message) {
      .cmd(CMD_SWAP)
      .execute();
 
-  sound.play(sad_trombone);
-
-  // Marlin won't call the idle function anymore,
-  // so we have to loop here to play the sounds.
-  while(sound.has_more_notes()) {
-    sound.onIdle();
-  }
+  sound.play(sad_trombone, PLAY_SYNCHRONOUS);
 }
 
 /*********************************** STATUS SCREEN ******************************/
@@ -1724,7 +1718,7 @@ bool FilesScreen::onTouchEnd(uint8_t tag) {
       printFile(getSelectedShortFilename());
       StatusScreen::setStatusMessage(PSTR("Print Starting"));
       GOTO_SCREEN(StatusScreen);
-      sound.play(start_print);
+      sound.play(start_print, PLAY_SYNCHRONOUS);
       return true;
     case 244:
       changeDir(getSelectedShortFilename());
@@ -1872,7 +1866,7 @@ void CalibrationRegistersScreen::onRedraw(draw_mode_t what) {
   #undef GRID_COLS
   #undef GRID_ROWS
 
-  sound.play(js_bach_joy);
+  sound.play(js_bach_joy, PLAY_ASYNCHRONOUS);
 }
 
 bool CalibrationRegistersScreen::onTouchEnd(uint8_t tag) {
@@ -2010,14 +2004,14 @@ namespace Extensible_UI_API {
 
   void onMediaInserted() {
     StatusScreen::setStatusMessage(F(MSG_SD_INSERTED));
-    sound.play(media_inserted);
+    sound.play(media_inserted, PLAY_ASYNCHRONOUS);
 
     MediaPlayerScreen::lookForAutoPlayMedia();
   }
 
   void onMediaRemoved() {
     StatusScreen::setStatusMessage(F(MSG_SD_REMOVED));
-    sound.play(media_removed);
+    sound.play(media_removed, PLAY_ASYNCHRONOUS);
   }
 
   void onStatusChanged(const char* lcd_msg) {
