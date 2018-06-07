@@ -454,7 +454,7 @@ bool CLCD::CommandFifo::is_processing() {
 #if defined(USE_FTDI_FT800)
 void CLCD::CommandFifo::start() {
   if(command_write_ptr == 0xFFFFFFFFul) {
-    command_write_ptr = get_reg_cmd_write();
+    command_write_ptr = mem_read_32(REG_CMD_WRITE) & 0x0FFF;
   }
 }
 
