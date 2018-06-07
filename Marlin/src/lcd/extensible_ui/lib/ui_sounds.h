@@ -88,6 +88,8 @@ namespace FTDI {
 
     public:
       static void set_volume(uint8_t volume);
+      static uint8_t get_volume();
+
       static void play(effect_t effect, note_t note = NOTE_C4);
       static bool is_sound_playing();
 

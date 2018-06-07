@@ -138,9 +138,10 @@ class CLCD {
     static void test_pulse(void);
     static void enable (void);
     static void disable (void);
-    static void set_backlight (uint16_t freq, uint8_t duty);
-    static void set_brightness (uint8_t duty);
+    static void set_brightness (uint8_t brightness);
+    static uint8_t get_brightness();
     static void host_cmd (unsigned char host_command, unsigned char byte2);
+
 
     static void get_font_metrics (uint8_t font, struct FontMetrics &fm);
     static void flash_write_rgb332_bitmap (uint32_t mem_address, const unsigned char* p_rgb332_array, uint16_t num_bytes);

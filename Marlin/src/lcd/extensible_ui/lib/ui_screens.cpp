@@ -52,8 +52,9 @@ using namespace FTDI;
 // in a union. The values should be initialized in the onEntry method.
 
 static union {
-  struct {uint8_t increment;}          ValueAdjusters;
-  struct {uint8_t page, selected_tag;} FilesScreen;
+  struct {uint8_t increment;}                  ValueAdjusters;
+  struct {uint8_t page, selected_tag;}         FilesScreen;
+  struct {uint8_t volume; uint8_t brightness;} InterfaceSettingsScreen;
 } screen_data;
 
 /******************************* MENU SCREEN TABLE ******************************/
@@ -81,6 +82,7 @@ SCREEN_TABLE {
   DECL_SCREEN(JerkScreen),
   DECL_SCREEN(TemperatureScreen),
   DECL_SCREEN(CalibrationRegistersScreen),
+  DECL_SCREEN(InterfaceSettingsScreen),
   DECL_SCREEN(FilesScreen),
   DECL_SCREEN(MediaPlayerScreen),
 };
@@ -882,7 +884,7 @@ void AdvancedSettingsScreen::onRedraw(draw_mode_t what) {
       .tag(6) .button( BTN_POS(2,1), BTN_SIZE(1,1), F("Velocity "))
       .tag(7) .button( BTN_POS(2,2), BTN_SIZE(1,1), F("Acceleration"))
       .tag(8) .button( BTN_POS(2,3), BTN_SIZE(1,1), F("Jerk"))
-      .tag(9) .button( BTN_POS(1,4), BTN_SIZE(2,1), F("Recalibrate Screen"))
+      .tag(9) .button( BTN_POS(1,4), BTN_SIZE(2,1), F("Interface Settings"))
       .tag(10).button( BTN_POS(1,5), BTN_SIZE(2,1), F("Restore Factory Settings"))
       .tag(2) .button( BTN_POS(1,6), BTN_SIZE(2,1), F("Save As Default"))
       .THEME(back_btn)
@@ -890,7 +892,7 @@ void AdvancedSettingsScreen::onRedraw(draw_mode_t what) {
       #undef GRID_COLS
       #undef GRID_ROWS
     #else
-      #define GRID_ROWS 4
+      #define GRID_ROWS 5
       #define GRID_COLS 2
       #if HAS_BED_PROBE
         .enabled(1)
@@ -900,13 +902,14 @@ void AdvancedSettingsScreen::onRedraw(draw_mode_t what) {
       .tag(4) .button( BTN_POS(1,1), BTN_SIZE(1,1), F("Z Offset "))
       .enabled(1)
       .tag(5) .button( BTN_POS(1,2), BTN_SIZE(1,1), F("Steps/mm"))
+      .tag(9) .button( BTN_POS(1,3), BTN_SIZE(1,1), F("Interface Settings"))
       .tag(6) .button( BTN_POS(2,1), BTN_SIZE(1,1), F("Velocity "))
       .tag(7) .button( BTN_POS(2,2), BTN_SIZE(1,1), F("Acceleration"))
       .tag(8) .button( BTN_POS(2,3), BTN_SIZE(1,1), F("Jerk"))
-      .tag(10).button( BTN_POS(1,3), BTN_SIZE(1,1), F("Restore Failsafe"))
-      .tag(2) .button( BTN_POS(1,4), BTN_SIZE(1,1), F("Save"))
+      .tag(10).button( BTN_POS(1,4), BTN_SIZE(2,1), F("Restore Factory Settings"))
+      .tag(2) .button( BTN_POS(1,5), BTN_SIZE(1,1), F("Save"))
       .THEME(back_btn)
-      .tag(1) .button( BTN_POS(2,4), BTN_SIZE(1,1), F("Back"));
+      .tag(1) .button( BTN_POS(2,5), BTN_SIZE(1,1), F("Back"));
       #undef GRID_COLS
       #undef GRID_ROWS
     #endif
@@ -917,20 +920,20 @@ bool AdvancedSettingsScreen::onTouchEnd(uint8_t tag) {
   using namespace Extensible_UI_API;
 
   switch(tag) {
-    case 1:  GOTO_PREVIOUS();                    break;
+    case 1:  GOTO_PREVIOUS();                      break;
     case 2:
       enqueueCommands(F("M500"));
       AlertBoxScreen::show(F("Settings saved!"));
       break;
     #if HAS_BED_PROBE
-    case 4:  GOTO_SCREEN(ZOffsetScreen);         break;
+    case 4:  GOTO_SCREEN(ZOffsetScreen);           break;
     #endif
-    case 5:  GOTO_SCREEN(StepsScreen);           break;
-    case 6:  GOTO_SCREEN(VelocityScreen);        break;
-    case 7:  GOTO_SCREEN(AccelerationScreen);    break;
-    case 8:  GOTO_SCREEN(JerkScreen);            break;
-    case 9:  GOTO_SCREEN(CalibrationScreen);     break;
-    case 10: GOTO_SCREEN(RestoreFailsafeScreen); break;
+    case 5:  GOTO_SCREEN(StepsScreen);             break;
+    case 6:  GOTO_SCREEN(VelocityScreen);          break;
+    case 7:  GOTO_SCREEN(AccelerationScreen);      break;
+    case 8:  GOTO_SCREEN(JerkScreen);              break;
+    case 9:  GOTO_SCREEN(InterfaceSettingsScreen); break;
+    case 10: GOTO_SCREEN(RestoreFailsafeScreen);   break;
     default:
       return false;
   }
@@ -1138,11 +1141,10 @@ void ValueAdjusters::widgets_t::adjuster(uint8_t tag, const char *label,float va
   CommandProcessor cmd;
 
   if(_what & BACKGROUND) {
-    progmem_str   str  = (progmem_str) label;
     cmd.enabled(1)
        .font(Theme::font_small)
-       .fgcolor(_color)  .tag(0    ).button( BTN_POS(5,_line),  BTN_SIZE(5,1),  F(""),  OPT_FLAT)
-       .THEME(background).tag(0    ).button( BTN_POS(1,_line),  BTN_SIZE(4,1),  str,    OPT_FLAT);
+       .fgcolor(_color)  .tag(0).button( BTN_POS(5,_line), BTN_SIZE(5,1), F(""),               OPT_FLAT)
+       .THEME(background).tag(0).button( BTN_POS(1,_line), BTN_SIZE(4,1), (progmem_str) label, OPT_FLAT);
   }
 
   if(_what & FOREGROUND) {
@@ -1537,6 +1539,96 @@ bool JerkScreen::onTouchHeld(uint8_t tag) {
   return true;
 }
 
+/*********************** INTERFACE SETTINGS SCREEN ********************/
+
+bool     use_passcode;
+
+void InterfaceSettingsScreen::onEntry() {
+  screen_data.InterfaceSettingsScreen.brightness = CLCD::get_brightness();
+  screen_data.InterfaceSettingsScreen.volume     = FTDI::SoundPlayer::get_volume();
+  UIScreen::onEntry();
+}
+
+void InterfaceSettingsScreen::onRedraw(draw_mode_t what) {
+  using namespace Extensible_UI_API;
+  CommandProcessor cmd;
+
+  if(what & BACKGROUND) {
+    cmd.cmd(CLEAR_COLOR_RGB(Theme::background))
+       .cmd(CLEAR(true,true,true))
+       .bgcolor(Theme::theme_darkest)
+       .THEME(theme_light)
+
+    #define GRID_COLS 4
+    #define GRID_ROWS 8
+
+       .font(Theme::font_large)
+       .text      (BTN_POS(1,1), BTN_SIZE(4,1), F("Interface Settings"))
+    #undef EDGE_R
+    #define EDGE_R 30
+       .font(Theme::font_small)
+       .tag(0).text      (BTN_POS(1,3), BTN_SIZE(2,1), F("Screen brightness:"), OPT_RIGHTX | OPT_CENTERY)
+              .text      (BTN_POS(1,4), BTN_SIZE(2,1), F("Sound volume:"),      OPT_RIGHTX | OPT_CENTERY)
+              .text      (BTN_POS(1,5), BTN_SIZE(2,1), F("Click sounds:"),      OPT_RIGHTX | OPT_CENTERY);
+    //        .text      (BTN_POS(1,6), BTN_SIZE(2,1), F("Parental lock:"),      OPT_RIGHTX | OPT_CENTERY);
+    #undef EDGE_R
+    #define EDGE_R 0
+  }
+
+  if(what & FOREGROUND) {
+    cmd.font(Theme::font_medium)
+       .tag(1).button    (BTN_POS(1,8), BTN_SIZE(4,1), F("Back"))
+
+    #undef EDGE_R
+    #define EDGE_R 30
+       .tag(2).slider    (BTN_POS(3,3), BTN_SIZE(2,1), screen_data.InterfaceSettingsScreen.brightness, 128)
+       .tag(3).slider    (BTN_POS(3,4), BTN_SIZE(2,1), screen_data.InterfaceSettingsScreen.volume,     0xFF)
+    #if defined(USE_PORTRAIT_ORIENTATION)
+       .tag(4).toggle    (BTN_POS(3,5), BTN_SIZE(2,1), F("off\xFFon"), touch_sounds_enabled());
+    #else
+       .tag(4).toggle    (BTN_POS(3,5), BTN_SIZE(1,1), F("off\xFFon"), touch_sounds_enabled());
+       //.tag(5).toggle    (BTN_POS(3,6), BTN_SIZE(1,1), F("no\xFFyes"), use_passcode);
+    #endif
+
+    if(use_passcode)
+      cmd.text(BTN_POS(4,6), BTN_SIZE(1,1), F("1234"), OPT_CENTERX | OPT_CENTERY);
+  }
+}
+
+bool InterfaceSettingsScreen::onTouchStart(uint8_t tag) {
+  CommandProcessor cmd;
+  switch(tag) {
+    case 2: cmd.track_linear(BTN_POS(3,3), BTN_SIZE(2,1), 2).execute(); break;
+    case 3: cmd.track_linear(BTN_POS(3,4), BTN_SIZE(2,1), 3).execute(); break;
+    case 4: enable_touch_sounds(!touch_sounds_enabled());; break;
+    case 5: use_passcode = !use_passcode; break;
+    default: break;
+  }
+  #undef GRID_COLS
+  #undef GRID_ROWS
+  #undef EDGE_R
+  #define EDGE_R 0
+  return true;
+}
+
+void InterfaceSettingsScreen::onIdle() {
+  uint16_t value;
+  CommandProcessor cmd;
+  switch(cmd.track_tag(value)) {
+    case 2:
+      screen_data.InterfaceSettingsScreen.brightness = float(value) * 128 / 0xFFFF;
+      CLCD::set_brightness(screen_data.InterfaceSettingsScreen.brightness);
+      break;
+    case 3:
+      screen_data.InterfaceSettingsScreen.volume = value >> 8;
+      FTDI::SoundPlayer::set_volume(screen_data.InterfaceSettingsScreen.volume);
+      break;
+    default:
+      return;
+  }
+  onRefresh();
+}
+
 /***************************** FILES SCREEN ***************************/
 
 void FilesScreen::onEntry() {
@@ -1736,12 +1828,12 @@ void WidgetsScreen::onRedraw(draw_mode_t what) {
 
      .font(Theme::font_medium)
      .tag(3).slider    (BTN_POS(3,3),  BTN_SIZE(2,1), slider_val,        0xFFFFU)
-     .tag(0).progress  (BTN_POS(3,4),  BTN_SIZE(2,1), slider_val,        0xFFFFU)
-     .tag(4).scrollbar (BTN_POS(3,5),  BTN_SIZE(2,1), slider_val, 10000, 0xFFFFU)
+     .tag(4).progress  (BTN_POS(3,4),  BTN_SIZE(2,1), slider_val,        0xFFFFU)
+     .tag(5).scrollbar (BTN_POS(3,5),  BTN_SIZE(2,1), slider_val, 1000,  0xFFFFU)
 
      .font(Theme::font_small)
      .tag(0).text      (BTN_POS(3,6),  BTN_SIZE(1,1), F("Show grid:"))
-     .tag(5).toggle    (BTN_POS(4,6),  BTN_SIZE(1,1), F("no\xFFyes"), show_grid)
+     .tag(6).toggle    (BTN_POS(4,6),  BTN_SIZE(1,1), F("no\xFFyes"), show_grid)
 
      .font(Theme::font_medium)
      .tag(6).button    (BTN_POS(1, 8), BTN_SIZE(1,1), F("1"))
@@ -1752,33 +1844,36 @@ void WidgetsScreen::onRedraw(draw_mode_t what) {
   if(show_grid) DRAW_LAYOUT_GRID
 }
 
-bool WidgetsScreen::onTouchEnd(uint8_t tag) {
+bool WidgetsScreen::onTouchStart(uint8_t tag) {
+  CommandProcessor cmd;
   switch(tag) {
-    case 1: start_tracking (BTN_POS(1,2), BTN_SIZE(1,3), 1, true);  break;
-    case 2: start_tracking (BTN_POS(1,5), BTN_SIZE(1,3), 2, true);  break;
-    case 3: start_tracking (BTN_POS(3,3), BTN_SIZE(2,1), 3, false); break;
-    case 4: start_tracking (BTN_POS(3,3), BTN_SIZE(2,1), 4, false); break;
-    case 5: show_grid = !show_grid; break;
-    default: break;
+    case 1: cmd.track_circular (BTN_POS(1,2), BTN_SIZE(1,3), 1).execute(); break;
+    case 2: cmd.track_circular (BTN_POS(1,5), BTN_SIZE(1,3), 2).execute(); break;
+    case 3: cmd.track_linear   (BTN_POS(3,3), BTN_SIZE(2,1), 3).execute(); break;
+    case 4: cmd.track_linear   (BTN_POS(3,4), BTN_SIZE(2,1), 4).execute(); break;
+    case 5: cmd.track_linear   (BTN_POS(3,5), BTN_SIZE(2,1), 5).execute(); break;
+    case 6: show_grid = !show_grid; break;
+    default:
+      return false;
   }
 
   #undef GRID_COLS
   #undef GRID_ROWS
 
-  return false;
+  return true;
 }
 
 void WidgetsScreen::onIdle() {
   uint16_t value;
-  switch(CLCD::get_tracker(value)) {
+  CommandProcessor cmd;
+  switch(cmd.track_tag(value)) {
     case 1:
       dial_val   = value; break;
     case 2:
     case 3:
     case 4:
+    case 5:
       slider_val = value; break;
-    case 6:
-      break;
     default:
       return;
   }

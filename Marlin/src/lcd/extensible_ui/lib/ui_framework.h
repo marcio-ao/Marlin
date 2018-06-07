@@ -144,9 +144,9 @@ class UIScreen {
     static void onEntry()              {current_screen.onRefresh();}
     static void onExit()               {}
     static void onIdle()               {}
-    static bool onTouchStart(uint8_t)  {return false;}
+    static bool onTouchStart(uint8_t)  {return true;}
     static bool onTouchHeld(uint8_t)   {return false;}
-    static bool onTouchEnd(uint8_t)    {return false;}
+    static bool onTouchEnd(uint8_t)    {return true;}
 };
 
 #define GOTO_SCREEN(screen) current_screen.goTo(screen::onRedraw);

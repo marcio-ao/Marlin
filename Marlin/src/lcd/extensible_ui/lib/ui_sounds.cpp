@@ -57,6 +57,10 @@ namespace FTDI {
     CLCD::mem_write_8(REG_VOL_SOUND, vol);
   }
 
+  uint8_t SoundPlayer::get_volume() {
+    return CLCD::mem_read_8(REG_VOL_SOUND);
+  }
+
   void SoundPlayer::play(effect_t effect, note_t note) {
     CLCD::mem_write_16(REG_SOUND, (note << 8) | effect);
     CLCD::mem_write_8( REG_PLAY,  1);

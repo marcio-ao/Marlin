@@ -22,6 +22,8 @@
 #ifndef _UI_BUILDER_H_
 #define _UI_BUILDER_H_
 
+#include "ui_event_loop.h"
+
 /**************************** GRID LAYOUT MACROS **************************/
 
 /* The grid layout macros allow buttons to be arranged on a grid so
@@ -80,7 +82,7 @@
 #define DRAW_LAYOUT_GRID \
   { \
     cmd.cmd(LINE_WIDTH(4)); \
-    for(int i = 1; i < GRID_COLS; i++) { \
+    for(int i = 1; i <= GRID_COLS; i++) { \
       cmd.cmd(BEGIN(LINES)); \
       cmd.cmd(VERTEX2F(GRID_X(i) *16, 0         *16)); \
       cmd.cmd(VERTEX2F(GRID_X(i) *16, Vsize     *16)); \
@@ -110,6 +112,7 @@ class CommandProcessor : public CLCD::CommandFifo {
     typedef bool btn_style_func_t(uint8_t tag, uint8_t &style, uint16_t &options, bool post);
 
     static btn_style_func_t  *_btn_style_callback;
+    static bool is_tracking;
     int8_t  _font = 26, _tag = 0;
     uint8_t _style = 0;
 
@@ -117,6 +120,37 @@ class CommandProcessor : public CLCD::CommandFifo {
     enum {
       STYLE_DISABLED = 0x01
     };
+
+    // Returns the cannonical thickness of a widget (i.e. the height of a toggle element)
+    uint16_t widget_thickness() {
+      FontMetrics fm;
+      CLCD::get_font_metrics(_font, fm);
+      return fm.height * 20.0/16;
+    }
+
+    FORCEDINLINE void linear_widget_box(int16_t &x, int16_t &y, int16_t &w, int16_t &h, bool tracker = false) {
+      const uint16_t th = widget_thickness()/2;
+      if(w > h) {
+        x += tracker ? th * 2.5 : th;
+        y += h/2  - th/2;
+        w -= tracker ? th * 5.0 : th * 2;
+        h  = th;
+      } else {
+        x += w/2  - th/2;
+        y += tracker ? th * 2.5 : th;
+        w  = th;
+        h -= tracker ? th * 5.0 : th * 2;
+      }
+    }
+
+    FORCEDINLINE uint16_t circular_widget_box(int16_t &x, int16_t &y, int16_t &w, int16_t &h) {
+      const uint16_t r = min(w,h)/2;
+      x += w/2;
+      y += h/2;
+      w  = 1;
+      h  = 1;
+      return r;
+    }
 
   public:
     inline CommandProcessor& set_button_style_callback(const btn_style_func_t *func) {_btn_style_callback = func; return *this;}
@@ -141,14 +175,14 @@ class CommandProcessor : public CLCD::CommandFifo {
     FORCEDINLINE CommandProcessor& toggle(int16_t x, int16_t y, int16_t w, int16_t h, T text, bool state, uint16_t options = FTDI::OPT_3D) {
       FontMetrics fm;
       CLCD::get_font_metrics(_font, fm);
-      const int16_t widget_h    = fm.height * 20.0/16;
+      const int16_t widget_h = fm.height * 20.0/16;
       //const int16_t outer_bar_r = widget_h / 2;
       //const int16_t knob_r      = outer_bar_r - 1.5;
       // The y coordinate of the toggle is the baseline of the text,
       // so we must introduce a fudge factor based on the line height to
       // actually center the control.
       const int16_t fudge_y = fm.height*5/16;
-      CLCD::CommandFifo::toggle(x + h, y + h/2 - widget_h/2 + fudge_y, w - h*2, _font, options, state);
+      CLCD::CommandFifo::toggle(x + h/2, y + h/2 - widget_h/2 + fudge_y, w - h, _font, options, state);
       CLCD::CommandFifo::str(text);
       return *this;
     }
@@ -156,41 +190,66 @@ class CommandProcessor : public CLCD::CommandFifo {
     // Contrained drawing routines. These constrain the widget inside a box for easier layout.
     // The FORCEDINLINE ensures that the code is inlined so that all the math is done at compile time.
 
-    FORCEDINLINE CommandProcessor& track(int16_t x, int16_t y, int16_t w, int16_t h, int16_t tag, bool rotary) {
-      if(rotary)
-        CLCD::CommandFifo::track(x + w/2, y + h/2, 1, 1, tag);
-      else
-        CLCD::CommandFifo::track(x + h, y + h / 4, w - h*2, h / 2, tag);
+    FORCEDINLINE CommandProcessor& track_linear(int16_t x, int16_t y, int16_t w, int16_t h, int16_t tag) {
+      linear_widget_box(x, y, w, h, true);
+      CLCD::CommandFifo::track(x, y, w, h, tag);
+      is_tracking = true;
       return *this;
     }
 
+    FORCEDINLINE CommandProcessor& track_circular(int16_t x, int16_t y, int16_t w, int16_t h, int16_t tag) {
+      circular_widget_box(x,y, w, h);
+      CLCD::CommandFifo::track(x, y, w, h, tag);
+      is_tracking = true;
+      return *this;
+    }
+
+    uint8_t track_tag (uint16_t &value) {
+      if(is_tracking) {
+        if(get_pressed_tag() != 0) {
+          return CLCD::get_tracker(value);
+        } else {
+          CLCD::CommandFifo::track(0, 0, 0, 0, 0);
+          CLCD::CommandFifo::execute();
+          is_tracking = false;
+        }
+      }
+      return 0;
+    }
+
     FORCEDINLINE CommandProcessor& clock(int16_t x, int16_t y, int16_t w, int16_t h, int16_t hr, int16_t m, int16_t s, int16_t ms, uint16_t options = FTDI::OPT_3D) {
-      CLCD::CommandFifo::clock(x + w/2, y + h/2, min(w,h)/2, options, hr, m, s, ms);
+      const uint16_t r = circular_widget_box(x, y, w, h);
+      CLCD::CommandFifo::clock(x, y, r, options, hr, m, s, ms);
       return *this;
     }
 
     FORCEDINLINE CommandProcessor& gauge(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t major, uint16_t minor, uint16_t val, uint16_t range, uint16_t options = FTDI::OPT_3D) {
-      CLCD::CommandFifo::gauge(x + w/2, y + h/2, min(w,h)/2, options, major, minor, val, range);
+      const uint16_t r = circular_widget_box(x, y, w, h);
+      CLCD::CommandFifo::gauge(x, y, r, options, major, minor, val, range);
       return *this;
     }
 
     FORCEDINLINE CommandProcessor& dial(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t val, uint16_t options = FTDI::OPT_3D) {
-      CLCD::CommandFifo::dial(x + w/2, y + h/2, min(w,h)/2, options, val);
+      const uint16_t r = circular_widget_box(x, y, w, h);
+      CLCD::CommandFifo::dial(x, y, r, options, val);
       return *this;
     }
 
     FORCEDINLINE CommandProcessor& slider(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t val, uint16_t range, uint16_t options = FTDI::OPT_3D) {
-      CLCD::CommandFifo::slider(x + h, y + h / 4, w - h*2, h / 2, options, val, range);
+      linear_widget_box(x, y, w, h);
+      CLCD::CommandFifo::slider(x, y, w, h, options, val, range);
       return *this;
     }
 
     FORCEDINLINE CommandProcessor& progress(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t val, uint16_t range, uint16_t options = FTDI::OPT_3D) {
-      CLCD::CommandFifo::progress(x + h, y + h / 4, w - h*2, h / 2, options, val, range);
+      linear_widget_box(x, y, w, h);
+      CLCD::CommandFifo::progress(x, y, w, h, options, val, range);
       return *this;
     }
 
     FORCEDINLINE CommandProcessor& scrollbar(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t val, uint16_t size, uint16_t range, uint16_t options = 0) {
-      CLCD::CommandFifo::scrollbar(x + h, y + h / 4, w - h*2, h / 2, options, val, size, range);
+      linear_widget_box(x, y, w, h);
+      CLCD::CommandFifo::scrollbar(x, y, w, h, options, val, size, range);
       return *this;
     }
 

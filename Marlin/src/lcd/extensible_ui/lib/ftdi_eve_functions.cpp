@@ -40,17 +40,17 @@ void CLCD::disable (void) {
   mem_write_8(REG_PCLK, 0x00);
 }
 
-void CLCD::set_backlight (uint16_t Freq, uint8_t Duty) {
-  mem_write_16(REG_PWM_HZ, Freq);
-  mem_write_8(REG_PWM_DUTY, Duty);
+void CLCD::set_brightness (uint8_t brightness) {
+  mem_write_8(REG_PWM_DUTY, min(128,brightness));
 }
 
-void CLCD::set_brightness (uint8_t brightness) {
-  mem_write_8(REG_PWM_DUTY, brightness>>1);
+uint8_t CLCD::get_brightness() {
+  return mem_read_8(REG_PWM_DUTY);
 }
 
 void CLCD::turn_on_backlight (void) {
-  set_backlight(0x00FA, 128);
+  mem_write_16(REG_PWM_HZ,  0x00FA);
+  mem_write_8(REG_PWM_DUTY, 128);
 }
 
 void CLCD::get_font_metrics(uint8_t font, struct FontMetrics &fm) {

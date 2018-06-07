@@ -28,8 +28,16 @@
 #define TOUCH_REPEATS_PER_SECOND      4
 #define DEBOUNCE_PERIOD             100
 
-void enable_touch_sound(bool enabled);
-void start_tracking(int16_t x, int16_t y, int16_t w, int16_t h, int16_t tag, bool rotary);
+typedef struct {
+  bool touch_start_sound  : 1;
+  bool touch_end_sound    : 1;
+  bool touch_repeat_sound : 1;
+} event_flags_t;
+
+extern event_flags_t event_flags;
+
+void enable_touch_sounds(bool enabled);
+bool touch_sounds_enabled();
 uint8_t get_pressed_tag();
 
 #endif // _UI_EVENT_LOOP_

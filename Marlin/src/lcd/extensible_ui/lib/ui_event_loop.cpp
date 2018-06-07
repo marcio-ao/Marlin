@@ -43,27 +43,18 @@ enum {
   DEBOUNCING      = 0xFD  //253
 };
 
-tiny_timer_t            touch_timer;
-bool is_tracking       = false;
-bool touch_sound       = true;
+tiny_timer_t touch_timer;
+event_flags_t event_flags = {true, true, true};
 uint8_t pressed_state  = UNPRESSED;
 
-void enable_touch_sound(bool enabled) {
-    touch_sound = enabled;
+void enable_touch_sounds(bool enabled) {
+    event_flags.touch_start_sound  = enabled;
+    event_flags.touch_end_sound    = enabled;
+    event_flags.touch_repeat_sound = enabled;
 }
 
-void start_tracking(int16_t x, int16_t y, int16_t w, int16_t h, int16_t tag, bool rotary) {
-  CommandProcessor cmd;
-  cmd.track(x, y, w, h, tag, rotary);
-  cmd.execute();
-  is_tracking = true;
-}
-
-void stop_tracking() {
-  CommandProcessor cmd;
-  is_tracking = false;
-  cmd.track(0, 0, 0, 0, 0, false);
-  cmd.execute();
+bool touch_sounds_enabled() {
+  return event_flags.touch_start_sound || event_flags.touch_end_sound || event_flags.touch_repeat_sound;
 }
 
 uint8_t get_pressed_tag() {
@@ -95,10 +86,6 @@ namespace Extensible_UI_API {
       return;
     }
 
-    if(is_tracking && !CLCD::is_touching()) {
-      stop_tracking();
-    }
-
     const uint8_t tag = CLCD::get_tag();
 
     switch(pressed_state) {
@@ -121,7 +108,7 @@ namespace Extensible_UI_API {
           current_screen.onRefresh();
           if(current_screen.onTouchStart(tag)) {
             touch_timer.start();
-            if(touch_sound) sound.play(Theme::press_sound);
+            if(event_flags.touch_start_sound) sound.play(Theme::press_sound);
           }
 
           if(lastScreen != current_screen.getScreen()) {
@@ -146,7 +133,7 @@ namespace Extensible_UI_API {
         if(tag == 0) {
           if(touch_timer.elapsed(DEBOUNCE_PERIOD)) {
             pressed_state = UNPRESSED;
-            if(touch_sound) sound.play(Theme::unpress_sound);
+            if(event_flags.touch_end_sound) sound.play(Theme::unpress_sound);
           }
         } else {
           pressed_state = IGNORE_UNPRESS;
@@ -163,7 +150,7 @@ namespace Extensible_UI_API {
         if(tag == pressed_state) {
           // The user is holding down a button.
           if(touch_timer.elapsed(1000 / TOUCH_REPEATS_PER_SECOND) && current_screen.onTouchHeld(tag)) {
-            if(touch_sound) sound.play(Theme::repeat_sound);
+            if(event_flags.touch_repeat_sound) sound.play(Theme::repeat_sound);
             touch_timer.start();
           }
         }

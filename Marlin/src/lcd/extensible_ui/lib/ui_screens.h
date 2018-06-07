@@ -48,6 +48,7 @@ enum {
   VELOCITY_SCREEN_CACHE,
   ACCELERATION_SCREEN_CACHE,
   JERK_SCREEN_CACHE,
+  INTERFACE_SETTINGS_SCREEN_CACHE,
   FILES_SCREEN_CACHE
 };
 
@@ -256,8 +257,8 @@ class ValueAdjusters : public UIScreenWithStyles {
         inline widgets_t &units(const char *units)    {_units = units; return *this;}
         inline widgets_t &precision(uint8_t decimals) {_decimals = decimals; return *this;}
 
-        void heading(const char *label);
-        void adjuster(uint8_t tag, const char *label, float value=0);
+        void heading  (const char *label);
+        void adjuster (uint8_t tag, const char *label, float value=0);
         void increments();
     };
 
@@ -319,6 +320,14 @@ class TemperatureScreen : public ValueAdjusters, public CachedScreen<TEMPERATURE
     static bool onTouchHeld(uint8_t tag);
 };
 
+class InterfaceSettingsScreen : public ValueAdjusters, public CachedScreen<INTERFACE_SETTINGS_SCREEN_CACHE> {
+  public:
+    static void onEntry();
+    static void onRedraw(draw_mode_t what);
+    static bool onTouchStart(uint8_t tag);
+    static void onIdle();
+};
+
 class FilesScreen : public UIScreenWithStyles, public CachedScreen<FILES_SCREEN_CACHE> {
   private:
     static const char *getSelectedShortFilename();
@@ -334,7 +343,7 @@ class WidgetsScreen : public UIScreenWithStyles, public UncachedScreen {
   public:
     static void onEntry();
     static void onRedraw(draw_mode_t what);
-    static bool onTouchEnd(uint8_t tag);
+    static bool onTouchStart(uint8_t tag);
     static void onIdle();
 };
 
