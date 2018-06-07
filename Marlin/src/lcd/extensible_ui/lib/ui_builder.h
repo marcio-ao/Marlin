@@ -206,7 +206,7 @@ class CommandProcessor : public CLCD::CommandFifo {
 
     uint8_t track_tag (uint16_t &value) {
       if(is_tracking) {
-        if(get_pressed_tag() != 0) {
+        if(is_touch_held()) {
           return CLCD::get_tracker(value);
         } else {
           CLCD::CommandFifo::track(0, 0, 0, 0, 0);

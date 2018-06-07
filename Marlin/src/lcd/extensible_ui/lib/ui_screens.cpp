@@ -46,6 +46,8 @@ using namespace FTDI;
 #define THEME(t) fgcolor(Theme::t)
 #define BTN_EN_THEME(en, theme) enabled(en)
 
+static tiny_timer_t refresh_timer;
+
 /****************************** SCREEN STATIC DATA *************************/
 
 // To save RAM, store state information related to a particular screen
@@ -55,6 +57,10 @@ static union {
   struct {uint8_t increment;}                  ValueAdjusters;
   struct {uint8_t page, selected_tag;}         FilesScreen;
   struct {uint8_t volume; uint8_t brightness;} InterfaceSettingsScreen;
+  struct {
+    uint8_t increment; // Must match ValueAdjusters.
+    float e_rel[Extensible_UI_API::extruderCount];
+  } MoveAxisScreen;
 } screen_data;
 
 /******************************* MENU SCREEN TABLE ******************************/
@@ -692,11 +698,9 @@ void StatusScreen::onEntry() {
 }
 
 void StatusScreen::onIdle() {
-  static tiny_timer_t status_timer;
-
-  if(status_timer.elapsed(DISPLAY_UPDATE_INTERVAL)) {
+  if(refresh_timer.elapsed(STATUS_UPDATE_INTERVAL)) {
     onRefresh();
-    status_timer.start();
+    refresh_timer.start();
   }
 }
 
@@ -1129,9 +1133,9 @@ void ValueAdjusters::widgets_t::increments() {
   }
 
   if(_what & FOREGROUND) {
+      _draw_increment_btn(_line+1, 245 - _decimals);
       _draw_increment_btn(_line+1, 244 - _decimals);
       _draw_increment_btn(_line+1, 243 - _decimals);
-      _draw_increment_btn(_line+1, 245 - _decimals);
   }
 
   _line += 2;
@@ -1200,6 +1204,18 @@ float ValueAdjusters::getIncrement() {
 
 /******************************** MOVE AXIS SCREEN ******************************/
 
+void MoveAxisScreen::onEntry() {
+  // Since Marlin keeps only one absolute position for all the extruders,
+  // we have to keep track of the relative motion of individual extruders
+  // ourselves. The relative distances are reset to zero whenever this
+  // screen is entered.
+
+  for(uint8_t i = 0; i < Extensible_UI_API::extruderCount; i++) {
+    screen_data.MoveAxisScreen.e_rel[i] = 0;
+  }
+  ValueAdjusters::onEntry();
+}
+
 void MoveAxisScreen::onRedraw(draw_mode_t what) {
   using namespace Extensible_UI_API;
 
@@ -1211,11 +1227,18 @@ void MoveAxisScreen::onRedraw(draw_mode_t what) {
   w.color(Theme::x_axis  ).adjuster(  2, PSTR("X:"),  getAxisPosition_mm(X));
   w.color(Theme::y_axis  ).adjuster(  4, PSTR("Y:"),  getAxisPosition_mm(Y));
   w.color(Theme::z_axis  ).adjuster(  6, PSTR("Z:"),  getAxisPosition_mm(Z));
+
   #if EXTRUDERS == 1
-    w.color(Theme::e_axis).adjuster(  8, PSTR("E0:"), getAxisPosition_mm(E0));
-  #else
-    w.color(Theme::e_axis).adjuster(  8, PSTR("E0:"), getAxisPosition_mm(E0));
-    w.color(Theme::e_axis).adjuster( 10, PSTR("E1:"), getAxisPosition_mm(E1));
+    w.color(Theme::e_axis).adjuster(  8, PSTR("E:"),  screen_data.MoveAxisScreen.e_rel[0]);
+  #elif EXTRUDERS > 1
+    w.color(Theme::e_axis).adjuster(  8, PSTR("E1:"), screen_data.MoveAxisScreen.e_rel[0]);
+    w.color(Theme::e_axis).adjuster( 10, PSTR("E2:"), screen_data.MoveAxisScreen.e_rel[1]);
+    #if EXTRUDERS > 2
+      w.color(Theme::e_axis).adjuster(  12, PSTR("E3:"), screen_data.MoveAxisScreen.e_rel[2]);
+    #endif
+    #if EXTRUDERS > 3
+      w.color(Theme::e_axis).adjuster(  14, PSTR("E4:"), screen_data.MoveAxisScreen.e_rel[4]);
+    #endif
   #endif
   w.increments();
 }
@@ -1240,10 +1263,21 @@ bool MoveAxisScreen::onTouchHeld(uint8_t tag) {
     case  5: axis = Y;  inc *=  1;  break;
     case  6: axis = Z;  inc *= -1;  break;
     case  7: axis = Z;  inc *=  1;  break;
-    case  8: axis = E0; inc *= -1;  break;
-    case  9: axis = E0; inc *=  1;  break;
-    case 10: axis = E1; inc *= -1;  break;
-    case 11: axis = E1; inc *=  1;  break;
+    // For extruders, also update relative distances.
+    case  8: axis = E0; inc *= -1;  screen_data.MoveAxisScreen.e_rel[0] += inc; break;
+    case  9: axis = E0; inc *=  1;  screen_data.MoveAxisScreen.e_rel[0] += inc; break;
+    #if EXTRUDERS > 1
+    case 10: axis = E1; inc *= -1;  screen_data.MoveAxisScreen.e_rel[1] += inc; break;
+    case 11: axis = E1; inc *=  1;  screen_data.MoveAxisScreen.e_rel[1] += inc; break;
+    #endif
+    #if EXTRUDERS > 2
+    case 12: axis = E2; inc *= -1;  screen_data.MoveAxisScreen.e_rel[2] += inc; break;
+    case 13: axis = E2; inc *=  1;  screen_data.MoveAxisScreen.e_rel[2] += inc; break;
+    #endif
+    #if EXTRUDERS > 3
+    case 14: axis = E3; inc *= -1;  screen_data.MoveAxisScreen.e_rel[3] += inc; break;
+    case 15: axis = E3; inc *=  1;  screen_data.MoveAxisScreen.e_rel[3] += inc; break;
+    #endif
     default:
       return false;
   }
@@ -1262,11 +1296,17 @@ void TemperatureScreen::onRedraw(draw_mode_t what) {
   w.precision(0).color(Theme::temp).units(PSTR("C"));
 
   w.heading(         PSTR("Temperature:"));
-  #if EXTRUDERS == 1
+  #if HOTENDS == 1
     w.adjuster(   2, PSTR("Nozzle:"),       getTargetTemp_celsius(1));
   #else
     w.adjuster(   2, PSTR("Nozzle 1:"),     getTargetTemp_celsius(1));
     w.adjuster(   4, PSTR("Nozzle 2:"),     getTargetTemp_celsius(2));
+    #if HOTENDS > 2
+      w.adjuster( 6, PSTR("Nozzle 3:"),     getTargetTemp_celsius(3));
+    #endif
+    #if HOTENDS > 3
+      w.adjuster( 8, PSTR("Nozzle 4:"),     getTargetTemp_celsius(4));
+    #endif
   #endif
   w.adjuster(    20, PSTR("Bed:"),          getTargetTemp_celsius(0));
 
@@ -1282,8 +1322,18 @@ bool TemperatureScreen::onTouchHeld(uint8_t tag) {
     case 21: setTargetTemp_celsius(0, getTargetTemp_celsius(0) + getIncrement()); break;
     case  2: setTargetTemp_celsius(1, getTargetTemp_celsius(1) - getIncrement()); break;
     case  3: setTargetTemp_celsius(1, getTargetTemp_celsius(1) + getIncrement()); break;
+    #if HOTENDS > 1
     case  4: setTargetTemp_celsius(2, getTargetTemp_celsius(2) - getIncrement()); break;
     case  5: setTargetTemp_celsius(2, getTargetTemp_celsius(2) + getIncrement()); break;
+    #endif
+    #if HOTENDS > 2
+    case  6: setTargetTemp_celsius(3, getTargetTemp_celsius(3) - getIncrement()); break;
+    case  7: setTargetTemp_celsius(3, getTargetTemp_celsius(3) + getIncrement()); break;
+    #endif
+    #if HOTENDS > 3
+    case  8: setTargetTemp_celsius(4, getTargetTemp_celsius(4) - getIncrement()); break;
+    case  9: setTargetTemp_celsius(4, getTargetTemp_celsius(4) + getIncrement()); break;
+    #endif
     case 10: setFan_percent(       0, getFan_percent(0)        - getIncrement()); break;
     case 11: setFan_percent(       0, getFan_percent(0)        + getIncrement()); break;
     default:
@@ -1306,11 +1356,17 @@ void StepsScreen::onRedraw(draw_mode_t what) {
   w.color(Theme::x_axis).adjuster(   2, PSTR("X:"),  getAxisSteps_per_mm(X) );
   w.color(Theme::y_axis).adjuster(   4, PSTR("Y:"),  getAxisSteps_per_mm(Y) );
   w.color(Theme::z_axis).adjuster(   6, PSTR("Z:"),  getAxisSteps_per_mm(Z) );
-  #if EXTRUDERS == 1
+  #if EXTRUDERS == 1 || DISABLED(DISTINCT_E_FACTORS)
     w.color(Theme::e_axis).adjuster( 8, PSTR("E:"),  getAxisSteps_per_mm(E0) );
-  #else
-    w.color(Theme::e_axis).adjuster( 8, PSTR("E0:"), getAxisSteps_per_mm(E0) );
-    w.color(Theme::e_axis).adjuster(10, PSTR("E1:"), getAxisSteps_per_mm(E1) );
+  #elif EXTRUDERS > 1
+    w.color(Theme::e_axis).adjuster( 8, PSTR("E1:"), getAxisSteps_per_mm(E0) );
+    w.color(Theme::e_axis).adjuster(10, PSTR("E2:"), getAxisSteps_per_mm(E1) );
+    #if EXTRUDERS > 2
+      w.color(Theme::e_axis).adjuster(12, PSTR("E3:"), getAxisSteps_per_mm(E2) );
+    #endif
+    #if EXTRUDERS > 3
+      w.color(Theme::e_axis).adjuster(14, PSTR("E4:"), getAxisSteps_per_mm(E3) );
+    #endif
   #endif
   w.increments();
 }
@@ -1330,9 +1386,17 @@ bool StepsScreen::onTouchHeld(uint8_t tag) {
     case  7:  axis = Z;  inc *=  1;  break;
     case  8:  axis = E0; inc *= -1;  break;
     case  9:  axis = E0; inc *=  1;  break;
-    #if EXTRUDERS == 2
+    #if EXTRUDERS > 1
     case 10:  axis = E1; inc *= -1;  break;
     case 11:  axis = E1; inc *=  1;  break;
+    #endif
+    #if EXTRUDERS > 2
+    case 12:  axis = E2; inc *= -1;  break;
+    case 13:  axis = E2; inc *=  1;  break;
+    #endif
+    #if EXTRUDERS > 3
+    case 14:  axis = E3; inc *= -1;  break;
+    case 15:  axis = E3; inc *=  1;  break;
     #endif
     default:
       return false;
@@ -1407,15 +1471,21 @@ void VelocityScreen::onRedraw(draw_mode_t what) {
   w.precision(0);
   w.units(PSTR("mm/s"));
 
-  w.heading(                            PSTR("Velocity"));
+  w.heading(                            PSTR("Maximum Velocity"));
   w.color(Theme::x_axis).adjuster(   2, PSTR("X:"),  getAxisMaxFeedrate_mm_s(X) );
   w.color(Theme::y_axis).adjuster(   4, PSTR("Y:"),  getAxisMaxFeedrate_mm_s(Y) );
   w.color(Theme::z_axis).adjuster(   6, PSTR("Z:"),  getAxisMaxFeedrate_mm_s(Z) );
-  #if EXTRUDERS == 1
+  #if EXTRUDERS == 1 || DISABLED(DISTINCT_E_FACTORS)
     w.color(Theme::e_axis).adjuster( 8, PSTR("E:"),  getAxisMaxFeedrate_mm_s(E0) );
-  #else
-    w.color(Theme::e_axis).adjuster( 8, PSTR("E0:"), getAxisMaxFeedrate_mm_s(E0) );
-    w.color(Theme::e_axis).adjuster(10, PSTR("E1:"), getAxisMaxFeedrate_mm_s(E1) );
+  #elif EXTRUDERS > 1
+    w.color(Theme::e_axis).adjuster( 8, PSTR("E1:"), getAxisMaxFeedrate_mm_s(E0) );
+    w.color(Theme::e_axis).adjuster(10, PSTR("E2:"), getAxisMaxFeedrate_mm_s(E1) );
+    #if EXTRUDERS > 2
+      w.color(Theme::e_axis).adjuster(12, PSTR("E3"), getAxisMaxFeedrate_mm_s(E2) );
+    #endif
+    #if EXTRUDERS > 3
+      w.color(Theme::e_axis).adjuster(14, PSTR("E4"), getAxisMaxFeedrate_mm_s(E3) );
+    #endif
   #endif
   w.increments();
 }
@@ -1435,9 +1505,17 @@ bool VelocityScreen::onTouchHeld(uint8_t tag) {
     case  7:  axis = Z;  inc *=  1;  break;
     case  8:  axis = E0; inc *= -1;  break;
     case  9:  axis = E0; inc *=  1;  break;
-    #if EXTRUDERS == 2
+    #if EXTRUDERS > 1 && ENABLED(DISTINCT_E_FACTORS)
     case 10:  axis = E1; inc *= -1;  break;
     case 11:  axis = E1; inc *=  1;  break;
+    #endif
+    #if EXTRUDERS > 2 && ENABLED(DISTINCT_E_FACTORS)
+    case 12:  axis = E2; inc *= -1;  break;
+    case 13:  axis = E2; inc *=  1;  break;
+    #endif
+    #if EXTRUDERS > 3 && ENABLED(DISTINCT_E_FACTORS)
+    case 14:  axis = E3; inc *= -1;  break;
+    case 15:  axis = E3; inc *=  1;  break;
     #endif
     default:
       return false;
@@ -1457,15 +1535,21 @@ void AccelerationScreen::onRedraw(draw_mode_t what) {
   w.precision(0);
   w.units(PSTR("mm/s^2"));
 
-  w.heading(                            PSTR("Max Acceleration"));
+  w.heading(                            PSTR("Maximum Acceleration"));
   w.color(Theme::x_axis).adjuster(   2, PSTR("X:"),  getAxisMaxAcceleration_mm_s2(X) );
   w.color(Theme::y_axis).adjuster(   4, PSTR("Y:"),  getAxisMaxAcceleration_mm_s2(Y) );
   w.color(Theme::z_axis).adjuster(   6, PSTR("Z:"),  getAxisMaxAcceleration_mm_s2(Z) );
-  #if EXTRUDERS == 1
+  #if EXTRUDERS == 1 || DISABLED(DISTINCT_E_FACTORS)
     w.color(Theme::e_axis).adjuster( 8, PSTR("E:"),  getAxisMaxAcceleration_mm_s2(E0) );
-  #else
-    w.color(Theme::e_axis).adjuster( 8, PSTR("E0:"), getAxisMaxAcceleration_mm_s2(E0) );
-    w.color(Theme::e_axis).adjuster(10, PSTR("E1:"), getAxisMaxAcceleration_mm_s2(E1) );
+  #elif EXTRUDERS > 1
+    w.color(Theme::e_axis).adjuster( 8, PSTR("E1:"), getAxisMaxAcceleration_mm_s2(E0) );
+    w.color(Theme::e_axis).adjuster(10, PSTR("E2:"), getAxisMaxAcceleration_mm_s2(E1) );
+    #if EXTRUDERS > 2
+    w.color(Theme::e_axis).adjuster(12, PSTR("E3:"), getAxisMaxAcceleration_mm_s2(E2) );
+    #endif
+    #if EXTRUDERS > 3
+    w.color(Theme::e_axis).adjuster(14, PSTR("E4:"), getAxisMaxAcceleration_mm_s2(E3) );
+    #endif
   #endif
   w.increments();
 }
@@ -1485,9 +1569,17 @@ bool AccelerationScreen::onTouchHeld(uint8_t tag) {
     case  7:  axis = Z;  inc *=  1;  break;
     case  8:  axis = E0; inc *= -1;  break;
     case  9:  axis = E0; inc *=  1;  break;
-    #if EXTRUDERS == 2
+    #if EXTRUDERS > 1 && ENABLED(DISTINCT_E_FACTORS)
     case 10:  axis = E1; inc *= -1;  break;
     case 11:  axis = E1; inc *=  1;  break;
+    #endif
+    #if EXTRUDERS > 2 && ENABLED(DISTINCT_E_FACTORS)
+    case 12:  axis = E2; inc *= -1;  break;
+    case 13:  axis = E2; inc *=  1;  break;
+    #endif
+    #if EXTRUDERS > 3 && ENABLED(DISTINCT_E_FACTORS)
+    case 14:  axis = E3; inc *= -1;  break;
+    case 15:  axis = E3; inc *=  1;  break;
     #endif
     default:
       return false;
@@ -1507,7 +1599,7 @@ void JerkScreen::onRedraw(draw_mode_t what) {
   w.precision(1);
   w.units(PSTR("mm/s"));
 
-  w.heading(                          PSTR("Max Jerk"));
+  w.heading(                          PSTR("Maximum Jerk"));
   w.color(Theme::x_axis).adjuster( 2, PSTR("X:"),  getAxisMaxJerk_mm_s(X) );
   w.color(Theme::y_axis).adjuster( 4, PSTR("Y:"),  getAxisMaxJerk_mm_s(Y) );
   w.color(Theme::z_axis).adjuster( 6, PSTR("Z:"),  getAxisMaxJerk_mm_s(Z) );
@@ -1612,21 +1704,25 @@ bool InterfaceSettingsScreen::onTouchStart(uint8_t tag) {
 }
 
 void InterfaceSettingsScreen::onIdle() {
-  uint16_t value;
-  CommandProcessor cmd;
-  switch(cmd.track_tag(value)) {
-    case 2:
-      screen_data.InterfaceSettingsScreen.brightness = float(value) * 128 / 0xFFFF;
-      CLCD::set_brightness(screen_data.InterfaceSettingsScreen.brightness);
-      break;
-    case 3:
-      screen_data.InterfaceSettingsScreen.volume = value >> 8;
-      FTDI::SoundPlayer::set_volume(screen_data.InterfaceSettingsScreen.volume);
-      break;
-    default:
-      return;
+  if(refresh_timer.elapsed(TOUCH_UPDATE_INTERVAL)) {
+    refresh_timer.start();
+
+    uint16_t value;
+    CommandProcessor cmd;
+    switch(cmd.track_tag(value)) {
+      case 2:
+        screen_data.InterfaceSettingsScreen.brightness = float(value) * 128 / 0xFFFF;
+        CLCD::set_brightness(screen_data.InterfaceSettingsScreen.brightness);
+        break;
+      case 3:
+        screen_data.InterfaceSettingsScreen.volume = value >> 8;
+        FTDI::SoundPlayer::set_volume(screen_data.InterfaceSettingsScreen.volume);
+        break;
+      default:
+        return;
+    }
+    onRefresh();
   }
-  onRefresh();
 }
 
 /***************************** FILES SCREEN ***************************/
@@ -1864,20 +1960,24 @@ bool WidgetsScreen::onTouchStart(uint8_t tag) {
 }
 
 void WidgetsScreen::onIdle() {
-  uint16_t value;
-  CommandProcessor cmd;
-  switch(cmd.track_tag(value)) {
-    case 1:
-      dial_val   = value; break;
-    case 2:
-    case 3:
-    case 4:
-    case 5:
-      slider_val = value; break;
-    default:
-      return;
+  if(refresh_timer.elapsed(TOUCH_UPDATE_INTERVAL)) {
+    refresh_timer.start();
+
+    uint16_t value;
+    CommandProcessor cmd;
+    switch(cmd.track_tag(value)) {
+      case 1:
+        dial_val   = value; break;
+      case 2:
+      case 3:
+      case 4:
+      case 5:
+        slider_val = value; break;
+      default:
+        return;
+    }
+    onRefresh();
   }
-  onRefresh();
 }
 
 /*************** DEVELOPER MENU: CALIBRATION REGISTERS SCREEN **********************/

@@ -30,8 +30,8 @@ namespace Extensible_UI_API {
 
   enum axis_t : unsigned char { X, Y, Z, E0, E1, E2, E3 };
 
-  const uint8_t extruderCount = EXTRUDERS;
-  const uint8_t fanCount      = FAN_COUNT;
+  constexpr uint8_t extruderCount = EXTRUDERS;
+  constexpr uint8_t fanCount      = FAN_COUNT;
 
   // The following methods should be used by the extension module to
   // query or change Marlin's state.

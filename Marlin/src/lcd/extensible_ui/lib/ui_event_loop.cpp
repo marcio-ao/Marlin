@@ -38,14 +38,12 @@
 using namespace FTDI;
 
 enum {
-  UNPRESSED       = 0xFF, //255
-  IGNORE_UNPRESS  = 0xFE, //254
-  DEBOUNCING      = 0xFD  //253
+  UNPRESSED       = 0x00
 };
 
 tiny_timer_t touch_timer;
 event_flags_t event_flags = {true, true, true};
-uint8_t pressed_state  = UNPRESSED;
+uint8_t pressed_tag  = UNPRESSED;
 
 void enable_touch_sounds(bool enabled) {
     event_flags.touch_start_sound  = enabled;
@@ -58,11 +56,11 @@ bool touch_sounds_enabled() {
 }
 
 uint8_t get_pressed_tag() {
-  if(pressed_state < DEBOUNCING) {
-    return pressed_state;
-  } else {
-    return 0;
-  }
+  return pressed_tag;
+}
+
+bool is_touch_held() {
+  return pressed_tag != 0;
 }
 
 namespace Extensible_UI_API {
@@ -88,7 +86,7 @@ namespace Extensible_UI_API {
 
     const uint8_t tag = CLCD::get_tag();
 
-    switch(pressed_state) {
+    switch(pressed_tag) {
       case UNPRESSED:
         if(tag != 0) {
           #if defined(UI_FRAMEWORK_DEBUG)
@@ -100,12 +98,12 @@ namespace Extensible_UI_API {
             #endif
           #endif
 
-          pressed_state = tag;
+          pressed_tag = tag;
+          current_screen.onRefresh();
 
           // When the user taps on a button, activate the onTouchStart handler
           const uint8_t lastScreen = current_screen.getScreen();
 
-          current_screen.onRefresh();
           if(current_screen.onTouchStart(tag)) {
             touch_timer.start();
             if(event_flags.touch_start_sound) sound.play(Theme::press_sound);
@@ -115,66 +113,67 @@ namespace Extensible_UI_API {
             // In the case in which a touch event triggered a new screen to be
             // drawn, we don't issue a touchEnd since it would be sent to the
             // wrong screen.
-            pressed_state = IGNORE_UNPRESS;
-            #if defined(UI_FRAMEWORK_DEBUG)
-              #if defined (SERIAL_PROTOCOLLNPAIR)
-                SERIAL_PROTOCOLLNPAIR("Ignoring press", tag);
-              #else
-                Serial.print(F("Ignoring press"));
-                Serial.println(tag);
-              #endif
-            #endif
+            event_flags.ignore_unpress = true;
+          } else {
+            event_flags.ignore_unpress = false;
           }
         } else {
           touch_timer.start();
-        }
-        break;
-      case DEBOUNCING:
-        if(tag == 0) {
-          if(touch_timer.elapsed(DEBOUNCE_PERIOD)) {
-            pressed_state = UNPRESSED;
-            if(event_flags.touch_end_sound) sound.play(Theme::unpress_sound);
-          }
-        } else {
-          pressed_state = IGNORE_UNPRESS;
-        }
-        break;
-      case IGNORE_UNPRESS:
-        if(tag == 0) {
-          // Ignore subsequent presses for a while to avoid bouncing
-          touch_timer.start();
-          pressed_state = DEBOUNCING;
         }
         break;
       default: // PRESSED
-        if(tag == pressed_state) {
-          // The user is holding down a button.
-          if(touch_timer.elapsed(1000 / TOUCH_REPEATS_PER_SECOND) && current_screen.onTouchHeld(tag)) {
-            if(event_flags.touch_repeat_sound) sound.play(Theme::repeat_sound);
+        if(!event_flags.touch_debouncing) {
+          if(tag == pressed_tag) {
+            // The user is holding down a button.
+            if(touch_timer.elapsed(1000 / TOUCH_REPEATS_PER_SECOND) && current_screen.onTouchHeld(tag)) {
+              if(event_flags.touch_repeat_sound) sound.play(Theme::repeat_sound);
+              touch_timer.start();
+            }
+          }
+          else if(tag == 0) {
             touch_timer.start();
+            event_flags.touch_debouncing = true;
           }
         }
-        else if(tag == 0) {
-          #if defined(UI_FRAMEWORK_DEBUG)
-            #if defined (SERIAL_PROTOCOLLNPAIR)
-              SERIAL_PROTOCOLLNPAIR("Touch end: ", pressed_state);
-            #else
-              Serial.print(F("Touch end: "));
-              Serial.println(pressed_state);
-            #endif
-          #endif
 
-          const uint8_t saved_pressed_state = pressed_state;
-          pressed_state = 0;
-          current_screen.onTouchEnd(saved_pressed_state);
-          current_screen.onRefresh();
-          // Ignore subsequent presses for a while to avoid bouncing
-          touch_timer.start();
-          pressed_state = DEBOUNCING;
+        else {
+          // Debouncing...
+
+          if(tag == pressed_tag) {
+            // If while debouncing, we detect a press, then cancel debouncing.
+            event_flags.touch_debouncing = false;
+          }
+
+          else if(touch_timer.elapsed(DEBOUNCE_PERIOD)) {
+            event_flags.touch_debouncing = false;
+
+            if(event_flags.ignore_unpress) {
+              event_flags.ignore_unpress = false;
+              break;
+            }
+
+            if(event_flags.touch_end_sound) sound.play(Theme::unpress_sound);
+
+            #if defined(UI_FRAMEWORK_DEBUG)
+              #if defined (SERIAL_PROTOCOLLNPAIR)
+                SERIAL_PROTOCOLLNPAIR("Touch end: ", pressed_tag);
+              #else
+                Serial.print(F("Touch end: "));
+                Serial.println(pressed_tag);
+              #endif
+            #endif
+
+            const uint8_t saved_pressed_tag = pressed_tag;
+            pressed_tag = UNPRESSED;
+            current_screen.onTouchEnd(saved_pressed_tag);
+            current_screen.onRefresh();
+          }
         }
         break;
-    }
-  }
-}
+    } // switch(pressed_tag)
+
+  } // onUpdate()
+
+} // Extensible_UI_API
 
 #endif // EXTENSIBLE_UI

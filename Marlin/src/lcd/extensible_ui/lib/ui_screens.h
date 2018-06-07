@@ -271,6 +271,7 @@ class ValueAdjusters : public UIScreenWithStyles {
 
 class MoveAxisScreen : public ValueAdjusters, public CachedScreen<MOVE_AXIS_SCREEN_CACHE> {
   public:
+    static void onEntry();
     static void onRedraw(draw_mode_t what);
     static bool onTouchHeld(uint8_t tag);
 };
