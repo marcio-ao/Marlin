@@ -57,6 +57,7 @@ static union {
   struct {uint8_t increment;}                  ValueAdjusters;
   struct {uint8_t page, selected_tag;}         FilesScreen;
   struct {uint8_t volume; uint8_t brightness;} InterfaceSettingsScreen;
+  struct {char passcode[5];}                   LockScreen;
   struct {
     uint8_t increment; // Must match ValueAdjusters.
     float e_rel[Extensible_UI_API::extruderCount];
@@ -89,6 +90,7 @@ SCREEN_TABLE {
   DECL_SCREEN(TemperatureScreen),
   DECL_SCREEN(CalibrationRegistersScreen),
   DECL_SCREEN(InterfaceSettingsScreen),
+  DECL_SCREEN(LockScreen),
   DECL_SCREEN(FilesScreen),
   DECL_SCREEN(MediaPlayerScreen),
 };
@@ -102,13 +104,13 @@ enum {
   STYLE_RED_BTN  = 0x02
 };
 
-void UIScreenWithStyles::onEntry() {
+void BaseScreen::onEntry() {
   CommandProcessor cmd;
   cmd.set_button_style_callback(buttonStyleCallback);
   UIScreen::onEntry();
 }
 
-bool UIScreenWithStyles::buttonStyleCallback(uint8_t tag, uint8_t &style, uint16_t &options, bool post) {
+bool BaseScreen::buttonStyleCallback(uint8_t tag, uint8_t &style, uint16_t &options, bool post) {
   using namespace FTDI;
   CommandProcessor cmd;
 
@@ -119,6 +121,9 @@ bool UIScreenWithStyles::buttonStyleCallback(uint8_t tag, uint8_t &style, uint16
 
   if(tag != 0 && get_pressed_tag() == tag) {
     options = OPT_FLAT;
+    #if defined(MENU_TIMEOUT)
+      last_interaction = millis();
+    #endif
     return false;
   }
 
@@ -145,12 +150,26 @@ bool UIScreenWithStyles::buttonStyleCallback(uint8_t tag, uint8_t &style, uint16
   return false;
 }
 
-void UIScreenWithStyles::default_button_colors() {
+void BaseScreen::default_button_colors() {
   using namespace FTDI;
   CommandProcessor cmd;
   cmd.cmd(COLOR_RGB(Theme::default_btn::rgb_enabled))
      .fgcolor(Theme::default_btn::fg_enabled);
 }
+
+void BaseScreen::onIdle() {
+  #if defined(MENU_TIMEOUT)
+    const uint32_t elapsed = millis() - last_interaction;
+    if(elapsed > MENU_TIMEOUT * 1000) {
+      GOTO_SCREEN(StatusScreen);
+      last_interaction = millis();
+    }
+  #endif
+}
+
+#if defined(MENU_TIMEOUT)
+  uint32_t BaseScreen::last_interaction;
+#endif
 
 /******************************** BOOT SCREEN ****************************/
 
@@ -178,7 +197,7 @@ void BootScreen::onIdle() {
 /******************************** ABOUT SCREEN ****************************/
 
 void AboutScreen::onEntry() {
-  UIScreen::onEntry();
+  BaseScreen::onEntry();
   sound.play(chimes, PLAY_ASYNCHRONOUS);
 }
 
@@ -253,8 +272,8 @@ bool DialogBoxBaseClass::onTouchEnd(uint8_t tag) {
 /****************************** ALERT BOX SCREEN *****************************/
 
 void AlertBoxScreen::onEntry() {
-  UIScreen::onEntry();
-  sound.play(c_maj_arpeggio, PLAY_ASYNCHRONOUS);
+  BaseScreen::onEntry();
+  sound.play(twinkle, PLAY_ASYNCHRONOUS);
 }
 
 void AlertBoxScreen::onRedraw(draw_mode_t what) {
@@ -702,6 +721,7 @@ void StatusScreen::onIdle() {
     onRefresh();
     refresh_timer.start();
   }
+  BaseScreen::onIdle();
 }
 
 bool StatusScreen::onTouchEnd(uint8_t tag) {
@@ -730,7 +750,12 @@ bool StatusScreen::onTouchEnd(uint8_t tag) {
         GOTO_SCREEN(MoveAxisScreen);
       }
       break;
+    default:
+      return true;
   }
+  // If a passcode is enabled, the LockScreen will prevent the
+  // user from proceeding.
+  LockScreen::check_passcode();
   return true;
 }
 
@@ -936,7 +961,10 @@ bool AdvancedSettingsScreen::onTouchEnd(uint8_t tag) {
     case 6:  GOTO_SCREEN(VelocityScreen);          break;
     case 7:  GOTO_SCREEN(AccelerationScreen);      break;
     case 8:  GOTO_SCREEN(JerkScreen);              break;
-    case 9:  GOTO_SCREEN(InterfaceSettingsScreen); break;
+    case 9:
+      GOTO_SCREEN(InterfaceSettingsScreen);
+      LockScreen::check_passcode();
+      break;
     case 10: GOTO_SCREEN(RestoreFailsafeScreen);   break;
     default:
       return false;
@@ -966,7 +994,7 @@ void CalibrationScreen::onEntry() {
       #endif
     #endif
   }
-  UIScreen::onEntry();
+  BaseScreen::onEntry();
 }
 
 void CalibrationScreen::onRedraw(draw_mode_t what) {
@@ -1178,7 +1206,7 @@ void ValueAdjusters::widgets_t::adjuster(uint8_t tag, const char *label,float va
 
 void ValueAdjusters::onEntry() {
   screen_data.ValueAdjusters.increment = 0; // This will force the increment to be picked while drawing.
-  UIScreen::onEntry();
+  BaseScreen::onEntry();
 }
 
 bool ValueAdjusters::onTouchEnd(uint8_t tag) {
@@ -1633,12 +1661,10 @@ bool JerkScreen::onTouchHeld(uint8_t tag) {
 
 /*********************** INTERFACE SETTINGS SCREEN ********************/
 
-bool     use_passcode;
-
 void InterfaceSettingsScreen::onEntry() {
   screen_data.InterfaceSettingsScreen.brightness = CLCD::get_brightness();
   screen_data.InterfaceSettingsScreen.volume     = FTDI::SoundPlayer::get_volume();
-  UIScreen::onEntry();
+  BaseScreen::onEntry();
 }
 
 void InterfaceSettingsScreen::onRedraw(draw_mode_t what) {
@@ -1661,8 +1687,8 @@ void InterfaceSettingsScreen::onRedraw(draw_mode_t what) {
        .font(Theme::font_small)
        .tag(0).text      (BTN_POS(1,3), BTN_SIZE(2,1), F("Screen brightness:"), OPT_RIGHTX | OPT_CENTERY)
               .text      (BTN_POS(1,4), BTN_SIZE(2,1), F("Sound volume:"),      OPT_RIGHTX | OPT_CENTERY)
-              .text      (BTN_POS(1,5), BTN_SIZE(2,1), F("Click sounds:"),      OPT_RIGHTX | OPT_CENTERY);
-    //        .text      (BTN_POS(1,6), BTN_SIZE(2,1), F("Parental lock:"),      OPT_RIGHTX | OPT_CENTERY);
+              .text      (BTN_POS(1,5), BTN_SIZE(2,1), F("Click sounds:"),      OPT_RIGHTX | OPT_CENTERY)
+              .text      (BTN_POS(1,6), BTN_SIZE(2,1), F("Parental lock:"),     OPT_RIGHTX | OPT_CENTERY);
     #undef EDGE_R
     #define EDGE_R 0
   }
@@ -1676,15 +1702,30 @@ void InterfaceSettingsScreen::onRedraw(draw_mode_t what) {
        .tag(2).slider    (BTN_POS(3,3), BTN_SIZE(2,1), screen_data.InterfaceSettingsScreen.brightness, 128)
        .tag(3).slider    (BTN_POS(3,4), BTN_SIZE(2,1), screen_data.InterfaceSettingsScreen.volume,     0xFF)
     #if defined(USE_PORTRAIT_ORIENTATION)
-       .tag(4).toggle    (BTN_POS(3,5), BTN_SIZE(2,1), F("off\xFFon"), touch_sounds_enabled());
+       .tag(4).toggle    (BTN_POS(3,5), BTN_SIZE(2,1), F("off\xFFon"), touch_sounds_enabled())
+       .tag(5).toggle    (BTN_POS(3,6), BTN_SIZE(2,1), F("off\xFFon"), LockScreen::is_enabled());
     #else
-       .tag(4).toggle    (BTN_POS(3,5), BTN_SIZE(1,1), F("off\xFFon"), touch_sounds_enabled());
-       //.tag(5).toggle    (BTN_POS(3,6), BTN_SIZE(1,1), F("no\xFFyes"), use_passcode);
+       .tag(4).toggle    (BTN_POS(3,5), BTN_SIZE(1,1), F("off\xFFon"), touch_sounds_enabled())
+       .tag(5).toggle    (BTN_POS(3,6), BTN_SIZE(1,1), F("off\xFFon"), LockScreen::is_enabled());
     #endif
-
-    if(use_passcode)
-      cmd.text(BTN_POS(4,6), BTN_SIZE(1,1), F("1234"), OPT_CENTERX | OPT_CENTERY);
   }
+}
+
+bool InterfaceSettingsScreen::onTouchEnd(uint8_t tag) {
+  switch(tag) {
+    case 1: GOTO_PREVIOUS();                               break;
+    case 4: enable_touch_sounds(!touch_sounds_enabled());; break;
+    case 5:
+      if(!LockScreen::is_enabled()) {
+        LockScreen::enable();
+      } else {
+        LockScreen::disable();
+      }
+      break;
+    default:
+      return false;
+  }
+  return true;
 }
 
 bool InterfaceSettingsScreen::onTouchStart(uint8_t tag) {
@@ -1692,8 +1733,6 @@ bool InterfaceSettingsScreen::onTouchStart(uint8_t tag) {
   switch(tag) {
     case 2: cmd.track_linear(BTN_POS(3,3), BTN_SIZE(2,1), 2).execute(); break;
     case 3: cmd.track_linear(BTN_POS(3,4), BTN_SIZE(2,1), 3).execute(); break;
-    case 4: enable_touch_sounds(!touch_sounds_enabled());; break;
-    case 5: use_passcode = !use_passcode; break;
     default: break;
   }
   #undef GRID_COLS
@@ -1723,6 +1762,182 @@ void InterfaceSettingsScreen::onIdle() {
     }
     onRefresh();
   }
+  BaseScreen::onIdle();
+}
+
+/****************************** LOCK SCREEN ***************************/
+
+uint16_t LockScreen::passcode = 0;
+
+void LockScreen::onEntry() {
+  const uint8_t siz = sizeof(screen_data.LockScreen.passcode);
+  memset(screen_data.LockScreen.passcode, '_', siz-1);
+  screen_data.LockScreen.passcode[siz-1] = '\0';
+  BaseScreen::onEntry();
+}
+
+void LockScreen::onRedraw(draw_mode_t what) {
+  CommandProcessor cmd;
+
+  if(what & BACKGROUND) {
+    cmd.cmd(CLEAR_COLOR_RGB(Theme::background))
+       .cmd(CLEAR(true,true,true));
+  }
+
+  if(what & FOREGROUND) {
+    #if defined(USE_PORTRAIT_ORIENTATION)
+      #define GRID_COLS 1
+      #define GRID_ROWS 10
+    #else
+      #define GRID_COLS 1
+      #define GRID_ROWS 6
+    #endif
+
+    #define MARGIN_T 3
+    #define MARGIN_B 3
+
+    default_button_colors();
+
+    progmem_str message;
+    switch(message_style()) {
+      case 'w':
+        message = F("Wrong passcode!");
+        break;
+      case 'g':
+        message = F("Passcode accepted!");
+        break;
+      default:
+        if(passcode == 0) {
+          message = F("Select Passcode:");
+        } else {
+          message = F("Enter Passcode:");
+        }
+    }
+    message_style() = '\0'; // Terminate the string.
+
+    #if defined(USE_PORTRAIT_ORIENTATION)
+      constexpr uint8_t l = 6;
+    #else
+      constexpr uint8_t l = 3;
+    #endif
+
+    cmd.font(Theme::font_large)
+       #if defined(USE_PORTRAIT_ORIENTATION)
+       .text(BTN_POS(1,2), BTN_SIZE(1,1), message)
+       .font(Theme::font_xlarge)
+       .text(BTN_POS(1,4), BTN_SIZE(1,1), screen_data.LockScreen.passcode)
+       #else
+       .text(BTN_POS(1,1), BTN_SIZE(1,1), message)
+       .font(Theme::font_xlarge)
+       .text(BTN_POS(1,2), BTN_SIZE(1,1), screen_data.LockScreen.passcode)
+       #endif
+       #if defined(USE_NUMERIC_PASSCODE)
+       .keys(BTN_POS(1,l+1), BTN_SIZE(1,1), F("123"),        get_pressed_tag())
+       .keys(BTN_POS(1,l+2), BTN_SIZE(1,1), F("456"),        get_pressed_tag())
+       .keys(BTN_POS(1,l+3), BTN_SIZE(1,1), F("789"),        get_pressed_tag())
+       .keys(BTN_POS(1,l+4), BTN_SIZE(1,1), F("0.<"),        get_pressed_tag());
+       #else
+       .keys(BTN_POS(1,l+1), BTN_SIZE(1,1), F("1234567890"), get_pressed_tag())
+       .keys(BTN_POS(1,l+2), BTN_SIZE(1,1), F("qwertyuiop"), get_pressed_tag())
+       .keys(BTN_POS(1,l+3), BTN_SIZE(1,1), F("asdfghijkl"), get_pressed_tag())
+       .keys(BTN_POS(1,l+4), BTN_SIZE(1,1), F("zxcvbnm!?<"), get_pressed_tag());
+       #endif
+
+    #define MARGIN_T 5
+    #define MARGIN_B 5
+
+    #undef GRID_COLS
+    #undef GRID_ROWS
+  }
+}
+
+char &LockScreen::message_style() {
+  // We use the last byte of the passcode string as a flag to indicate,
+  // which message to show.
+  constexpr uint8_t last_char = sizeof(screen_data.LockScreen.passcode)-1;
+  return screen_data.LockScreen.passcode[last_char];
+}
+
+void LockScreen::onPasscodeEntered() {
+  if(passcode == 0) {
+    // We are defining a passcode
+    message_style() = 0;
+    onRefresh();
+    sound.play(twinkle, PLAY_SYNCHRONOUS);
+    passcode = compute_checksum();
+    GOTO_PREVIOUS();
+  } else {
+    // We are verifying a passcode
+    if(passcode == compute_checksum()) {
+      message_style() = 'g';
+      onRefresh();
+      sound.play(twinkle, PLAY_SYNCHRONOUS);
+      GOTO_PREVIOUS();
+    } else {
+      message_style() = 'w';
+      onRefresh();
+      sound.play(sad_trombone, PLAY_SYNCHRONOUS);
+      current_screen.forget(); // Discard the screen the user was trying to go to.
+      GOTO_PREVIOUS();
+    }
+  }
+}
+
+bool LockScreen::onTouchEnd(uint8_t tag) {
+  char *c = strchr(screen_data.LockScreen.passcode,'_');
+  if(c) {
+    if(tag == '<') {
+      if(c != screen_data.LockScreen.passcode) {
+        // Backspace deletes previous entered characters.
+        *--c = '_';
+      }
+    } else {
+      // Append character to passcode
+      *c++ = tag;
+      if(*c == '\0') {
+        // If at last character, then process the code.
+        onPasscodeEntered();
+      }
+    }
+  }
+  return true;
+}
+
+uint16_t LockScreen::compute_checksum() {
+  uint16_t checksum = 0;
+  const char* c = screen_data.LockScreen.passcode;
+  while(*c) {
+    checksum = (checksum << 2) ^ *c++;
+  }
+  if(checksum == 0) checksum = 0xFFFF; // Prevent a zero checksum
+  return checksum;
+}
+
+// This function should be called *after* calling GOTO_SCREEN
+// to move to new screen. If a passcode is enabled, it will
+// immediately jump to the keypad screen, pushing the previous
+// screen onto the stack. If the code is entered correctly,
+// the stack will be popped, allowing the user to proceed to
+// the new screen. Otherwise it will be popped twice, taking
+// the user back to where they were before.
+void LockScreen::check_passcode() {
+  if(passcode == 0) return;
+  message_style() = 0;
+  GOTO_SCREEN(LockScreen);
+}
+
+bool LockScreen::is_enabled() {
+  return passcode != 0;
+}
+
+void LockScreen::disable() {
+  passcode = 0;
+}
+
+void LockScreen::enable() {
+  message_style() = 0;
+  passcode = 0;
+  GOTO_SCREEN(LockScreen);
 }
 
 /***************************** FILES SCREEN ***************************/
@@ -1730,7 +1945,7 @@ void InterfaceSettingsScreen::onIdle() {
 void FilesScreen::onEntry() {
   screen_data.FilesScreen.page            = 0;
   screen_data.FilesScreen.selected_tag    = 0xFF;
-  UIScreen::onEntry();
+  BaseScreen::onEntry();
 }
 
 const char *FilesScreen::getSelectedShortFilename() {
@@ -1898,7 +2113,7 @@ uint16_t slider_val;
 bool     show_grid;
 
 void WidgetsScreen::onEntry() {
-  UIScreen::onEntry();
+  BaseScreen::onEntry();
   CLCD::turn_on_backlight();
   FTDI::SoundPlayer::set_volume(255);
 }
@@ -1978,6 +2193,7 @@ void WidgetsScreen::onIdle() {
     }
     onRefresh();
   }
+  BaseScreen::onIdle();
 }
 
 /*************** DEVELOPER MENU: CALIBRATION REGISTERS SCREEN **********************/
@@ -2039,15 +2255,12 @@ bool CalibrationRegistersScreen::onTouchEnd(uint8_t tag) {
 /***************************** MEDIA DEMO SCREEN ***************************/
 
 void MediaPlayerScreen::onEntry() {
-  UIScreen::onEntry();
+  BaseScreen::onEntry();
   CLCD::turn_on_backlight();
   FTDI::SoundPlayer::set_volume(255);
 }
 
 void MediaPlayerScreen::onRedraw(draw_mode_t what) {
-}
-
-void MediaPlayerScreen::onIdle() {
 }
 
 void MediaPlayerScreen::lookForAutoPlayMedia() {

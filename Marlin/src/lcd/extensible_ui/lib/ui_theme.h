@@ -97,10 +97,12 @@ namespace Theme {
     const int16_t  font_small    = 29;
     const int16_t  font_medium   = 30;
     const int16_t  font_large    = 30;
+    const int16_t  font_xlarge   = 31;
   #else
     const int16_t  font_small    = 30;
     const int16_t  font_medium   = 30;
     const int16_t  font_large    = 31;
+    const int16_t  font_xlarge   = 31;
   #endif
   const float      icon_scale    = 1.0;
 #elif defined(LCD_480x272)
@@ -108,11 +110,13 @@ namespace Theme {
   const int16_t  font_small    = 26;
   const int16_t  font_medium   = 27;
   const int16_t  font_large    = 28;
+  const int16_t  font_xlarge   = 29;
   const float    icon_scale    = 0.7;
   #else
   const int16_t  font_small    = 27;
   const int16_t  font_medium   = 28;
   const int16_t  font_large    = 30;
+  const int16_t  font_xlarge   = 31;
   const float    icon_scale    = 0.6;
   #endif
 #elif defined(LCD_320x240)
@@ -120,11 +124,13 @@ namespace Theme {
   const int16_t  font_small    = 26;
   const int16_t  font_medium   = 27;
   const int16_t  font_large    = 27;
+  const int16_t  font_xlarge   = 28;
   const float    icon_scale    = 0.6;
   #else
   const int16_t  font_small    = 26;
   const int16_t  font_medium   = 27;
   const int16_t  font_large    = 29;
+  const int16_t  font_xlarge   = 30;
   const float    icon_scale    = 0.5;
   #endif
 #endif

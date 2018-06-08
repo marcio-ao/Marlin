@@ -49,6 +49,7 @@ enum {
   ACCELERATION_SCREEN_CACHE,
   JERK_SCREEN_CACHE,
   INTERFACE_SETTINGS_SCREEN_CACHE,
+  LOCK_SCREEN_CACHE,
   FILES_SCREEN_CACHE
 };
 
@@ -127,23 +128,28 @@ class CachedScreen {
 
 /************************* MENU SCREEN DECLARATIONS *************************/
 
-class UIScreenWithStyles : public UIScreen {
+class BaseScreen : public UIScreen {
   protected:
+    #if defined(MENU_TIMEOUT)
+      static uint32_t last_interaction;
+    #endif
+
     static void default_button_colors();
 
   public:
     static bool buttonStyleCallback(uint8_t tag, uint8_t &style, uint16_t &options, bool post);
 
     static void onEntry();
+    static void onIdle();
 };
 
-class BootScreen : public UIScreenWithStyles, public UncachedScreen {
+class BootScreen : public BaseScreen, public UncachedScreen {
   public:
     static void onRedraw(draw_mode_t what);
     static void onIdle();
 };
 
-class AboutScreen : public UIScreenWithStyles, public UncachedScreen {
+class AboutScreen : public BaseScreen, public UncachedScreen {
   public:
     static void onEntry();
     static void onRedraw(draw_mode_t what);
@@ -157,7 +163,7 @@ class KillScreen {
     static void show(progmem_str msg);
 };
 
-class DialogBoxBaseClass : public UIScreenWithStyles  {
+class DialogBoxBaseClass : public BaseScreen  {
   protected:
     static void drawMessage(const progmem_str line1, const progmem_str line2 = 0, const progmem_str line3 = 0);
     static void drawYesNoButtons();
@@ -187,7 +193,7 @@ class ConfirmAbortPrint : public DialogBoxBaseClass, public UncachedScreen {
     static bool onTouchEnd(uint8_t tag);
 };
 
-class StatusScreen : public UIScreenWithStyles, public CachedScreen<STATUS_SCREEN_CACHE,STATUS_SCREEN_DL_SIZE> {
+class StatusScreen : public BaseScreen, public CachedScreen<STATUS_SCREEN_CACHE,STATUS_SCREEN_DL_SIZE> {
   private:
     static void draw_axis_position(draw_mode_t what);
     static void draw_temperature(draw_mode_t what);
@@ -205,38 +211,38 @@ class StatusScreen : public UIScreenWithStyles, public CachedScreen<STATUS_SCREE
     static bool onTouchEnd(uint8_t tag);
 };
 
-class MenuScreen : public UIScreenWithStyles, public CachedScreen<MENU_SCREEN_CACHE> {
+class MenuScreen : public BaseScreen, public CachedScreen<MENU_SCREEN_CACHE> {
   public:
     static void onRedraw(draw_mode_t what);
     static bool onTouchEnd(uint8_t tag);
 };
 
-class TuneScreen : public UIScreenWithStyles, public CachedScreen<TUNE_SCREEN_CACHE> {
+class TuneScreen : public BaseScreen, public CachedScreen<TUNE_SCREEN_CACHE> {
   public:
     static void onRedraw(draw_mode_t what);
     static bool onTouchEnd(uint8_t tag);
 };
 
-class CalibrationScreen : public UIScreenWithStyles, public UncachedScreen {
+class CalibrationScreen : public BaseScreen, public UncachedScreen {
   public:
     static void onEntry();
     static void onRedraw(draw_mode_t what);
     static void onIdle();
 };
 
-class CalibrationRegistersScreen : public UIScreenWithStyles, public UncachedScreen {
+class CalibrationRegistersScreen : public BaseScreen, public UncachedScreen {
   public:
     static void onRedraw(draw_mode_t what);
     static bool onTouchEnd(uint8_t tag);
 };
 
-class AdvancedSettingsScreen : public UIScreenWithStyles, public CachedScreen<ADVANCED_SETTINGS_SCREEN_CACHE> {
+class AdvancedSettingsScreen : public BaseScreen, public CachedScreen<ADVANCED_SETTINGS_SCREEN_CACHE> {
   public:
     static void onRedraw(draw_mode_t what);
     static bool onTouchEnd(uint8_t tag);
 };
 
-class ValueAdjusters : public UIScreenWithStyles {
+class ValueAdjusters : public BaseScreen {
   protected:
 
     class widgets_t {
@@ -321,15 +327,34 @@ class TemperatureScreen : public ValueAdjusters, public CachedScreen<TEMPERATURE
     static bool onTouchHeld(uint8_t tag);
 };
 
-class InterfaceSettingsScreen : public ValueAdjusters, public CachedScreen<INTERFACE_SETTINGS_SCREEN_CACHE> {
+class InterfaceSettingsScreen : public BaseScreen, public CachedScreen<INTERFACE_SETTINGS_SCREEN_CACHE> {
   public:
     static void onEntry();
     static void onRedraw(draw_mode_t what);
     static bool onTouchStart(uint8_t tag);
+    static bool onTouchEnd(uint8_t tag);
     static void onIdle();
 };
 
-class FilesScreen : public UIScreenWithStyles, public CachedScreen<FILES_SCREEN_CACHE> {
+class LockScreen : public BaseScreen, public CachedScreen<LOCK_SCREEN_CACHE> {
+  private:
+    static uint16_t passcode;
+
+    static char & message_style();
+    static uint16_t compute_checksum();
+    static void onPasscodeEntered();
+  public:
+    static bool is_enabled();
+    static void check_passcode();
+    static void enable();
+    static void disable();
+
+    static void onEntry();
+    static void onRedraw(draw_mode_t what);
+    static bool onTouchEnd(uint8_t tag);
+};
+
+class FilesScreen : public BaseScreen, public CachedScreen<FILES_SCREEN_CACHE> {
   private:
     static const char *getSelectedShortFilename();
     static uint8_t getTagForIndex(uint16_t index);
@@ -340,7 +365,7 @@ class FilesScreen : public UIScreenWithStyles, public CachedScreen<FILES_SCREEN_
     static bool onTouchEnd(uint8_t tag);
 };
 
-class WidgetsScreen : public UIScreenWithStyles, public UncachedScreen {
+class WidgetsScreen : public BaseScreen, public UncachedScreen {
   public:
     static void onEntry();
     static void onRedraw(draw_mode_t what);
@@ -348,13 +373,12 @@ class WidgetsScreen : public UIScreenWithStyles, public UncachedScreen {
     static void onIdle();
 };
 
-class MediaPlayerScreen : public UIScreenWithStyles, public UncachedScreen {
+class MediaPlayerScreen : public BaseScreen, public UncachedScreen {
   public:
     static void lookForAutoPlayMedia();
 
     static void onEntry();
     static void onRedraw(draw_mode_t what);
-    static void onIdle();
 };
 
 #endif // _UI_SCREENS_

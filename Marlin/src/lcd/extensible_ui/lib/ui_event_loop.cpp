@@ -149,6 +149,7 @@ namespace Extensible_UI_API {
 
             if(event_flags.ignore_unpress) {
               event_flags.ignore_unpress = false;
+              pressed_tag = UNPRESSED;
               break;
             }
 

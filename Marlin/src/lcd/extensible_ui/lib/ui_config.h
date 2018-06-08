@@ -78,6 +78,14 @@
 #define USE_PORTRAIT_ORIENTATION
 //#define USE_MIRRORED_ORIENTATION
 
+// Use a numeric passcode for "Parental lock".
+// This is a recommended for smaller displays.
+//#define USE_NUMERIC_PASSCODE
+
+// Define number of seconds after which the menu screens
+// timeout and returns the user to the status screen
+#define MENU_TIMEOUT 30
+
 // Enable this to debug the event framework
 //#define UI_FRAMEWORK_DEBUG
 

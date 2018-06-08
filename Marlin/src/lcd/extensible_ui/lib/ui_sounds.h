@@ -136,7 +136,7 @@ namespace FTDI {
     {SILENCE,      END_SONG, 0}
   };
 
-  const PROGMEM SoundPlayer::sound_t c_maj_arpeggio[] = {
+  const PROGMEM SoundPlayer::sound_t twinkle[] = {
     {GLOCKENSPIEL, NOTE_C4,  1},
     {GLOCKENSPIEL, NOTE_E4,  1},
     {GLOCKENSPIEL, NOTE_G4,  16},
