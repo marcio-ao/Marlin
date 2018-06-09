@@ -49,12 +49,12 @@
       const bool GPIO_1_Audio_Shutdown   =  true; /* 1 = does use GPIO01 for amplifier control, 0 = not in use for Audio */
 
       const uint16_t touch_threshold     =  1200; /* touch-sensitivity */
-      const uint32_t default_transform_a =  0xffff7f55;
-      const uint32_t default_transform_b =  0x00000000;
-      const uint32_t default_transform_c =  0x01f0d673;
-      const uint32_t default_transform_d =  0x00000084;
-      const uint32_t default_transform_e =  0x000054b9;
-      const uint32_t default_transform_f =  0xffe0f006;
+      const uint32_t default_transform_a =  0x000054AD;
+      const uint32_t default_transform_b =  0xffffff52;
+      const uint32_t default_transform_c =  0xfff7f6e4;
+      const uint32_t default_transform_d =  0x00000065;
+      const uint32_t default_transform_e =  0xffffbe3b;
+      const uint32_t default_transform_f =  0x00f68e75;
     }
 
   /*
