@@ -387,6 +387,7 @@ void CLCD::CommandFifo::sketch(int16_t x, int16_t y, uint16_t w, uint16_t h, uin
   cmd( &cmd_data, sizeof(cmd_data) );
 }
 
+#if defined(USE_FTDI_FT810)
 void CLCD::CommandFifo::mediafifo(uint32_t ptr, uint32_t size) {
   struct {
     uint32_t type = CMD_MEDIAFIFO;
@@ -399,7 +400,9 @@ void CLCD::CommandFifo::mediafifo(uint32_t ptr, uint32_t size) {
 
   cmd( &cmd_data, sizeof(cmd_data) );
 }
+#endif
 
+#if defined(USE_FTDI_FT810)
 void CLCD::CommandFifo::videostart() {
   struct {
     uint32_t type = CMD_VIDEOSTART;
@@ -407,7 +410,9 @@ void CLCD::CommandFifo::videostart() {
 
   cmd( &cmd_data, sizeof(cmd_data) );
 }
+#endif
 
+#if defined(USE_FTDI_FT810)
 void CLCD::CommandFifo::videoframe(uint32_t dst, uint32_t ptr) {
   struct {
     uint32_t type = CMD_VIDEOFRAME;
@@ -420,7 +425,9 @@ void CLCD::CommandFifo::videoframe(uint32_t dst, uint32_t ptr) {
 
   cmd( &cmd_data, sizeof(cmd_data) );
 }
+#endif
 
+#if defined(USE_FTDI_FT810)
 void CLCD::CommandFifo::playvideo(uint32_t options) {
   struct {
     uint32_t type = CMD_PLAYVIDEO;
@@ -431,6 +438,7 @@ void CLCD::CommandFifo::playvideo(uint32_t options) {
 
   cmd( &cmd_data, sizeof(cmd_data) );
 }
+#endif
 
 #if defined(USE_FTDI_FT810)
 void CLCD::CommandFifo::set_rotate (uint8_t rotation) {
