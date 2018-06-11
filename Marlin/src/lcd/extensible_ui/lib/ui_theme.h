@@ -57,8 +57,8 @@ namespace Theme {
   const uint32_t prnt_btn      = 0x20D020;
   const uint32_t progress      = 0x404040;
   const uint32_t status_msg    = 0x404040;
-  const uint32_t fan_speed     = 0x6060D0;
-  const uint32_t temp          = 0xD04000;
+  const uint32_t fan_speed     = 0x6060FF;
+  const uint32_t temp          = 0xFF0000;
   const uint32_t axis_label    = 0x404040;
 
   // Calibration Registers Screen
@@ -138,6 +138,15 @@ namespace Theme {
   const FTDI::effect_t press_sound   = FTDI::CHACK;
   const FTDI::effect_t repeat_sound  = FTDI::CHACK;
   const FTDI::effect_t unpress_sound = FTDI::POP;
-};
 
+/*************************** COLOR SCALES **********************************/
+
+  const FTDI::rgb_t cool_rgb (  0,   0,   0);
+  const FTDI::rgb_t low_rgb  (128,   0,   0);
+  const FTDI::rgb_t med_rgb  (255, 128,   0);
+  const FTDI::rgb_t high_rgb (255, 255, 128);
+
+  uint32_t getWarmColor(uint16_t temp, uint16_t cool = 40, uint16_t low = 100, uint16_t high = 140);
+
+};
 #endif // _UI_THEME_

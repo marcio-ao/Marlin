@@ -128,7 +128,7 @@ void CLCD::test_pulse(void)
 }
 
 #if defined(CLCD_USE_SOFT_SPI)
-  uint8_t CLCD::_soft_spi_transfer (uint8_t spiOutByte) {
+  uint8_t CLCD::_soft_spi_xfer (uint8_t spiOutByte) {
     uint8_t spiIndex  = 0x80;
     uint8_t spiInByte = 0;
     uint8_t k;
@@ -185,7 +185,7 @@ void CLCD::spi_send(uint8_t spiOutByte) {
 
 uint8_t CLCD::spi_recv() {
   #if defined(CLCD_USE_SOFT_SPI)
-    return _soft_spi_transfer(0x00);
+    return _soft_spi_xfer(0x00);
   #elif defined(USE_MARLIN_IO)
     return spiRec();
   #else
@@ -257,43 +257,61 @@ void CLCD::mem_write_addr (uint32_t reg_address) {
   spi_send((reg_address >> 0)  & 0xFF); // Address [7:0]
 }
 
-// Write 3-Byte Address, Multiple Bytes, plus padding bytes
-void CLCD::mem_write_bulk (uint32_t reg_address, const void *data, uint16_t len, uint8_t padding) {
+// Generic operations for transforming a byte, for use with _mem_write_bulk:
+static inline uint8_t reverse_byte(uint8_t a) {
+  return ((a & 0x1)  << 7) | ((a & 0x2)  << 5) |
+         ((a & 0x4)  << 3) | ((a & 0x8)  << 1) |
+         ((a & 0x10) >> 1) | ((a & 0x20) >> 3) |
+         ((a & 0x40) >> 5) | ((a & 0x80) >> 7);
+}
+static inline uint8_t ram_write(const uint8_t *p) {return *p;}
+static inline uint8_t pgm_write(const uint8_t *p) {return pgm_read_byte(p);}
+static inline uint8_t xbm_write(const uint8_t *p) {return reverse_byte(pgm_read_byte(p));}
+
+// Generic template for function for Write 3-Byte Address, Multiple Bytes, plus padding bytes.
+// The template parameter op is an inlineable function which is applied to each byte.
+template<CLCD::bulk_write_op byte_op>
+void CLCD::_mem_write_bulk (uint32_t reg_address, const void *data, uint16_t len, uint8_t padding) {
   const uint8_t* p = (const uint8_t *)data;
   spi_select();
   mem_write_addr(reg_address);
   // Write data bytes
   while(len--) {
     #if defined(USE_MARLIN_IO) && !defined(CLCD_USE_SOFT_SPI)
-      spiSend(*p++);
+      spiSend(byte_op(p++));
     #else
-      spi_send(*p++);
+      CLCD::spi_send(byte_op(p++));
     #endif
   }
   // Write padding bytes
   while(padding--) {
-    spi_send(0);
+    #if defined(USE_MARLIN_IO) && !defined(CLCD_USE_SOFT_SPI)
+      spiSend(0);
+    #else
+      CLCD::spi_send(0);
+    #endif
   }
   spi_deselect();
 }
 
-void CLCD::mem_write_bulk (uint32_t reg_address, progmem_str str, uint16_t len, uint8_t padding) { // Write 3-Byte Address, Multiple Bytes, plus padding bytes
-  const uint8_t* p = (const uint8_t *) str;
-  spi_select();
-  mem_write_addr(reg_address);
-  // Write data bytes
-  while(len--) {
-    #if defined(USE_MARLIN_IO) && !defined(CLCD_USE_SOFT_SPI)
-      spiSend(pgm_read_byte(p++));
-    #else
-      spi_send(pgm_read_byte(p++));
-    #endif
-  }
-  // Write padding bytes
-  while(padding--) {
-    spi_send(0);
-  }
-  spi_deselect();
+// Write 3-Byte Address, Multiple Bytes, plus padding bytes, from RAM
+void CLCD::mem_write_bulk (uint32_t reg_address, const void *data, uint16_t len, uint8_t padding) {
+  _mem_write_bulk<ram_write> (reg_address, data, len, padding);
+}
+
+ // Write 3-Byte Address, Multiple Bytes, plus padding bytes, from PROGMEM
+void CLCD::mem_write_bulk (uint32_t reg_address, progmem_str str, uint16_t len, uint8_t padding) {
+  _mem_write_bulk<pgm_write> (reg_address, str, len, padding);
+}
+
+ // Write 3-Byte Address, Multiple Bytes, plus padding bytes, from PROGMEM
+void CLCD::mem_write_pgm (uint32_t reg_address, const void *data, uint16_t len, uint8_t padding) {
+  _mem_write_bulk<pgm_write> (reg_address, data, len, padding);
+}
+
+// Write 3-Byte Address, Multiple Bytes, plus padding bytes, from PROGMEM, reversing bytes (suitable for loading XBM images)
+void CLCD::mem_write_xbm (uint32_t reg_address, progmem_str str, uint16_t len, uint8_t padding) {
+  _mem_write_bulk<xbm_write> (reg_address, str, len, padding);
 }
 
 // Write 3-Byte Address, Write 1-Byte Data

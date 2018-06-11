@@ -102,32 +102,37 @@ typedef const __FlashStringHelper *progmem_str;
 
 class CLCD {
   private:
-    static void     spi_init (void);
-    static void     spi_select (void);
-    static void     spi_deselect (void);
+    static void     spi_init     ();
+    static void     spi_select   ();
+    static void     spi_deselect ();
 
-    static uint8_t  _soft_spi_transfer (uint8_t spiOutByte);
-    static void    _soft_spi_send (uint8_t spiOutByte);
+    static uint8_t  _soft_spi_xfer (uint8_t spiOutByte);
+    static void     _soft_spi_send (uint8_t spiOutByte);
 
-    static void     spi_send(uint8_t spiOutByte);
-    static uint8_t  spi_recv();
+    static void     spi_send       (uint8_t spiOutByte);
+    static uint8_t  spi_recv       ();
 
     static void     mem_read_addr  (uint32_t reg_address);
     static void     mem_write_addr (uint32_t reg_address);
-    static void     mem_read_bulk  (uint32_t reg_address, uint8_t *data, uint16_t len);
-  public:
-    static uint8_t  mem_read_8   (uint32_t reg_address);
-    static uint16_t mem_read_16  (uint32_t reg_address);
-    static uint32_t mem_read_32  (uint32_t reg_address);
-    static void     mem_write_8  (uint32_t reg_address, uint8_t w_data);
-    static void     mem_write_16 (uint32_t reg_address, uint16_t w_data);
-    static void     mem_write_32 (uint32_t reg_address, uint32_t w_data);
-    static void     mem_write_bulk (uint32_t reg_address, const void *data, uint16_t len, uint8_t padding = 0);
-    static void     mem_write_bulk (uint32_t reg_address, progmem_str str, uint16_t len, uint8_t padding = 0);
 
-    static inline uint32_t pack_rgb(uint8_t r, uint8_t g, uint8_t b) {
-      return (uint32_t(r) << 16) | (uint32_t(g) << 8) | uint32_t(b);
-    }
+    typedef uint8_t (*bulk_write_op)(const uint8_t*);
+
+    template<bulk_write_op op>
+    static void _mem_write_bulk   (uint32_t reg_address, const void *data, uint16_t len, uint8_t padding);
+
+  public:
+    static uint8_t  mem_read_8     (uint32_t reg_address);
+    static uint16_t mem_read_16    (uint32_t reg_address);
+    static uint32_t mem_read_32    (uint32_t reg_address);
+    static void     mem_read_bulk  (uint32_t reg_address, uint8_t *data, uint16_t len);
+
+    static void     mem_write_8    (uint32_t reg_address, uint8_t w_data);
+    static void     mem_write_16   (uint32_t reg_address, uint16_t w_data);
+    static void     mem_write_32   (uint32_t reg_address, uint32_t w_data);
+    static void     mem_write_bulk (uint32_t reg_address, const void *data, uint16_t len, uint8_t padding = 0);
+    static void     mem_write_pgm  (uint32_t reg_address, const void *data, uint16_t len, uint8_t padding = 0);
+    static void     mem_write_bulk (uint32_t reg_address, progmem_str str, uint16_t len, uint8_t padding = 0);
+    static void     mem_write_xbm  (uint32_t reg_address, progmem_str str, uint16_t len, uint8_t padding = 0);
 
   public:
     class CommandFifo;
@@ -142,9 +147,7 @@ class CLCD {
     static uint8_t get_brightness();
     static void host_cmd (unsigned char host_command, unsigned char byte2);
 
-
     static void get_font_metrics (uint8_t font, struct FontMetrics &fm);
-    static void flash_write_rgb332_bitmap (uint32_t mem_address, const unsigned char* p_rgb332_array, uint16_t num_bytes);
 
     static uint8_t get_tag ()     {return mem_read_8(FTDI::REG_TOUCH_TAG);}
     static bool is_touching ()    {return (mem_read_32(FTDI::REG_TOUCH_DIRECT_XY) & 0x80000000) == 0;}
@@ -205,10 +208,14 @@ class CLCD::CommandFifo {
     void progress  (int16_t x, int16_t y, int16_t w, int16_t h, uint16_t options, uint16_t val, uint16_t range);
     void scrollbar (int16_t x, int16_t y, int16_t w, int16_t h, uint16_t options, uint16_t val, uint16_t size, uint16_t range);
     void sketch    (int16_t x, int16_t y, uint16_t w, uint16_t h, uint32_t ptr, uint16_t format);
-    void mediafifo (uint32_t ptr, uint32_t size);
-    void playvideo (uint32_t options);
-    void videostart();
-    void videoframe(uint32_t dst, uint32_t ptr);
+    void gradient  (int16_t x0, int16_t y0, uint32_t rgb0, int16_t x1, int16_t y1, uint32_t rgb1);
+
+    #if defined(USE_FTDI_FT810)
+      void mediafifo (uint32_t ptr, uint32_t size);
+      void playvideo (uint32_t options);
+      void videostart();
+      void videoframe(uint32_t dst, uint32_t ptr);
+    #endif
 
     // All the following must be followed by str()
     void text      (int16_t x, int16_t y,                       int16_t font, uint16_t options);

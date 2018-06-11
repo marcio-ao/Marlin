@@ -48,6 +48,7 @@ enum {
   VELOCITY_SCREEN_CACHE,
   ACCELERATION_SCREEN_CACHE,
   JERK_SCREEN_CACHE,
+  CHANGE_FILAMENT_SCREEN_CACHE,
   INTERFACE_SETTINGS_SCREEN_CACHE,
   LOCK_SCREEN_CACHE,
   FILES_SCREEN_CACHE
@@ -135,9 +136,10 @@ class BaseScreen : public UIScreen {
     #endif
 
     static void default_button_colors();
-
   public:
     static bool buttonStyleCallback(uint8_t tag, uint8_t &style, uint16_t &options, bool post);
+
+    static void reset_menu_timeout();
 
     static void onEntry();
     static void onIdle();
@@ -240,6 +242,20 @@ class AdvancedSettingsScreen : public BaseScreen, public CachedScreen<ADVANCED_S
   public:
     static void onRedraw(draw_mode_t what);
     static bool onTouchEnd(uint8_t tag);
+};
+
+class ChangeFilamentScreen : public BaseScreen, public CachedScreen<CHANGE_FILAMENT_SCREEN_CACHE> {
+  private:
+    static uint8_t getSoftenTemp();
+    static uint8_t getExtruder();
+    static void drawTempGradient(uint16_t x, uint16_t y, uint16_t w, uint16_t h);
+    static uint32_t getTempColor(uint32_t temp);
+  public:
+    static void onEntry();
+    static void onRedraw(draw_mode_t what);
+    static bool onTouchEnd(uint8_t tag);
+    static bool onTouchHeld(uint8_t tag);
+    static void onIdle();
 };
 
 class ValueAdjusters : public BaseScreen {

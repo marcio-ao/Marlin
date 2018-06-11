@@ -168,8 +168,21 @@ class CommandProcessor : public CLCD::CommandFifo {
     inline CommandProcessor& enabled (bool enabled)             {if(!enabled) _style |= STYLE_DISABLED; else _style &= ~STYLE_DISABLED; return *this;}
     inline CommandProcessor& style   (uint8_t style)            {_style = style; return *this;}
 
+    #if defined(USE_FTDI_FT810)
     inline CommandProcessor& mediafifo (uint32_t p, uint32_t s) {CLCD::CommandFifo::mediafifo(p, s); return *this;}
     inline CommandProcessor& playvideo(uint32_t options)        {CLCD::CommandFifo::playvideo(options); return *this;}
+    #endif
+
+    inline CommandProcessor& gradient(int16_t x0, int16_t y0, uint32_t rgb0, int16_t x1, int16_t y1, uint32_t rgb1)
+                                                                {CLCD::CommandFifo::gradient(x0,y0,rgb0,x1,y1,rgb1); return *this;}
+
+    inline CommandProcessor& rectangle(int16_t x, int16_t y, int16_t w, int16_t h) {
+      using namespace FTDI;
+      CLCD::CommandFifo::cmd(BEGIN(RECTS));
+      CLCD::CommandFifo::cmd(VERTEX2F(x*16,y*16));
+      CLCD::CommandFifo::cmd(VERTEX2F((x+w)*16,(y+h)*16));
+      return *this;
+    }
 
     template<typename T>
     FORCEDINLINE CommandProcessor& toggle(int16_t x, int16_t y, int16_t w, int16_t h, T text, bool state, uint16_t options = FTDI::OPT_3D) {

@@ -450,11 +450,11 @@ namespace FTDI {
    BEGIN_POINTS                 = 0x00000002,
    LINES                        = 0x00000003,
    LINE_STRIP                   = 0x00000004,
-   STRIP_R                      = 0x00000005,
-   STRIP_L                      = 0x00000006,
-   STRIP_A                      = 0x00000007,
-   STRIP_B                      = 0x00000008,
-   STRIP_RECTS                  = 0x00000009
+   EDGE_STRIP_R                 = 0x00000005,
+   EDGE_STRIP_L                 = 0x00000006,
+   EDGE_STRIP_A                 = 0x00000007,
+   EDGE_STRIP_B                 = 0x00000008,
+   RECTS                        = 0x00000009
   } begin_t;
 
   namespace DL {

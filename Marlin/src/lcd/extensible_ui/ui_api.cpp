@@ -32,6 +32,10 @@
 #include "../../sd/cardreader.h"
 #include "../../libs/duration_t.h"
 
+#if DO_SWITCH_EXTRUDER || ENABLED(SWITCHING_NOZZLE) || ENABLED(PARKING_EXTRUDER)
+  #include "../../module/tool_change.h"
+#endif
+
 #include "ui_api.h"
 
 inline float clamp(const float value, const float minimum, const float maximum) {
@@ -124,6 +128,19 @@ namespace Extensible_UI_API {
     #if EXTRUDERS > 1
       active_extruder = old_extruder;
     #endif
+  }
+
+  void setActiveTool(const uint8_t extruder) {
+    #if DO_SWITCH_EXTRUDER || ENABLED(SWITCHING_NOZZLE) || ENABLED(PARKING_EXTRUDER)
+      if(extruder != active_extruder) {
+        tool_change(extruder - 1);
+      }
+    #endif
+    active_extruder = extruder;
+  }
+
+  uint8_t getActiveTool() {
+    return active_extruder + 1;
   }
 
   bool isMoving() { return planner.has_blocks_queued(); }

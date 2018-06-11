@@ -71,13 +71,6 @@ void CLCD::host_cmd (unsigned char host_command, unsigned char byte2) {  // Send
   spi_deselect();
 }
 
-void CLCD::flash_write_rgb332_bitmap(uint32_t mem_address, const unsigned char* p_rgb332_array, uint16_t num_bytes)
-{
-  for(unsigned int i = 0; i < num_bytes; i++) {
-    mem_write_8((mem_address + i), pgm_read_byte(p_rgb332_array + i));
-  }
-}
-
 /******************* FT800/810 Co-processor Commands *********************************/
 
 #if defined(USE_FTDI_FT800)
@@ -319,6 +312,27 @@ void CLCD::CommandFifo::slider (int16_t x, int16_t y, int16_t w, int16_t h, uint
   cmd( &cmd_data, sizeof(cmd_data) );
 }
 
+void CLCD::CommandFifo::gradient (int16_t x0, int16_t y0, uint32_t rgb0, int16_t x1, int16_t y1, uint32_t rgb1) {
+  struct {
+    int32_t type = CMD_GRADIENT;
+    int16_t x0;
+    int16_t y0;
+    uint32_t rgb0;
+    int16_t x1;
+    int16_t y1;
+    uint32_t rgb1;
+  } cmd_data;
+
+  cmd_data.x0      = x0;
+  cmd_data.y0      = y0;
+  cmd_data.rgb0    = rgb0;
+  cmd_data.x1      = x1;
+  cmd_data.y1      = y1;
+  cmd_data.rgb1    = rgb1;
+
+  cmd( &cmd_data, sizeof(cmd_data) );
+}
+
 void CLCD::CommandFifo::memcpy (uint32_t dst, uint32_t src, uint32_t size) {
   struct {
     uint32_t  type = CMD_MEMCPY;
@@ -387,6 +401,7 @@ void CLCD::CommandFifo::sketch(int16_t x, int16_t y, uint16_t w, uint16_t h, uin
   cmd( &cmd_data, sizeof(cmd_data) );
 }
 
+#if defined(USE_FTDI_FT810)
 void CLCD::CommandFifo::mediafifo(uint32_t ptr, uint32_t size) {
   struct {
     uint32_t type = CMD_MEDIAFIFO;
@@ -432,7 +447,6 @@ void CLCD::CommandFifo::playvideo(uint32_t options) {
   cmd( &cmd_data, sizeof(cmd_data) );
 }
 
-#if defined(USE_FTDI_FT810)
 void CLCD::CommandFifo::set_rotate (uint8_t rotation) {
   struct {
     uint32_t  type = CMD_SETROTATE;
