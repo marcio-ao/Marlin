@@ -35,9 +35,9 @@
 // Define the printer interface or pins used (see "ftdi_eve_pins.h" for definitions):
 
 //#define CR10_TFT
-//#define AO_CLCD_PINOUT_REV_B_EXP1 // Uses UltraLCD EXP1 connector, old wiring
+#define AO_CLCD_PINOUT_REV_B_EXP1 // Uses UltraLCD EXP1 connector, old wiring
 //#define AO_CLCD_PINOUT_REV_C_EXP1 // Uses UltraLCD EXP1 connector, new wiring
-#define AO_CLCD_PINOUT_REV_C_EXP2    // Uses UltraLCD EXP2 connector, new wiring
+//#define AO_CLCD_PINOUT_REV_C_EXP2    // Uses UltraLCD EXP2 connector, new wiring
 //#define OTHER_PIN_LAYOUT
 
 // Otherwise. Define all the pins manually:

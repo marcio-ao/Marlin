@@ -130,10 +130,11 @@ namespace Extensible_UI_API {
     #endif
   }
 
-  void setActiveTool(const uint8_t extruder) {
+  void setActiveTool(uint8_t extruder) {
+    extruder--; // Make zero based
     #if DO_SWITCH_EXTRUDER || ENABLED(SWITCHING_NOZZLE) || ENABLED(PARKING_EXTRUDER)
       if(extruder != active_extruder) {
-        tool_change(extruder - 1);
+        tool_change(extruder);
       }
     #endif
     active_extruder = extruder;

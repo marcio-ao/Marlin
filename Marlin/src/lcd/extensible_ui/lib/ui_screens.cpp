@@ -1064,7 +1064,7 @@ void ChangeFilamentScreen::drawTempGradient(uint16_t x, uint16_t y, uint16_t w, 
 }
 
 void ChangeFilamentScreen::onEntry() {
-  screen_data.ChangeFilamentScreen.e_tag = 0;
+  screen_data.ChangeFilamentScreen.e_tag = Extensible_UI_API::getActiveTool() + 9;
   screen_data.ChangeFilamentScreen.t_tag = 0;
 }
 
@@ -1117,6 +1117,7 @@ void ChangeFilamentScreen::onRedraw(draw_mode_t what) {
 
     const rgb_t tcol = Theme::getWarmColor(getActualTemp_celsius(getExtruder()));
     cmd.cmd(COLOR_RGB(tcol))
+       .tag(15)
     #if defined(USE_PORTRAIT_ORIENTATION)
        .rectangle(BTN_POS(2,7), BTN_SIZE(1,1))
     #else
@@ -1202,11 +1203,10 @@ void ChangeFilamentScreen::onRedraw(draw_mode_t what) {
 
 uint8_t ChangeFilamentScreen::getSoftenTemp() {
   switch(screen_data.ChangeFilamentScreen.t_tag) {
-    case 2: return LOW_TEMP;
-    case 3: return MED_TEMP;
-    case 4: return HIGH_TEMP;
-    default:
-      return 0;
+    case 2:  return LOW_TEMP;
+    case 3:  return MED_TEMP;
+    case 4:  return HIGH_TEMP;
+    default: return 0;
   }
 }
 
@@ -1214,8 +1214,7 @@ uint8_t ChangeFilamentScreen::getExtruder() {
   switch(screen_data.ChangeFilamentScreen.e_tag) {
     case 10: return 1;
     case 11: return 2;
-    default:
-      return 0;
+    default: return 0;
   }
 }
 
@@ -1237,6 +1236,7 @@ bool ChangeFilamentScreen::onTouchEnd(uint8_t tag) {
       screen_data.ChangeFilamentScreen.t_tag = 0;
       setActiveTool(getExtruder());
       break;
+    case 15: GOTO_SCREEN(TemperatureScreen); break;
   }
   return true;
 }

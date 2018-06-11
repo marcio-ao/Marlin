@@ -72,7 +72,7 @@ namespace Extensible_UI_API {
   void setTravelAcceleration_mm_s2(float travel_acceleration);
   void setFeedrate_percent(const float percent);
 
-  void setActiveTool(const uint8_t);
+  void setActiveTool(uint8_t);
   uint8_t getActiveTool();
 
   #if HAS_BED_PROBE
