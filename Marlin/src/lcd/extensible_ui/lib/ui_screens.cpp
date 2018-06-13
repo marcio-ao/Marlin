@@ -38,6 +38,7 @@
 #include "ui_screens.h"
 #include "ui_theme.h"
 #include "ui_event_loop.h"
+#include "ui_storage.h"
 
 using namespace FTDI;
 
@@ -74,6 +75,7 @@ SCREEN_TABLE {
   DECL_SCREEN(AboutScreen),
   DECL_SCREEN(AlertBoxScreen),
   DECL_SCREEN(RestoreFailsafeScreen),
+  DECL_SCREEN(SaveSettingsScreen),
   DECL_SCREEN(ConfirmAbortPrint),
   DECL_SCREEN(CalibrationScreen),
   DECL_SCREEN(StatusScreen),
@@ -363,10 +365,34 @@ void RestoreFailsafeScreen::onRedraw(draw_mode_t what) {
 bool RestoreFailsafeScreen::onTouchEnd(uint8_t tag) {
   switch(tag) {
     case 1:
-      Extensible_UI_API::enqueueCommands(F("M502\nM500"));
+      Extensible_UI_API::enqueueCommands(F("M502"));
       AlertBoxScreen::show(F("Factory settings restored."));
       // Remove RestoreFailsafeScreen from the stack
       // so the alert box doesn't return to it.
+      current_screen.forget();
+      return true;
+    default:
+      return DialogBoxBaseClass::onTouchEnd(tag);
+  }
+}
+
+/**************************** SAVE CHANGES SCREEN ***************************/
+
+void SaveSettingsScreen::onRedraw(draw_mode_t what) {
+  drawMessage(
+    F("Do you wish to save these"),
+    F("settings as power on defaults?")
+  );
+  drawYesNoButtons();
+}
+
+bool SaveSettingsScreen::onTouchEnd(uint8_t tag) {
+  switch(tag) {
+    case 1:
+      Extensible_UI_API::enqueueCommands(F("M500"));
+      AlertBoxScreen::show(F("Settings saved!"));
+      // Remove SaveSettingsScreen from the stack
+      // so the alert box doesn't return to me.
       current_screen.forget();
       return true;
     default:
@@ -765,6 +791,8 @@ void StatusScreen::onStartup() {
   CLCD::mem_write_pgm(Fan_Icon_Info.RAMG_addr,      Fan_Icon,      sizeof(Fan_Icon));
 
   setStatusMessage(F(WELCOME_MSG));
+
+  UIStorage::initialize();
 }
 
 void StatusScreen::onRedraw(draw_mode_t what) {
@@ -966,7 +994,7 @@ void AdvancedSettingsScreen::onRedraw(draw_mode_t what) {
     default_button_colors();
     cmd.font(Theme::font_medium)
     #if defined(USE_PORTRAIT_ORIENTATION)
-      #define GRID_ROWS 7
+      #define GRID_ROWS 6
       #define GRID_COLS 2
       #if HAS_BED_PROBE
         .enabled(1)
@@ -981,9 +1009,8 @@ void AdvancedSettingsScreen::onRedraw(draw_mode_t what) {
       .tag(8) .button( BTN_POS(2,3), BTN_SIZE(1,1), F("Jerk"))
       .tag(9) .button( BTN_POS(1,4), BTN_SIZE(2,1), F("Interface Settings"))
       .tag(10).button( BTN_POS(1,5), BTN_SIZE(2,1), F("Restore Factory Settings"))
-      .tag(2) .button( BTN_POS(1,6), BTN_SIZE(2,1), F("Save As Default"))
       .fgcolor(Theme::back_btn)
-      .tag(1) .button( BTN_POS(1,7), BTN_SIZE(2,1), F("Back"));
+      .tag(1) .button( BTN_POS(1,6), BTN_SIZE(2,1), F("Back"));
       #undef GRID_COLS
       #undef GRID_ROWS
     #else
@@ -1002,9 +1029,8 @@ void AdvancedSettingsScreen::onRedraw(draw_mode_t what) {
       .tag(7) .button( BTN_POS(2,2), BTN_SIZE(1,1), F("Acceleration"))
       .tag(8) .button( BTN_POS(2,3), BTN_SIZE(1,1), F("Jerk"))
       .tag(10).button( BTN_POS(1,4), BTN_SIZE(2,1), F("Restore Factory Settings"))
-      .tag(2) .button( BTN_POS(1,5), BTN_SIZE(1,1), F("Save"))
       .fgcolor(Theme::back_btn)
-      .tag(1) .button( BTN_POS(2,5), BTN_SIZE(1,1), F("Back"));
+      .tag(1) .button( BTN_POS(1,5), BTN_SIZE(2,1), F("Back"));
       #undef GRID_COLS
       #undef GRID_ROWS
     #endif
@@ -1015,11 +1041,12 @@ bool AdvancedSettingsScreen::onTouchEnd(uint8_t tag) {
   using namespace Extensible_UI_API;
 
   switch(tag) {
-    case 1:  GOTO_PREVIOUS();                      break;
-    case 2:
-      enqueueCommands(F("M500"));
-      AlertBoxScreen::show(F("Settings saved!"));
-      break;
+    case 1:
+             // Remove AdvancedSettingsScreen from the stack
+             // so SaveSettingsScreen doesn't return here.
+             GOTO_SCREEN(SaveSettingsScreen);
+             current_screen.forget();
+             break;
     #if HAS_BED_PROBE
     case 4:  GOTO_SCREEN(ZOffsetScreen);           break;
     #endif
@@ -1972,6 +1999,14 @@ bool JerkScreen::onTouchHeld(uint8_t tag) {
 
 /*********************** INTERFACE SETTINGS SCREEN ********************/
 
+void InterfaceSettingsScreen::onStartup() {
+  loadSettings();
+}
+
+void InterfaceSettingsScreen::onExit() {
+  saveSettings();
+}
+
 void InterfaceSettingsScreen::onEntry() {
   screen_data.InterfaceSettingsScreen.brightness = CLCD::get_brightness();
   screen_data.InterfaceSettingsScreen.volume     = FTDI::SoundPlayer::get_volume();
@@ -2072,6 +2107,32 @@ void InterfaceSettingsScreen::onIdle() {
     onRefresh();
   }
   BaseScreen::onIdle();
+}
+
+void InterfaceSettingsScreen::defaultSettings() {
+  LockScreen::passcode = 0;
+  FTDI::SoundPlayer::set_volume(255);
+  CLCD::set_brightness(255);
+}
+
+void InterfaceSettingsScreen::saveSettings() {
+  persistent_data_t      data;
+  data.magic_word        = 'LULZ';
+  data.version           = 0;
+  data.sound_volume      = FTDI::SoundPlayer::get_volume();
+  data.screen_brightness = CLCD::get_brightness();
+  data.passcode          = LockScreen::passcode;
+  UIStorage::writePersistentData(&data, sizeof(data));
+}
+
+void InterfaceSettingsScreen::loadSettings() {
+  persistent_data_t data;
+  UIStorage::readPersistentData(&data, sizeof(data));
+  if(data.magic_word == 'LULZ' && data.version == 0) {
+    FTDI::SoundPlayer::set_volume(data.sound_volume);
+    CLCD::set_brightness(data.screen_brightness);
+    LockScreen::passcode = data.passcode;
+  }
 }
 
 /****************************** LOCK SCREEN ***************************/
@@ -2701,6 +2762,14 @@ namespace Extensible_UI_API {
 
   void onStatusChanged(progmem_str lcd_msg) {
     StatusScreen::setStatusMessage(lcd_msg);
+  }
+
+  void onFactoryReset() {
+    InterfaceSettingsScreen::defaultSettings();
+  }
+
+  void onStoreSettings() {
+    InterfaceSettingsScreen::saveSettings();
   }
 }
 

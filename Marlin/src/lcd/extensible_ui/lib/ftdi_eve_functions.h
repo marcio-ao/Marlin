@@ -100,7 +100,11 @@
 
 typedef const __FlashStringHelper *progmem_str;
 
+class UIStorage;
+
 class CLCD {
+  friend class UIStorage;
+
   private:
     static void     spi_init     ();
     static void     spi_select   ();

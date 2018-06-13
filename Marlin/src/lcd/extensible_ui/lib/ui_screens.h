@@ -189,6 +189,12 @@ class RestoreFailsafeScreen : public DialogBoxBaseClass, public UncachedScreen {
     static bool onTouchEnd(uint8_t tag);
 };
 
+class SaveSettingsScreen : public DialogBoxBaseClass, public UncachedScreen {
+  public:
+    static void onRedraw(draw_mode_t what);
+    static bool onTouchEnd(uint8_t tag);
+};
+
 class ConfirmAbortPrint : public DialogBoxBaseClass, public UncachedScreen {
   public:
     static void onRedraw(draw_mode_t what);
@@ -344,8 +350,23 @@ class TemperatureScreen : public ValueAdjusters, public CachedScreen<TEMPERATURE
 };
 
 class InterfaceSettingsScreen : public BaseScreen, public CachedScreen<INTERFACE_SETTINGS_SCREEN_CACHE> {
+  private:
+    struct persistent_data_t {
+      uint32_t magic_word;
+      uint16_t version;
+      uint8_t  sound_volume;
+      uint8_t  screen_brightness;
+      uint16_t passcode;
+    };
+
   public:
+    static void saveSettings();
+    static void loadSettings();
+    static void defaultSettings();
+
+    static void onStartup();
     static void onEntry();
+    static void onExit();
     static void onRedraw(draw_mode_t what);
     static bool onTouchStart(uint8_t tag);
     static bool onTouchEnd(uint8_t tag);
@@ -354,6 +375,8 @@ class InterfaceSettingsScreen : public BaseScreen, public CachedScreen<INTERFACE
 
 class LockScreen : public BaseScreen, public CachedScreen<LOCK_SCREEN_CACHE> {
   private:
+    friend InterfaceSettingsScreen;
+
     static uint16_t passcode;
 
     static char & message_style();

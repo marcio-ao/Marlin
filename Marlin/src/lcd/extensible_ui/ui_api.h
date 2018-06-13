@@ -128,6 +128,8 @@ namespace Extensible_UI_API {
   void onPrinterKilled(const char* msg);
   void onStatusChanged(const char* msg);
   void onStatusChanged(progmem_str msg);
+  void onFactoryReset();
+  void onStoreSettings();
 };
 
 #endif // _UI_API_H_
