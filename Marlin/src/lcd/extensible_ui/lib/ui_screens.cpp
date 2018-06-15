@@ -22,9 +22,6 @@
 
 #include "ui.h"
 
-#include "../../../sd/SdFile.h"
-#include "../../../sd/cardreader.h"
-
 #if ENABLED(EXTENSIBLE_UI)
 
 #include "ftdi_eve_constants.h"
@@ -39,6 +36,7 @@
 #include "ui_theme.h"
 #include "ui_event_loop.h"
 #include "ui_storage.h"
+#include "ui_filereader.h"
 
 using namespace FTDI;
 
@@ -70,7 +68,7 @@ static union {
 /******************************* MENU SCREEN TABLE ******************************/
 
 SCREEN_TABLE {
-  //DECL_SCREEN(WidgetsScreen),
+
   DECL_SCREEN(BootScreen),
   DECL_SCREEN(AboutScreen),
   DECL_SCREEN(AlertBoxScreen),
@@ -92,11 +90,13 @@ SCREEN_TABLE {
   DECL_SCREEN(AccelerationScreen),
   DECL_SCREEN(JerkScreen),
   DECL_SCREEN(TemperatureScreen),
-  DECL_SCREEN(CalibrationRegistersScreen),
   DECL_SCREEN(ChangeFilamentScreen),
   DECL_SCREEN(InterfaceSettingsScreen),
   DECL_SCREEN(LockScreen),
   DECL_SCREEN(FilesScreen),
+  DECL_SCREEN(DeveloperScreen),
+  DECL_SCREEN(WidgetsScreen),
+  DECL_SCREEN(CalibrationRegistersScreen),
   DECL_SCREEN(MediaPlayerScreen),
 };
 
@@ -285,9 +285,9 @@ void AboutScreen::onRedraw(draw_mode_t what) {
 
 bool AboutScreen::onTouchEnd(uint8_t tag) {
   switch(tag) {
-    case 1:        GOTO_PREVIOUS();                         return true;
-    case 2:        GOTO_SCREEN(CalibrationRegistersScreen); return true;
-    default:                                                return false;
+    case 1:        GOTO_PREVIOUS();              return true;
+    case 2:        GOTO_SCREEN(DeveloperScreen); return true;
+    default:                                     return false;
   }
 }
 
@@ -822,9 +822,7 @@ bool StatusScreen::onTouchEnd(uint8_t tag) {
   switch(tag) {
     case 1:
       #if defined(UI_FRAMEWORK_DEBUG)
-        #if defined (SERIAL_PROTOCOLLNPGM)
-          SERIAL_PROTOCOLLNPGM("Aborting print");
-        #endif
+          SERIAL_ECHO_START(); SERIAL_ECHOLNPGM("Aborting print");
       #endif
       GOTO_SCREEN(ConfirmAbortPrint);
       break;
@@ -1328,9 +1326,8 @@ void CalibrationScreen::onEntry() {
   // be misinterpreted.
   while(CLCD::is_touching()) {
     #if defined(UI_FRAMEWORK_DEBUG)
-      #if defined (SERIAL_PROTOCOLLNPGM)
-        SERIAL_PROTOCOLLNPGM("Waiting for touch release");
-      #endif
+      SERIAL_ECHO_START();
+      SERIAL_ECHOLNPGM("Waiting for touch release");
     #endif
   }
   BaseScreen::onEntry();
@@ -1363,20 +1360,8 @@ void CalibrationScreen::onRedraw(draw_mode_t what) {
 
 void CalibrationScreen::onIdle() {
   if(!CommandProcessor::is_processing()) {
-    #if defined(UI_FRAMEWORK_DEBUG)
-      #if defined (SERIAL_PROTOCOLLNPGM)
-        SERIAL_PROTOCOLLNPGM("Calibration finished");
-      #endif
-    #endif
     GOTO_SCREEN(StatusScreen);
   }
-  #if defined(UI_FRAMEWORK_DEBUG)
-    else {
-      #if defined (SERIAL_PROTOCOLLNPGM)
-        SERIAL_PROTOCOLLNPGM("Waiting for calibration to finish.");
-      #endif
-    }
-  #endif
 }
 
 /*************************** GENERIC VALUE ADJUSTMENT SCREEN ******************************/
@@ -1455,16 +1440,6 @@ void ValueAdjusters::widgets_t::_draw_increment_btn(uint8_t line, const uint8_t 
     case 243: label = PSTR(  "1"    ); pos = _decimals + 0; break;
     case 244: label = PSTR( "10"    ); pos = _decimals + 1; break;
     case 245: label = PSTR("100"    ); pos = _decimals + 2; break;
-    default:
-      #if defined(UI_FRAMEWORK_DEBUG)
-        #if defined(SERIAL_PROTOCOLLNPAIR)
-        SERIAL_PROTOCOLLNPAIR("Unknown tag for increment btn: ", tag);
-        #else
-        Serial.print(F("Unknown tag for increment btn:"));
-        Serial.println(tag);
-        #endif
-      #endif
-      ;
   }
 
   cmd.tag(tag)
@@ -2122,12 +2097,12 @@ void InterfaceSettingsScreen::saveSettings() {
   data.sound_volume      = FTDI::SoundPlayer::get_volume();
   data.screen_brightness = CLCD::get_brightness();
   data.passcode          = LockScreen::passcode;
-  UIStorage::writePersistentData(&data, sizeof(data));
+  UIStorage::write_data(&data, sizeof(data));
 }
 
 void InterfaceSettingsScreen::loadSettings() {
   persistent_data_t data;
-  UIStorage::readPersistentData(&data, sizeof(data));
+  UIStorage::read_data(&data, sizeof(data));
   if(data.magic_word == 'LULZ' && data.version == 0) {
     FTDI::SoundPlayer::set_volume(data.sound_volume);
     CLCD::set_brightness(data.screen_brightness);
@@ -2477,6 +2452,46 @@ bool FilesScreen::onTouchEnd(uint8_t tag) {
   return true;
 }
 
+/******************************* DEVELOPER MENU *****************************/
+
+void DeveloperScreen::onRedraw(draw_mode_t what) {
+  if(what & BACKGROUND) {
+    CommandProcessor cmd;
+    cmd.cmd(CLEAR_COLOR_RGB(Theme::background))
+       .cmd(CLEAR(true,true,true))
+       .font(Theme::font_medium);
+
+    default_button_colors();
+
+    #define GRID_ROWS 8
+    #define GRID_COLS 1
+    cmd.font(Theme::font_large)         .text  ( BTN_POS(1,1), BTN_SIZE(1,1), F("Developer Menu"))
+       .tag(2).font(Theme::font_medium) .button( BTN_POS(1,2), BTN_SIZE(1,1), F("Show All Widgets"))
+       .tag(3)                          .button( BTN_POS(1,3), BTN_SIZE(1,1), F("Show Touch Registers"))
+       .tag(4)                          .button( BTN_POS(1,4), BTN_SIZE(1,1), F("Play Song"))
+       .tag(5)                          .button( BTN_POS(1,5), BTN_SIZE(1,1), F("Play Video from SPI Flash"))
+       .tag(6)                          .button( BTN_POS(1,6), BTN_SIZE(1,1), F("Play Video from Media"))
+       .tag(7)                          .button( BTN_POS(1,7), BTN_SIZE(1,1), F("Copy from Media to SPI Flash"))
+
+       .tag(1).fgcolor(Theme::back_btn) .button( BTN_POS(1,8), BTN_SIZE(1,1), F("Back"));
+    #undef GRID_COLS
+    #undef GRID_ROWS
+  }
+}
+
+bool DeveloperScreen::onTouchEnd(uint8_t tag) {
+  switch(tag) {
+    case 1:  GOTO_PREVIOUS();                            break;
+    case 2:  GOTO_SCREEN(WidgetsScreen);                 break;
+    case 3:  GOTO_SCREEN(CalibrationRegistersScreen);    break;
+    case 4:  sound.play(js_bach_joy, PLAY_ASYNCHRONOUS); break;
+    case 5:  MediaPlayerScreen::playBootMedia();         break;
+    case 6:  MediaPlayerScreen::playAutoPlayMedia();     break;
+    case 7:  UIStorage::write_file(F("AUTOPLAY.AVI"));   break;
+  }
+  return true;
+}
+
 /***************************** WIDGET DEMO SCREEN ***************************/
 
 uint16_t dial_val;
@@ -2498,30 +2513,53 @@ void WidgetsScreen::onRedraw(draw_mode_t what) {
   cmd.bgcolor(Theme::theme_darkest)
      .fgcolor(Theme::theme_light);
 
-  #define GRID_COLS 4
-  #define GRID_ROWS 8
+  #if defined(USE_PORTRAIT_ORIENTATION)
+    #define GRID_COLS 3
+    #define GRID_ROWS 8
+    cmd.font(Theme::font_large)
+              .text      (BTN_POS(1,1),  BTN_SIZE(3,1), F("Sample Widgets"))
+       .tag(2).dial      (BTN_POS(1,2),  BTN_SIZE(1,2), dial_val)
+       .tag(0).clock     (BTN_POS(1,4),  BTN_SIZE(1,2), 3, 30, 45, 0)
+              .gauge     (BTN_POS(1,6),  BTN_SIZE(1,2), 5, 4, slider_val,  0xFFFFU)
 
-  cmd.font(Theme::font_large)
-            .text      (BTN_POS(1,1),  BTN_SIZE(4,1), F("Sample Widgets"))
-     .tag(1).dial      (BTN_POS(1,2),  BTN_SIZE(1,3), dial_val)
-     .tag(2).dial      (BTN_POS(1,5),  BTN_SIZE(1,3), slider_val)
-     .tag(0).clock     (BTN_POS(2,2),  BTN_SIZE(1,3), 3, 30, 45, 0)
-            .gauge     (BTN_POS(2,5),  BTN_SIZE(1,3), 5, 4, slider_val,  0xFFFFU)
+       .font(Theme::font_medium)
+       .tag(4).slider    (BTN_POS(2,3),  BTN_SIZE(2,1), slider_val,        0xFFFFU)
+       .tag(5).progress  (BTN_POS(2,4),  BTN_SIZE(2,1), slider_val,        0xFFFFU)
+       .tag(6).scrollbar (BTN_POS(2,5),  BTN_SIZE(2,1), slider_val, 1000,  0xFFFFU)
 
-     .font(Theme::font_medium)
-     .tag(3).slider    (BTN_POS(3,3),  BTN_SIZE(2,1), slider_val,        0xFFFFU)
-     .tag(4).progress  (BTN_POS(3,4),  BTN_SIZE(2,1), slider_val,        0xFFFFU)
-     .tag(5).scrollbar (BTN_POS(3,5),  BTN_SIZE(2,1), slider_val, 1000,  0xFFFFU)
+       .font(Theme::font_small)
+       .tag(0).text      (BTN_POS(2,6),  BTN_SIZE(1,1), F("Show grid:"))
+       .tag(7).toggle    (BTN_POS(3,6),  BTN_SIZE(1,1), F("no\xFFyes"), show_grid)
 
-     .font(Theme::font_small)
-     .tag(0).text      (BTN_POS(3,6),  BTN_SIZE(1,1), F("Show grid:"))
-     .tag(6).toggle    (BTN_POS(4,6),  BTN_SIZE(1,1), F("no\xFFyes"), show_grid)
+       .font(Theme::font_medium)
+       .tag(1).button    (BTN_POS(1, 8), BTN_SIZE(1,1), F("Back"))
+              .button    (BTN_POS(2, 8), BTN_SIZE(1,1), F("1"))
+              .button    (BTN_POS(3, 8), BTN_SIZE(1,1), F("2"));
+  #else
+    #define GRID_COLS 4
+    #define GRID_ROWS 8
 
-     .font(Theme::font_medium)
-     .tag(6).button    (BTN_POS(1, 8), BTN_SIZE(1,1), F("1"))
-            .button    (BTN_POS(2, 8), BTN_SIZE(1,1), F("2"))
-            .button    (BTN_POS(3, 8), BTN_SIZE(1,1), F("3"))
-            .button    (BTN_POS(4, 8), BTN_SIZE(1,1), F("4"));
+    cmd.font(Theme::font_large)
+              .text      (BTN_POS(1,1),  BTN_SIZE(4,1), F("Sample Widgets"))
+       .tag(2).dial      (BTN_POS(1,2),  BTN_SIZE(1,3), dial_val)
+       .tag(3).dial      (BTN_POS(1,5),  BTN_SIZE(1,3), slider_val)
+       .tag(0).clock     (BTN_POS(2,2),  BTN_SIZE(1,3), 3, 30, 45, 0)
+              .gauge     (BTN_POS(2,5),  BTN_SIZE(1,3), 5, 4, slider_val,  0xFFFFU)
+
+       .font(Theme::font_medium)
+       .tag(4).slider    (BTN_POS(3,3),  BTN_SIZE(2,1), slider_val,        0xFFFFU)
+       .tag(5).progress  (BTN_POS(3,4),  BTN_SIZE(2,1), slider_val,        0xFFFFU)
+       .tag(6).scrollbar (BTN_POS(3,5),  BTN_SIZE(2,1), slider_val, 1000,  0xFFFFU)
+
+       .font(Theme::font_small)
+       .tag(0).text      (BTN_POS(3,6),  BTN_SIZE(1,1), F("Show grid:"))
+       .tag(7).toggle    (BTN_POS(4,6),  BTN_SIZE(1,1), F("no\xFFyes"), show_grid)
+
+       .font(Theme::font_medium)
+       .tag(1).button    (BTN_POS(1, 8), BTN_SIZE(2,1), F("Back"))
+              .button    (BTN_POS(3, 8), BTN_SIZE(1,1), F("1"))
+              .button    (BTN_POS(4, 8), BTN_SIZE(1,1), F("2"));
+  #endif
 
   if(show_grid) DRAW_LAYOUT_GRID
 }
@@ -2529,12 +2567,20 @@ void WidgetsScreen::onRedraw(draw_mode_t what) {
 bool WidgetsScreen::onTouchStart(uint8_t tag) {
   CommandProcessor cmd;
   switch(tag) {
-    case 1: cmd.track_circular (BTN_POS(1,2), BTN_SIZE(1,3), 1).execute(); break;
-    case 2: cmd.track_circular (BTN_POS(1,5), BTN_SIZE(1,3), 2).execute(); break;
-    case 3: cmd.track_linear   (BTN_POS(3,3), BTN_SIZE(2,1), 3).execute(); break;
-    case 4: cmd.track_linear   (BTN_POS(3,4), BTN_SIZE(2,1), 4).execute(); break;
-    case 5: cmd.track_linear   (BTN_POS(3,5), BTN_SIZE(2,1), 5).execute(); break;
-    case 6: show_grid = !show_grid; break;
+    case 1: GOTO_PREVIOUS();                                               break;
+  #if defined(USE_PORTRAIT_ORIENTATION)
+    case 2: cmd.track_circular (BTN_POS(1,2), BTN_SIZE(1,2), 2).execute(); break;
+    case 4: cmd.track_linear   (BTN_POS(2,3), BTN_SIZE(2,1), 4).execute(); break;
+    case 5: cmd.track_linear   (BTN_POS(2,4), BTN_SIZE(2,1), 5).execute(); break;
+    case 6: cmd.track_linear   (BTN_POS(2,5), BTN_SIZE(2,1), 6).execute(); break;
+  #else
+    case 2: cmd.track_circular (BTN_POS(1,2), BTN_SIZE(1,3), 2).execute(); break;
+    case 3: cmd.track_circular (BTN_POS(1,5), BTN_SIZE(1,3), 3).execute(); break;
+    case 4: cmd.track_linear   (BTN_POS(3,3), BTN_SIZE(2,1), 4).execute(); break;
+    case 5: cmd.track_linear   (BTN_POS(3,4), BTN_SIZE(2,1), 5).execute(); break;
+    case 6: cmd.track_linear   (BTN_POS(3,5), BTN_SIZE(2,1), 6).execute(); break;
+  #endif
+    case 7: show_grid = !show_grid; break;
     default:
       return false;
   }
@@ -2610,8 +2656,6 @@ void CalibrationRegistersScreen::onRedraw(draw_mode_t what) {
   cmd.fgcolor(Theme::back_btn).tag(1).font(Theme::font_medium).button( BTN_POS(2,7), BTN_SIZE(1,1), F("Back"));
   #undef GRID_COLS
   #undef GRID_ROWS
-
-  sound.play(js_bach_joy, PLAY_ASYNCHRONOUS);
 }
 
 bool CalibrationRegistersScreen::onTouchEnd(uint8_t tag) {
@@ -2634,51 +2678,51 @@ void MediaPlayerScreen::onEntry() {
 void MediaPlayerScreen::onRedraw(draw_mode_t what) {
 }
 
-void MediaPlayerScreen::lookForAutoPlayMedia() {
-  #if defined(USE_FTDI_FT810)
-    char     buf[512];
-    Sd2Card  card;
-    SdVolume volume;
-    SdFile   root, file;
+void MediaPlayerScreen::playAutoPlayMedia() {
+    char fname[15];
+    strcpy_P(fname, PSTR("AUTOPLAY.AVI"));
 
-    // Check to see if a video file exists
-
-    card.init(SPI_SPEED, SDSS);
-    volume.init(&card);
-    root.openRoot(&volume);
-
-    strcpy_P(buf, PSTR("AUTOPLAY.AVI"));
-
-    if(!root.exists(buf)) return;
-
-    if(!file.open(&root, buf, O_READ)) {
-      #ifdef SERIAL_PROTOCOLLNPGM
-        SERIAL_PROTOCOLLNPGM("Failed to open AUTOPLAY.AVI");
-      #else
-        Serial.println("Failed to open AUTOPLAY.AVI");
-      #endif
-      return;
+    MediaFileReader reader;
+    if(reader.open(fname)) {
+      SERIAL_ECHO_START();
+      SERIAL_ECHOLNPGM("Starting to play AUTOPLAY.AVI");
+      playStream(&reader, MediaFileReader::read);
+      reader.close();
     }
+}
 
-    #ifdef SERIAL_PROTOCOLLNPGM
-      SERIAL_PROTOCOLLNPGM("Starting to play AUTOPLAY.AVI");
-    #else
-      Serial.println("Starting to play AUTOPLAY.AVI");
-    #endif
+// Attempt to play media from the onboard SPI flash chip
+void MediaPlayerScreen::playBootMedia() {
+    UIStorage::BootMediaReader reader;
+    if(reader.isAvailable()) {
+      SERIAL_ECHO_START();
+      SERIAL_ECHOLNPGM("Starting to play boot video");
+      playStream(&reader, UIStorage::BootMediaReader::read);
+    }
+}
 
+void MediaPlayerScreen::playStream(void *obj, media_streamer_func_t *data_stream) {
+  #if defined(USE_FTDI_FT810)
     // Set up the media FIFO on the end of RAMG, as the top of RAMG
     // will be used as the framebuffer.
 
+    uint8_t        buf[512];
     const uint32_t block_size = 512;
     const uint32_t fifo_size  = block_size * 2;
     const uint32_t fifo_start = RAM_G + RAM_G_SIZE - fifo_size;
 
     CommandProcessor cmd;
     cmd.cmd(CMD_DLSTART)
-       .cmd(CLEAR_COLOR_RGB(0x00FF00))
+       .cmd(CLEAR_COLOR_RGB(0x000000))
        .cmd(CLEAR(true,true,true))
+       .cmd(DL::DL_DISPLAY)
+       .cmd(CMD_SWAP)
+       .execute()
+       .cmd(CMD_DLSTART)
        .mediafifo(fifo_start, fifo_size)
        .playvideo(OPT_FULLSCREEN | OPT_MEDIAFIFO | OPT_NOTEAR)
+       .cmd(DL::DL_DISPLAY)
+       .cmd(CMD_SWAP)
        .execute();
 
     uint32_t writePtr = 0;
@@ -2687,9 +2731,10 @@ void MediaPlayerScreen::lookForAutoPlayMedia() {
     uint32_t t = millis();
     uint8_t timeouts;
 
+    uint16_t checksum = 0;
     do {
       // Write block n
-      nBytes = file.read(buf, block_size);
+      nBytes = (*data_stream)(obj, buf, block_size);
       if(nBytes == -1) break;
 
       if(millis() - t > 10) {
@@ -2709,7 +2754,8 @@ void MediaPlayerScreen::lookForAutoPlayMedia() {
           t = millis();
           timeouts--;
           if(timeouts == 0) {
-            SERIAL_PROTOCOLLNPGM("Timeout playing video");
+            SERIAL_ECHO_START();
+            SERIAL_ECHOLNPGM("Timeout playing video");
             return;
           }
         }
@@ -2720,13 +2766,8 @@ void MediaPlayerScreen::lookForAutoPlayMedia() {
       CLCD::mem_write_32(REG_MEDIAFIFO_WRITE, writePtr);
     } while(nBytes == block_size);
 
-    file.close();
-
-    #ifdef SERIAL_PROTOCOLLNPGM
-      SERIAL_PROTOCOLLNPGM("Done playing video");
-    #else
-      Serial.println("Done playing video");
-    #endif
+    SERIAL_ECHO_START();
+    SERIAL_ECHOLNPGM("Done playing video");
 
     // Since playing media overwrites RAMG, we need to reinitialize
     // everything that is stored in RAMG.
@@ -2734,7 +2775,7 @@ void MediaPlayerScreen::lookForAutoPlayMedia() {
     cmd.cmd(CMD_DLSTART).execute();
     DLCache::init();
     StatusScreen::onStartup();
-  #endif
+  #endif // USE_FTDI_FT810
 }
 
 /***************************** MARLIN CALLBACKS  ***************************/
@@ -2747,8 +2788,6 @@ namespace Extensible_UI_API {
   void onMediaInserted() {
     StatusScreen::setStatusMessage(F(MSG_SD_INSERTED));
     sound.play(media_inserted, PLAY_ASYNCHRONOUS);
-
-    MediaPlayerScreen::lookForAutoPlayMedia();
   }
 
   void onMediaRemoved() {

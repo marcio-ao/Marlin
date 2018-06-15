@@ -83,11 +83,8 @@ class CachedScreen {
     static bool storeBackground(){
       DLCache dlcache(DL_SLOT);
       if(!dlcache.store(DL_SIZE)) {
-        #if defined (SERIAL_PROTOCOLLNPAIR)
-          SERIAL_PROTOCOLLN("CachedScreen::storeBackground() failed: not enough DL cache space");
-        #else
-          Serial.print(CachedScreen::storeBackground() failed: not enough DL cache space);
-        #endif
+        SERIAL_ECHO_START();
+        SERIAL_ECHOLNPGM("CachedScreen::storeBackground() failed: not enough DL cache space");
         return false;
       }
       return true;
@@ -404,6 +401,12 @@ class FilesScreen : public BaseScreen, public CachedScreen<FILES_SCREEN_CACHE> {
     static bool onTouchEnd(uint8_t tag);
 };
 
+class DeveloperScreen : public BaseScreen, public UncachedScreen {
+  public:
+    static void onRedraw(draw_mode_t what);
+    static bool onTouchEnd(uint8_t tag);
+};
+
 class WidgetsScreen : public BaseScreen, public UncachedScreen {
   public:
     static void onEntry();
@@ -413,11 +416,17 @@ class WidgetsScreen : public BaseScreen, public UncachedScreen {
 };
 
 class MediaPlayerScreen : public BaseScreen, public UncachedScreen {
+  private:
+    typedef int16_t media_streamer_func_t(void *obj, void *buff, size_t bytes);
+
   public:
-    static void lookForAutoPlayMedia();
+    static void playAutoPlayMedia();
+    static void playBootMedia();
 
     static void onEntry();
     static void onRedraw(draw_mode_t what);
+
+    static void playStream(void *obj, media_streamer_func_t *data_stream);
 };
 
 #endif // _UI_SCREENS_

@@ -79,21 +79,39 @@
 #define BTN_SIZE(w,h)    BTN_W(w), BTN_H(h)
 
 // Draw a reference grid for ease of spacing out widgets.
-#define DRAW_LAYOUT_GRID \
-  { \
-    cmd.cmd(LINE_WIDTH(4)); \
-    for(int i = 1; i <= GRID_COLS; i++) { \
-      cmd.cmd(BEGIN(LINES)); \
-      cmd.cmd(VERTEX2F(GRID_X(i) *16, 0         *16)); \
-      cmd.cmd(VERTEX2F(GRID_X(i) *16, Vsize     *16)); \
-    } \
-    for(int i = 1; i < GRID_ROWS; i++) { \
-      cmd.cmd(BEGIN(LINES)); \
-      cmd.cmd(VERTEX2F(0         *16, GRID_Y(i) *16)); \
-      cmd.cmd(VERTEX2F(Hsize     *16, GRID_Y(i) *16)); \
-    } \
-    cmd.cmd(LINE_WIDTH(16)); \
-  }
+#if defined(USE_PORTRAIT_ORIENTATION)
+  #define DRAW_LAYOUT_GRID \
+    { \
+      cmd.cmd(LINE_WIDTH(4)); \
+      for(int i = 1; i <= GRID_COLS; i++) { \
+        cmd.cmd(BEGIN(LINES)); \
+        cmd.cmd(VERTEX2F(GRID_X(i) *16, 0         *16)); \
+        cmd.cmd(VERTEX2F(GRID_X(i) *16, Hsize     *16)); \
+      } \
+      for(int i = 1; i < GRID_ROWS; i++) { \
+        cmd.cmd(BEGIN(LINES)); \
+        cmd.cmd(VERTEX2F(0         *16, GRID_Y(i) *16)); \
+        cmd.cmd(VERTEX2F(Vsize     *16, GRID_Y(i) *16)); \
+      } \
+      cmd.cmd(LINE_WIDTH(16)); \
+    }
+#else
+  #define DRAW_LAYOUT_GRID \
+    { \
+      cmd.cmd(LINE_WIDTH(4)); \
+      for(int i = 1; i <= GRID_COLS; i++) { \
+        cmd.cmd(BEGIN(LINES)); \
+        cmd.cmd(VERTEX2F(GRID_X(i) *16, 0         *16)); \
+        cmd.cmd(VERTEX2F(GRID_X(i) *16, Vsize     *16)); \
+      } \
+      for(int i = 1; i < GRID_ROWS; i++) { \
+        cmd.cmd(BEGIN(LINES)); \
+        cmd.cmd(VERTEX2F(0         *16, GRID_Y(i) *16)); \
+        cmd.cmd(VERTEX2F(Hsize     *16, GRID_Y(i) *16)); \
+      } \
+      cmd.cmd(LINE_WIDTH(16)); \
+    }
+#endif
 
 /**************************** Enhanced Command Processor **************************/
 

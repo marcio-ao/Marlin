@@ -27,10 +27,12 @@
 #include "ftdi_eve_panels.h"
 #include "ftdi_eve_constants.h"
 #include "ftdi_eve_functions.h"
+#include "ftdi_eve_spi.h"
 
 #define MULTIPLE_OF_4(val) ((((val)+3)>>2)<<2)
 
 using namespace FTDI;
+using namespace SPI;
 
 void CLCD::enable (void) {
   mem_write_8(REG_PCLK, Pclk);
@@ -58,17 +60,138 @@ void CLCD::get_font_metrics(uint8_t font, struct FontMetrics &fm) {
   mem_read_bulk(rom_fontroot + 148 * (font - 16), (uint8_t*) &fm, 148);
 }
 
-// HOST COMMAND FUNCTION
+/************************** HOST COMMAND FUNCTION *********************************/
 
 void CLCD::host_cmd (unsigned char host_command, unsigned char byte2) {  // Sends 24-Bit Host Command to LCD
   if(host_command != ACTIVE) {
     host_command |= 0x40;
   }
-  spi_select();
+  spi_ftdi_select();
   spi_send(host_command);
   spi_send(byte2);
   spi_send(0x00);
-  spi_deselect();
+  spi_ftdi_deselect();
+}
+
+/************************** MEMORY READ FUNCTIONS *********************************/
+
+void CLCD::spi_read_addr  (uint32_t reg_address) {
+  spi_send((reg_address >> 16) & 0x3F);  // Address [21:16]
+  spi_send((reg_address >> 8 ) & 0xFF);  // Address [15:8]
+  spi_send((reg_address >> 0)  & 0xFF);  // Address [7:0]
+  spi_send(0x00);                        // Dummy Byte
+}
+
+// Write 4-Byte Address, Read Multiple Bytes
+void CLCD::mem_read_bulk (uint32_t reg_address, uint8_t *data, uint16_t len) {
+  spi_ftdi_select();
+  spi_read_addr(reg_address);
+  spi_read_bulk (data, len);
+  spi_ftdi_deselect();
+}
+
+// Write 4-Byte Address, Read 1-Byte Data
+uint8_t CLCD::mem_read_8 (uint32_t reg_address) {
+  spi_ftdi_select();
+  spi_read_addr(reg_address);
+  uint8_t r_data = spi_read_8();
+  spi_ftdi_deselect();
+  return r_data;
+}
+
+// Write 4-Byte Address, Read 2-Bytes Data
+uint16_t CLCD::mem_read_16 (uint32_t reg_address) {
+  using namespace SPI::least_significant_byte_first;
+  spi_ftdi_select();
+  spi_read_addr(reg_address);
+  uint16_t r_data = spi_read_16();
+  spi_ftdi_deselect();
+  return r_data;
+}
+
+// Write 4-Byte Address, Read 4-Bytes Data
+uint32_t CLCD::mem_read_32 (uint32_t reg_address) {
+  using namespace SPI::least_significant_byte_first;
+  spi_ftdi_select();
+  spi_read_addr(reg_address);
+  uint32_t r_data = spi_read_32();
+  spi_ftdi_deselect();
+  return r_data;
+}
+
+/************************** MEMORY WRITE FUNCTIONS *********************************/
+
+// Generic operations for transforming a byte, for use with _mem_write_bulk:
+static inline uint8_t reverse_byte(uint8_t a) {
+  return ((a & 0x1)  << 7) | ((a & 0x2)  << 5) |
+         ((a & 0x4)  << 3) | ((a & 0x8)  << 1) |
+         ((a & 0x10) >> 1) | ((a & 0x20) >> 3) |
+         ((a & 0x40) >> 5) | ((a & 0x80) >> 7);
+}
+static inline uint8_t xbm_write(const uint8_t *p) {return reverse_byte(pgm_read_byte(p));}
+
+void CLCD::spi_write_addr (uint32_t reg_address) {
+  spi_send((reg_address >> 16) | 0x80);  // Address [21:16]
+  spi_send((reg_address >> 8 ) & 0xFF);  // Address [15:8]
+  spi_send((reg_address >> 0)  & 0xFF);  // Address [7:0]
+}
+
+// Write 3-Byte Address, Multiple Bytes, plus padding bytes, from RAM
+void CLCD::mem_write_bulk (uint32_t reg_address, const void *data, uint16_t len, uint8_t padding) {
+  spi_ftdi_select();
+  spi_write_addr(reg_address);
+  spi_write_bulk<ram_write>(data, len, padding);
+  spi_ftdi_deselect();
+}
+
+// Write 3-Byte Address, Multiple Bytes, plus padding bytes, from PROGMEM
+void CLCD::mem_write_bulk (uint32_t reg_address, progmem_str str, uint16_t len, uint8_t padding) {
+  spi_ftdi_select();
+  spi_write_addr(reg_address);
+  spi_write_bulk<pgm_write>(str, len, padding);
+  spi_ftdi_deselect();
+}
+
+ // Write 3-Byte Address, Multiple Bytes, plus padding bytes, from PROGMEM
+void CLCD::mem_write_pgm (uint32_t reg_address, const void *data, uint16_t len, uint8_t padding) {
+  spi_ftdi_select();
+  spi_write_addr(reg_address);
+  spi_write_bulk<pgm_write>(data, len, padding);
+  spi_ftdi_deselect();
+}
+
+// Write 3-Byte Address, Multiple Bytes, plus padding bytes, from PROGMEM, reversing bytes (suitable for loading XBM images)
+void CLCD::mem_write_xbm (uint32_t reg_address, progmem_str data, uint16_t len, uint8_t padding) {
+  spi_ftdi_select();
+  spi_write_addr(reg_address);
+  spi_write_bulk<xbm_write>(data, len, padding);
+  spi_ftdi_deselect();
+}
+
+// Write 3-Byte Address, Write 1-Byte Data
+void CLCD::mem_write_8 (uint32_t reg_address, uint8_t data) {
+  spi_ftdi_select();
+  spi_write_addr(reg_address);
+  spi_write_8(data);
+  spi_ftdi_deselect();
+}
+
+// Write 3-Byte Address, Write 2-Bytes Data
+void CLCD::mem_write_16 (uint32_t reg_address, uint16_t data) {
+  using namespace SPI::least_significant_byte_first;
+  spi_ftdi_select();
+  spi_write_addr(reg_address);
+  spi_write_32(data);
+  spi_ftdi_deselect();
+}
+
+// Write 3-Byte Address, Write 4-Bytes Data
+void CLCD::mem_write_32 (uint32_t reg_address, uint32_t data) {
+  using namespace SPI::least_significant_byte_first;
+  spi_ftdi_select();
+  spi_write_addr(reg_address);
+  spi_write_32(data);
+  spi_ftdi_deselect();
 }
 
 /******************* FT800/810 Co-processor Commands *********************************/
@@ -491,11 +614,8 @@ template <class T> void CLCD::CommandFifo::_write_unaligned(T data, uint16_t len
 
   #if defined(UI_FRAMEWORK_DEBUG)
   if(command_write_ptr == 0xFFFFFFFFul) {
-    #if defined (SERIAL_PROTOCOLLNPGM)
-      SERIAL_PROTOCOLLNPGM("Attempt to write to FIFO before CommandFifo::Cmd_Start().");
-    #else
-      Serial.println(F("Attempt to write to FIFO before CommandFifo::Cmd_Start()."));
-    #endif
+    SERIAL_ECHO_START();
+    SERIAL_ECHOLNPGM("Attempt to write to FIFO before CommandFifo::Cmd_Start().");
   }
   #endif
 
@@ -565,25 +685,15 @@ template <class T> void CLCD::CommandFifo::write(T data, uint16_t len) {
   uint16_t Command_Space = mem_read_32(REG_CMDB_SPACE) & 0x0FFF;
   if(Command_Space < (len + padding)) {
     #if defined(UI_FRAMEWORK_DEBUG)
-      #if defined (SERIAL_ECHOLNPAIR)
-        SERIAL_ECHOPAIR("Waiting for ", len + padding);
-        SERIAL_ECHOLNPAIR(" bytes in command queue, now free: ", Command_Space);
-      #else
-        Serial.print(F("Waiting for "));
-        Serial.print(len + padding);
-        Serial.print(F(" bytes in command queue, now free: "));
-        Serial.print(Command_Space);
-      #endif
+      SERIAL_ECHO_START();
+      SERIAL_ECHOPAIR("Waiting for ", len + padding);
+      SERIAL_ECHOPAIR(" bytes in command queue, now free: ", Command_Space);
     #endif
     do {
       Command_Space = mem_read_32(REG_CMDB_SPACE) & 0x0FFF;
     } while(Command_Space < len + padding);
     #if defined(UI_FRAMEWORK_DEBUG)
-      #if defined (SERIAL_PROTOCOLLNPGM)
-        SERIAL_PROTOCOLLNPGM("... done");
-      #else
-        Serial.println(F("... done"));
-      #endif
+      SERIAL_ECHOLNPGM("... done");
     #endif
   }
   mem_write_bulk(REG_CMDB_WRITE, data, len, padding);
@@ -607,7 +717,7 @@ void CLCD::CommandFifo::str (progmem_str data) {
 
 void CLCD::init (void) {
   spi_init();                                  // Set Up I/O Lines for SPI and FT800/810 Control
-  reset();                                    // Power down/up the FT8xx with the apropriate delays
+  ftdi_reset();                                // Power down/up the FT8xx with the apropriate delays
 
   if(Use_Crystal == 1) {
     host_cmd(CLKEXT, 0);
@@ -630,12 +740,8 @@ void CLCD::init (void) {
    }
    if(counter == 250) {
      #if defined(UI_FRAMEWORK_DEBUG)
-       #if defined (SERIAL_ECHOLNPAIR)
-         SERIAL_ECHOLNPAIR("Timeout waiting for device ID, should be 124, got ", device_id);
-       #else
-         Serial.print(F("Timeout waiting for device ID, should be 7C, got "));
-         Serial.println(device_id, HEX);
-       #endif
+       SERIAL_ECHO_START();
+       SERIAL_ECHOLNPAIR("Timeout waiting for device ID, should be 124, got ", device_id);
      #endif
    }
   }

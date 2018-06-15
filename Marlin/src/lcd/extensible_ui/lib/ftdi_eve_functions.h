@@ -105,26 +105,10 @@ class UIStorage;
 class CLCD {
   friend class UIStorage;
 
-  private:
-    static void     spi_init     ();
-    static void     spi_select   ();
-    static void     spi_deselect ();
-
-    static uint8_t  _soft_spi_xfer (uint8_t spiOutByte);
-    static void     _soft_spi_send (uint8_t spiOutByte);
-
-    static void     spi_send       (uint8_t spiOutByte);
-    static uint8_t  spi_recv       ();
-
-    static void     mem_read_addr  (uint32_t reg_address);
-    static void     mem_write_addr (uint32_t reg_address);
-
-    typedef uint8_t (*bulk_write_op)(const uint8_t*);
-
-    template<bulk_write_op op>
-    static void _mem_write_bulk   (uint32_t reg_address, const void *data, uint16_t len, uint8_t padding);
-
   public:
+    static void     spi_write_addr (uint32_t reg_address);
+    static void     spi_read_addr  (uint32_t reg_address);
+
     static uint8_t  mem_read_8     (uint32_t reg_address);
     static uint16_t mem_read_16    (uint32_t reg_address);
     static uint32_t mem_read_32    (uint32_t reg_address);
@@ -143,8 +127,6 @@ class CLCD {
 
     static void init (void);
     static void turn_on_backlight (void);
-    static void reset (void);
-    static void test_pulse(void);
     static void enable (void);
     static void disable (void);
     static void set_brightness (uint8_t brightness);

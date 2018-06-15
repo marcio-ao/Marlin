@@ -28,6 +28,7 @@
 #include "ftdi_eve_pins.h"
 #include "ftdi_eve_constants.h"
 #include "ftdi_eve_functions.h"
+#include "ftdi_eve_spi.h"
 
 /*************************** I/O COMPATIBILITY ******************************/
 
@@ -75,60 +76,37 @@
 
 /********************************* SPI Functions *********************************/
 
-void CLCD::spi_init (void) {
+void SPI::spi_init (void) {
   SET_OUTPUT(CLCD_MOD_RESET); // Module Reset (a.k.a. PD, not SPI)
   WRITE(CLCD_MOD_RESET, 0); // start with module in power-down
 
   SET_OUTPUT(CLCD_SPI_CS);
   WRITE(CLCD_SPI_CS, 1);
 
-#if defined(CLCD_USE_SOFT_SPI)
-  SET_OUTPUT(CLCD_SOFT_SPI_MOSI);
-  WRITE(CLCD_SOFT_SPI_MOSI, 1);
+  #if defined(SPI_FLASH_SS)
+    SET_OUTPUT(SPI_FLASH_SS);
+    WRITE(SPI_FLASH_SS, 1);
+  #endif
 
-  SET_OUTPUT(CLCD_SOFT_SPI_SCLK);
-  WRITE(CLCD_SOFT_SPI_SCLK, 0);
+  #if defined(CLCD_USE_SOFT_SPI)
+    SET_OUTPUT(CLCD_SOFT_SPI_MOSI);
+    WRITE(CLCD_SOFT_SPI_MOSI, 1);
 
-  SET_INPUT_PULLUP(CLCD_SOFT_SPI_MISO);
-#elif defined(USE_MARLIN_IO)
-  spiBegin();
-  spiInit(SPI_SPEED);
-#else
-  SPI.begin();
-  SPI.beginTransaction(SPISettings(14000000, MSBFIRST, SPI_MODE0));
-#endif
+    SET_OUTPUT(CLCD_SOFT_SPI_SCLK);
+    WRITE(CLCD_SOFT_SPI_SCLK, 0);
 
-}
-
-// CLCD SPI - Chip Select
-void CLCD::spi_select (void) {
-  WRITE(CLCD_SPI_CS, 0);
-  delayMicroseconds(1);
-}
-
-// CLCD SPI - Chip Deselect
-void CLCD::spi_deselect (void) {
-  WRITE(CLCD_SPI_CS, 1);
-}
-
-void CLCD::reset (void) {
-  WRITE(CLCD_MOD_RESET, 0);
-  delay(6); /* minimum time for power-down is 5ms */
-  WRITE(CLCD_MOD_RESET, 1);
-  delay(21); /* minimum time to allow from rising PD_N to first access is 20ms */
-}
-
-void CLCD::test_pulse(void)
-{
-  #if defined(CLCD_AUX_0)
-    WRITE(CLCD_AUX_0, 1);
-    delayMicroseconds(10);
-    WRITE(CLCD_AUX_0, 0);
+    SET_INPUT_PULLUP(CLCD_SOFT_SPI_MISO);
+  #elif defined(USE_MARLIN_IO)
+    spiBegin();
+    spiInit(SPI_SPEED);
+  #else
+    SPI.begin();
+    SPI.beginTransaction(SPISettings(14000000, MSBFIRST, SPI_MODE0));
   #endif
 }
 
 #if defined(CLCD_USE_SOFT_SPI)
-  uint8_t CLCD::_soft_spi_xfer (uint8_t spiOutByte) {
+  uint8_t SPI::_soft_spi_xfer (uint8_t val) {
     uint8_t spiIndex  = 0x80;
     uint8_t spiInByte = 0;
     uint8_t k;
@@ -154,7 +132,7 @@ void CLCD::test_pulse(void)
 #endif
 
 #if defined(CLCD_USE_SOFT_SPI)
-  void CLCD::_soft_spi_send (uint8_t spiOutByte) {
+  void SPI::_soft_spi_send (uint8_t spiOutByte) {
     uint8_t spiIndex  = 0x80;
     uint8_t k;
 
@@ -173,173 +151,61 @@ void CLCD::test_pulse(void)
   }
 #endif
 
-void CLCD::spi_send(uint8_t spiOutByte) {
-  #if defined(CLCD_USE_SOFT_SPI)
-    _soft_spi_send(spiOutByte);
-  #elif defined(USE_MARLIN_IO)
-    spiSend(spiOutByte);
-  #else
-    SPI.transfer(spiOutByte);
-  #endif
-}
-
-uint8_t CLCD::spi_recv() {
-  #if defined(CLCD_USE_SOFT_SPI)
-    return _soft_spi_xfer(0x00);
-  #elif defined(USE_MARLIN_IO)
-    return spiRec();
-  #else
-    return SPI.transfer(0x00);
-  #endif
-}
-
-// MEMORY READ FUNCTIONS
-
-// Write 4-Byte Address
-void CLCD::mem_read_addr (uint32_t reg_address) {
-  spi_send((reg_address >> 16) & 0x3F);  // Address [21:16]
-  spi_send((reg_address >> 8 ) & 0xFF);  // Address [15:8]
-  spi_send((reg_address >> 0)  & 0xFF);  // Address [7:0]
-  spi_send(0x00);                        // Dummy Byte
-}
-
-// Write 4-Byte Address, Read Multiple Bytes
-void CLCD::mem_read_bulk (uint32_t reg_address, uint8_t *data, uint16_t len) {
-  spi_select();
-  mem_read_addr(reg_address);
+void SPI::spi_read_bulk (void *data, uint16_t len) {
+  uint8_t* p = (uint8_t *)data;
   #if defined(USE_MARLIN_IO) && !defined(CLCD_USE_SOFT_SPI)
-    spiRead(data, len);
+    spiRead(p, len);
   #else
-    while(len--) {
-      *data++ = spi_recv();
-    }
+    while(len--) *p++ = spi_recv();
   #endif
-  spi_deselect();
 }
 
-// Write 4-Byte Address, Read 1-Byte Data
-uint8_t CLCD::mem_read_8 (uint32_t reg_address) {
-  spi_select();
-  mem_read_addr(reg_address);
-  uint8_t r_data = spi_recv();
-  spi_deselect();
-  return r_data;
-}
-
-// Write 4-Byte Address, Read 2-Bytes Data
-uint16_t CLCD::mem_read_16 (uint32_t reg_address) {
-  spi_select();
-  mem_read_addr(reg_address);
-  uint16_t r_data =  (((uint16_t) spi_recv()) << 0) |
-                     (((uint16_t) spi_recv()) << 8);
-  spi_deselect();
-  return r_data;
-}
-
-// Write 4-Byte Address, Read 4-Bytes Data
-uint32_t CLCD::mem_read_32 (uint32_t reg_address) {
-  spi_select();
-  mem_read_addr(reg_address);
-  uint32_t r_data =  (((uint32_t) spi_recv()) <<  0) |
-                     (((uint32_t) spi_recv()) <<  8) |
-                     (((uint32_t) spi_recv()) << 16) |
-                     (((uint32_t) spi_recv()) << 24);
-  spi_deselect();
-  return r_data;
-}
-
-// MEMORY WRITE FUNCTIONS
-
- // Write 3-Byte Address
-void CLCD::mem_write_addr (uint32_t reg_address) {
-  spi_send((reg_address >> 16) | 0x80); // Address [21:16]
-  spi_send((reg_address >> 8 ) & 0xFF); // Address [15:8]
-  spi_send((reg_address >> 0)  & 0xFF); // Address [7:0]
-}
-
-// Generic operations for transforming a byte, for use with _mem_write_bulk:
-static inline uint8_t reverse_byte(uint8_t a) {
-  return ((a & 0x1)  << 7) | ((a & 0x2)  << 5) |
-         ((a & 0x4)  << 3) | ((a & 0x8)  << 1) |
-         ((a & 0x10) >> 1) | ((a & 0x20) >> 3) |
-         ((a & 0x40) >> 5) | ((a & 0x80) >> 7);
-}
-static inline uint8_t ram_write(const uint8_t *p) {return *p;}
-static inline uint8_t pgm_write(const uint8_t *p) {return pgm_read_byte(p);}
-static inline uint8_t xbm_write(const uint8_t *p) {return reverse_byte(pgm_read_byte(p));}
-
-// Generic template for function for Write 3-Byte Address, Multiple Bytes, plus padding bytes.
-// The template parameter op is an inlineable function which is applied to each byte.
-template<CLCD::bulk_write_op byte_op>
-void CLCD::_mem_write_bulk (uint32_t reg_address, const void *data, uint16_t len, uint8_t padding) {
+bool SPI::spi_verify_bulk (const void *data, uint16_t len) {
   const uint8_t* p = (const uint8_t *)data;
-  spi_select();
-  mem_write_addr(reg_address);
-  // Write data bytes
-  while(len--) {
-    #if defined(USE_MARLIN_IO) && !defined(CLCD_USE_SOFT_SPI)
-      spiSend(byte_op(p++));
-    #else
-      CLCD::spi_send(byte_op(p++));
-    #endif
-  }
-  // Write padding bytes
-  while(padding--) {
-    #if defined(USE_MARLIN_IO) && !defined(CLCD_USE_SOFT_SPI)
-      spiSend(0);
-    #else
-      CLCD::spi_send(0);
-    #endif
-  }
-  spi_deselect();
+  while(len--) if(*p++ != spi_recv()) return false;
+  return true;
 }
 
-// Write 3-Byte Address, Multiple Bytes, plus padding bytes, from RAM
-void CLCD::mem_write_bulk (uint32_t reg_address, const void *data, uint16_t len, uint8_t padding) {
-  _mem_write_bulk<ram_write> (reg_address, data, len, padding);
+// CLCD SPI - Chip Select
+void SPI::spi_ftdi_select (void) {
+  WRITE(CLCD_SPI_CS, 0);
+  delayMicroseconds(1);
 }
 
- // Write 3-Byte Address, Multiple Bytes, plus padding bytes, from PROGMEM
-void CLCD::mem_write_bulk (uint32_t reg_address, progmem_str str, uint16_t len, uint8_t padding) {
-  _mem_write_bulk<pgm_write> (reg_address, str, len, padding);
+// CLCD SPI - Chip Deselect
+void SPI::spi_ftdi_deselect (void) {
+  WRITE(CLCD_SPI_CS, 1);
 }
 
- // Write 3-Byte Address, Multiple Bytes, plus padding bytes, from PROGMEM
-void CLCD::mem_write_pgm (uint32_t reg_address, const void *data, uint16_t len, uint8_t padding) {
-  _mem_write_bulk<pgm_write> (reg_address, data, len, padding);
+#if defined(SPI_FLASH_SS)
+// Serial SPI Flash SPI - Chip Select
+void SPI::spi_flash_select () {
+  WRITE(SPI_FLASH_SS, 0);
+  delayMicroseconds(1);
 }
 
-// Write 3-Byte Address, Multiple Bytes, plus padding bytes, from PROGMEM, reversing bytes (suitable for loading XBM images)
-void CLCD::mem_write_xbm (uint32_t reg_address, progmem_str str, uint16_t len, uint8_t padding) {
-  _mem_write_bulk<xbm_write> (reg_address, str, len, padding);
+// Serial SPI Flash SPI - Chip Deselect
+void SPI::spi_flash_deselect () {
+  WRITE(SPI_FLASH_SS, 1);
+}
+#endif
+
+// Not really a SPI signal...
+void SPI::ftdi_reset (void) {
+  WRITE(CLCD_MOD_RESET, 0);
+  delay(6); /* minimum time for power-down is 5ms */
+  WRITE(CLCD_MOD_RESET, 1);
+  delay(21); /* minimum time to allow from rising PD_N to first access is 20ms */
 }
 
-// Write 3-Byte Address, Write 1-Byte Data
-void CLCD::mem_write_8 (uint32_t reg_address, uint8_t w_data) {
-  spi_select();
-  mem_write_addr(reg_address);
-  spi_send(w_data);
-  spi_deselect();
-}
-
-// Write 3-Byte Address, Write 2-Bytes Data
-void CLCD::mem_write_16 (uint32_t reg_address, uint16_t w_data) {
-  spi_select();
-  mem_write_addr(reg_address);
-  spi_send((uint8_t) ((w_data >> 0) & 0x00FF));
-  spi_send((uint8_t) ((w_data >> 8) & 0x00FF));
-  spi_deselect();
-}
-
-// Write 3-Byte Address, Write 4-Bytes Data
-void CLCD::mem_write_32 (uint32_t reg_address, uint32_t w_data) {
-  spi_select();
-  mem_write_addr(reg_address);
-  spi_send(w_data >> 0);
-  spi_send(w_data >> 8);
-  spi_send(w_data >> 16);
-  spi_send(w_data >> 24);
-  spi_deselect();
+// Not really a SPI signal...
+void SPI::test_pulse(void)
+{
+  #if defined(CLCD_AUX_0)
+    WRITE(CLCD_AUX_0, 1);
+    delayMicroseconds(10);
+    WRITE(CLCD_AUX_0, 0);
+  #endif
 }
 
 #endif // EXTENSIBLE_UI

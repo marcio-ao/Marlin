@@ -1,6 +1,6 @@
-/****************
- * ui_storage.h *
- ****************/
+/*********************
+ * ui_filereader.cpp *
+ *********************/
 
 /****************************************************************************
  *   Written By Mark Pelletier  2017 - Aleph Objects, Inc.                  *
@@ -20,37 +20,37 @@
  *   location: <http://www.gnu.org/licenses/>.                              *
  ****************************************************************************/
 
-#ifndef _UI_STORAGE_
-#define _UI_STORAGE_
+#include "ui.h"
 
-class UIStorage {
-  private:
-    static bool is_present;
+#include "ui_filereader.h"
 
-    static void check_device();
-    static void wait_while_busy();
+#if ENABLED(EXTENSIBLE_UI)
 
-  public:
-    static void initialize  ();
+bool MediaFileReader::open(const char* filename) {
+  card.init(SPI_SPEED, SDSS);
+  volume.init(&card);
+  root.openRoot(&volume);
+  return file.open(&root, filename, O_READ);
+}
 
-    static void write_data  (const void *data, size_t size);
-    static bool verify_data (const void *data, size_t size);
-    static void read_data   (void *data, size_t size);
+int16_t MediaFileReader::read(void *buff, size_t bytes) {
+  return file.read(buff, bytes);
+}
 
-    static void write_file  (progmem_str file);
+void MediaFileReader::close() {
+  file.close();
+}
 
-    class BootMediaReader;
-};
+uint32_t MediaFileReader::size() {
+  return file.fileSize();
+}
 
-class UIStorage::BootMediaReader {
-  private:
-    uint32_t addr;
-    uint32_t bytes_remaining;
+void MediaFileReader::rewind() {
+  file.rewind();
+}
 
-  public:
-    bool isAvailable();
-    int16_t read(void *buffer, size_t const size);
+int16_t MediaFileReader::read(void *obj, void *buff, size_t bytes) {
+  return reinterpret_cast<MediaFileReader*>(obj)->read(buff, bytes);
+}
 
-    static int16_t read(void *obj, void *buffer, const size_t size);
-};
 #endif // EXTENSIBLE_UI

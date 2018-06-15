@@ -1,5 +1,5 @@
 /****************
- * ui_storage.h *
+ * ui_filereader.h *
  ****************/
 
 /****************************************************************************
@@ -20,37 +20,26 @@
  *   location: <http://www.gnu.org/licenses/>.                              *
  ****************************************************************************/
 
-#ifndef _UI_STORAGE_
-#define _UI_STORAGE_
+#ifndef _UI_FILEREADER_
+#define _UI_FILEREADER_
 
-class UIStorage {
+#include "../../../sd/SdFile.h"
+#include "../../../sd/cardreader.h"
+
+class MediaFileReader {
   private:
-    static bool is_present;
-
-    static void check_device();
-    static void wait_while_busy();
+    Sd2Card  card;
+    SdVolume volume;
+    SdFile   root, file;
 
   public:
-    static void initialize  ();
+    bool open(const char* filename);
+    int16_t read(void *buff, size_t bytes);
+    uint32_t size();
+    void rewind();
+    void close();
 
-    static void write_data  (const void *data, size_t size);
-    static bool verify_data (const void *data, size_t size);
-    static void read_data   (void *data, size_t size);
-
-    static void write_file  (progmem_str file);
-
-    class BootMediaReader;
+    static int16_t read(void *obj, void *buff, size_t bytes);
 };
 
-class UIStorage::BootMediaReader {
-  private:
-    uint32_t addr;
-    uint32_t bytes_remaining;
-
-  public:
-    bool isAvailable();
-    int16_t read(void *buffer, size_t const size);
-
-    static int16_t read(void *obj, void *buffer, const size_t size);
-};
-#endif // EXTENSIBLE_UI
+#endif // _UI_FILEREADER_

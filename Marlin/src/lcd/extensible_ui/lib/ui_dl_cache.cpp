@@ -77,22 +77,15 @@ void DLCache::init() {
 }
 
 bool DLCache::has_data() {
-  #if !defined(DL_CACHE_DISABLED)
   return dl_size != 0;
-  #else
-  return false;
-  #endif
 }
 
 bool DLCache::wait_until_idle() {
   const unsigned long startTime = millis();
   do {
     if((millis() - startTime) > 250) {
-      #if defined (SERIAL_PROTOCOLLNPGM)
-        SERIAL_PROTOCOLLNPGM("Timeout on DL_Cache::Wait_Until_Idle()");
-      #else
-        Serial.println(F("Timeout on DL_Cache::Wait_Until_Idle()"));
-      #endif
+      SERIAL_ECHO_START();
+      SERIAL_ECHOLNPGM("Timeout on DL_Cache::Wait_Until_Idle()");
       return false;
     }
     #if ENABLED(EXTENSIBLE_UI)
@@ -112,7 +105,6 @@ bool DLCache::wait_until_idle() {
  */
 
 bool DLCache::store(uint32_t num_bytes /* = 0*/) {
-  #if !defined(DL_CACHE_DISABLED)
   CLCD::CommandFifo cmd;
 
   // Execute any commands already in the FIFO
@@ -142,30 +134,16 @@ bool DLCache::store(uint32_t num_bytes /* = 0*/) {
   if(dl_size > free_space) {
     // Not enough memory to cache the display list.
     #if defined(UI_FRAMEWORK_DEBUG)
-      #if defined (SERIAL_PROTOCOLLNPAIR)
-        SERIAL_PROTOCOLPAIR("Not enough space in GRAM to cache display list, free space: ", free_space);
-        SERIAL_PROTOCOLLNPAIR(" Required: ", dl_size);
-      #else
-        Serial.print(F("Not enough space in GRAM to cache display list, free space:"));
-        Serial.print(free_space);
-        Serial.print(F(" Required: "));
-        Serial.println(dl_size);
-      #endif
+      SERIAL_ECHO_START();
+      SERIAL_ECHOPAIR("Not enough space in GRAM to cache display list, free space: ", free_space);
+      SERIAL_ECHOLNPAIR(" Required: ", dl_size);
     #endif
     return false;
   } else {
     #if defined(UI_FRAMEWORK_DEBUG)
-      #if defined (SERIAL_PROTOCOLLNPAIR)
-        SERIAL_PROTOCOLPAIR("Saving DL to RAMG cache, bytes: ", dl_size);
-        SERIAL_PROTOCOLPAIR(" (Free space: ", free_space);
-        SERIAL_PROTOCOLLNPGM(")");
-      #else
-        Serial.print(F("Saving DL to RAMG cache, bytes: "));
-        Serial.println(dl_size);
-        Serial.print(F(" (Free space: "));
-        Serial.println(free_space);
-        Serial.print(F(")"));
-      #endif
+      SERIAL_ECHO_START();
+      SERIAL_ECHOPAIR("Saving DL to RAMG cache, bytes: ", dl_size);
+      SERIAL_ECHOLNPAIR(" Free space: ", free_space);
     #endif
     cmd.memcpy(dl_addr, RAM_DL, dl_size);
     cmd.execute();
@@ -176,7 +154,6 @@ bool DLCache::store(uint32_t num_bytes /* = 0*/) {
     }
     return true;
   }
-  #endif // DL_CACHE_DISABLED
 }
 
 void DLCache::save_slot(uint8_t dl_slot, uint32_t dl_addr, uint32_t dl_size) {
@@ -191,24 +168,14 @@ void DLCache::load_slot() {
 
 void DLCache::append() {
   CLCD::CommandFifo cmd;
-  #if !defined(DL_CACHE_DISABLED)
   cmd.append(dl_addr, dl_size);
-  #endif
   #if defined(UI_FRAMEWORK_DEBUG)
     cmd.execute();
     wait_until_idle();
-    #if defined (SERIAL_PROTOCOLLNPAIR)
-      SERIAL_PROTOCOLPAIR("Appending to DL from RAMG cache, bytes: ", dl_size);
-      SERIAL_PROTOCOLPAIR(" (REG_CMD_DL: ", CLCD::mem_read_32(REG_CMD_DL));
-      SERIAL_PROTOCOLLNPGM(")");
-    #else
-      Serial.print(F("Appending to DL from RAMG cache, bytes: "));
-      Serial.print(dl_size);
-      Serial.print(F(" (REG_CMD_DL: "));
-      Serial.print(CLCD::mem_read_32(REG_CMD_DL));
-      Serial.println(F(")"));
-    #endif
-  #endif // DL_CACHE_DISABLED
+    SERIAL_ECHO_START();
+    SERIAL_ECHOPAIR("Appending to DL from RAMG cache, bytes: ", dl_size);
+    SERIAL_ECHOLNPAIR(" REG_CMD_DL: ", CLCD::mem_read_32(REG_CMD_DL));
+  #endif
 }
 
 #endif // EXTENSIBLE_UI
