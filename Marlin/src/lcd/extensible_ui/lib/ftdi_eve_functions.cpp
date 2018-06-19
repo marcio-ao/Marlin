@@ -32,7 +32,7 @@
 #define MULTIPLE_OF_4(val) ((((val)+3)>>2)<<2)
 
 using namespace FTDI;
-using namespace SPI;
+using namespace FTDI::SPI;
 
 void CLCD::enable (void) {
   mem_write_8(REG_PCLK, Pclk);
@@ -206,6 +206,21 @@ void CLCD::CommandFifo::cmd(uint32_t cmd32) {
 
 void CLCD::CommandFifo::cmd(void* data, uint16_t len) {
   write(data, len);
+}
+
+void CLCD::CommandFifo::bgcolor(uint32_t rgb) {
+  cmd(CMD_BGCOLOR);
+  cmd(rgb);
+}
+
+void CLCD::CommandFifo::fgcolor(uint32_t rgb) {
+  cmd(CMD_FGCOLOR);
+  cmd(rgb);
+}
+
+void CLCD::CommandFifo::gradcolor(uint32_t rgb) {
+  cmd(CMD_GRADCOLOR);
+  cmd(rgb);
 }
 
 // This sends the a text command to the command preprocessor, must be followed by str()
@@ -456,6 +471,51 @@ void CLCD::CommandFifo::gradient (int16_t x0, int16_t y0, uint32_t rgb0, int16_t
   cmd( &cmd_data, sizeof(cmd_data) );
 }
 
+void CLCD::CommandFifo::number (int16_t x, int16_t y, int16_t font, uint16_t options, int32_t n) {
+  struct {
+    int32_t  type = CMD_NUMBER;
+    int16_t  x;
+    int16_t  y;
+    uint16_t options;
+    int16_t n;
+  } cmd_data;
+
+  cmd_data.x       = x;
+  cmd_data.y       = y;
+  cmd_data.options = options;
+  cmd_data.n       = n;
+
+  cmd( &cmd_data, sizeof(cmd_data) );
+}
+
+void CLCD::CommandFifo::memzero (uint32_t ptr, uint32_t size) {
+  struct {
+    uint32_t  type = CMD_MEMZERO;
+    uint32_t  ptr;
+    uint32_t  size;
+  } cmd_data;
+
+  cmd_data.ptr    = ptr;
+  cmd_data.size   = size;
+
+  cmd( &cmd_data, sizeof(cmd_data) );
+}
+
+void CLCD::CommandFifo::memset (uint32_t ptr, uint32_t val, uint32_t size) {
+  struct {
+    uint32_t  type = CMD_MEMSET;
+    uint32_t  ptr;
+    uint32_t  val;
+    uint32_t  size;
+  } cmd_data;
+
+  cmd_data.ptr    = ptr;
+  cmd_data.val    = val;
+  cmd_data.size   = size;
+
+  cmd( &cmd_data, sizeof(cmd_data) );
+}
+
 void CLCD::CommandFifo::memcpy (uint32_t dst, uint32_t src, uint32_t size) {
   struct {
     uint32_t  type = CMD_MEMCPY;
@@ -471,6 +531,21 @@ void CLCD::CommandFifo::memcpy (uint32_t dst, uint32_t src, uint32_t size) {
   cmd( &cmd_data, sizeof(cmd_data) );
 }
 
+void CLCD::CommandFifo::memcrc (uint32_t ptr, uint32_t num, uint32_t result) {
+  struct {
+    uint32_t  type = CMD_MEMCRC;
+    uint32_t  ptr;
+    uint32_t  num;
+    uint32_t  result;
+  } cmd_data;
+
+  cmd_data.ptr    = ptr;
+  cmd_data.num    = num;
+  cmd_data.result   = result;
+
+  cmd( &cmd_data, sizeof(cmd_data) );
+}
+
 void CLCD::CommandFifo::append (uint32_t ptr, uint32_t size) {
   struct {
     uint32_t  type = CMD_APPEND;
@@ -480,6 +555,28 @@ void CLCD::CommandFifo::append (uint32_t ptr, uint32_t size) {
 
   cmd_data.ptr    = ptr;
   cmd_data.size   = size;
+
+  cmd( &cmd_data, sizeof(cmd_data) );
+}
+
+void CLCD::CommandFifo::inflate (uint32_t ptr) {
+  struct {
+    uint32_t  type = CMD_INFLATE;
+    uint32_t  ptr;
+  } cmd_data;
+
+  cmd_data.ptr    = ptr;
+
+  cmd( &cmd_data, sizeof(cmd_data) );
+}
+
+void CLCD::CommandFifo::getptr (uint32_t result) {
+  struct {
+    uint32_t  type = CMD_GETPTR;
+    uint32_t  result;
+  } cmd_data;
+
+  cmd_data.result    = result;
 
   cmd( &cmd_data, sizeof(cmd_data) );
 }
@@ -524,7 +621,151 @@ void CLCD::CommandFifo::sketch(int16_t x, int16_t y, uint16_t w, uint16_t h, uin
   cmd( &cmd_data, sizeof(cmd_data) );
 }
 
+void CLCD::CommandFifo::snapshot(uint32_t ptr) {
+  struct {
+    uint32_t type = CMD_SNAPSHOT;
+    uint32_t  ptr;
+  } cmd_data;
+
+  cmd_data.ptr     = ptr;
+
+  cmd( &cmd_data, sizeof(cmd_data) );
+}
+
+void CLCD::CommandFifo::spinner(int16_t x, int16_t y, uint16_t style, uint16_t scale) {
+  struct {
+    uint32_t type = CMD_SPINNER;
+    uint16_t x;
+    uint16_t y;
+    uint16_t style;
+    uint16_t scale;
+  } cmd_data;
+
+  cmd_data.x     = x;
+  cmd_data.y     = y;
+  cmd_data.style = style;
+  cmd_data.scale = scale;
+
+  cmd( &cmd_data, sizeof(cmd_data) );
+}
+
+void CLCD::CommandFifo::loadimage(uint32_t ptr, uint32_t options) {
+  struct {
+    uint32_t type = CMD_LOADIMAGE;
+    uint32_t ptr;
+    uint32_t options;
+  } cmd_data;
+
+  cmd_data.ptr     = ptr;
+  cmd_data.options = options;
+
+  cmd( &cmd_data, sizeof(cmd_data) );
+}
+
+void CLCD::CommandFifo::getprops (uint32_t ptr, uint32_t width, uint32_t height) {
+  struct {
+    uint32_t  type = CMD_GETPROPS;
+    uint32_t  ptr;
+    uint32_t  width;
+    uint32_t  height;
+  } cmd_data;
+
+  cmd_data.ptr    = ptr;
+  cmd_data.width  = width;
+  cmd_data.height = height;
+
+  cmd( &cmd_data, sizeof(cmd_data) );
+}
+
+void CLCD::CommandFifo::scale(int32_t sx, int32_t sy) {
+  struct {
+    uint32_t type = CMD_SCALE;
+    int32_t  sx;
+    int32_t  sy;
+  } cmd_data;
+
+  cmd_data.sx       = sx;
+  cmd_data.sy       = sy;
+
+  cmd( &cmd_data, sizeof(cmd_data) );
+}
+
+void CLCD::CommandFifo::rotate(int32_t a) {
+  struct {
+    uint32_t type = CMD_ROTATE;
+    int32_t  a;
+  } cmd_data;
+
+  cmd_data.a       = a;
+
+  cmd( &cmd_data, sizeof(cmd_data) );
+}
+
+void CLCD::CommandFifo::translate (int32_t tx, int32_t ty) {
+  struct {
+    uint32_t type = CMD_TRANSLATE;
+    int32_t  tx;
+    int32_t  ty;
+  } cmd_data;
+
+  cmd_data.tx       = tx;
+  cmd_data.ty       = ty;
+
+  cmd( &cmd_data, sizeof(cmd_data) );
+}
+
 #if defined(USE_FTDI_FT810)
+void CLCD::CommandFifo::setbase (uint8_t base) {
+  struct {
+    int32_t  type = CMD_SETBASE;
+    uint32_t base;
+  } cmd_data;
+
+  cmd_data.base     = base;
+
+  cmd( &cmd_data, sizeof(cmd_data) );
+}
+
+void CLCD::CommandFifo::setbitmap(uint32_t addr, uint16_t fmt, uint16_t w, uint16_t h) {
+  struct {
+    uint32_t type = CMD_SETBITMAP;
+    uint32_t addr;
+    uint16_t fmt;
+    uint16_t w;
+    uint16_t h;
+    uint16_t dummy;
+  } cmd_data;
+
+  cmd_data.addr    = addr;
+  cmd_data.fmt     = fmt;
+  cmd_data.w       = w;
+  cmd_data.h       = h;
+  cmd_data.dummy   = 0;
+
+  cmd( &cmd_data, sizeof(cmd_data) );
+}
+
+void CLCD::CommandFifo::snapshot2(uint32_t format, uint32_t ptr, int16_t x, int16_t y, uint16_t w, uint16_t h) {
+  struct {
+    uint32_t type = CMD_SNAPSHOT2;
+    uint32_t  format;
+    uint32_t  ptr;
+    int16_t   x;
+    int16_t   y;
+    uint16_t  w;
+    uint16_t  h;
+  } cmd_data;
+
+  cmd_data.format  = format;
+  cmd_data.ptr     = ptr;
+  cmd_data.x       = x;
+  cmd_data.y       = y;
+  cmd_data.w       = w;
+  cmd_data.h       = h;
+
+  cmd( &cmd_data, sizeof(cmd_data) );
+}
+
 void CLCD::CommandFifo::mediafifo(uint32_t ptr, uint32_t size) {
   struct {
     uint32_t type = CMD_MEDIAFIFO;
@@ -539,11 +780,7 @@ void CLCD::CommandFifo::mediafifo(uint32_t ptr, uint32_t size) {
 }
 
 void CLCD::CommandFifo::videostart() {
-  struct {
-    uint32_t type = CMD_VIDEOSTART;
-  } cmd_data;
-
-  cmd( &cmd_data, sizeof(cmd_data) );
+  cmd( CMD_VIDEOSTART );
 }
 
 void CLCD::CommandFifo::videoframe(uint32_t dst, uint32_t ptr) {
@@ -570,7 +807,7 @@ void CLCD::CommandFifo::playvideo(uint32_t options) {
   cmd( &cmd_data, sizeof(cmd_data) );
 }
 
-void CLCD::CommandFifo::set_rotate (uint8_t rotation) {
+void CLCD::CommandFifo::setrotate (uint8_t rotation) {
   struct {
     uint32_t  type = CMD_SETROTATE;
     uint32_t  rotation;
@@ -738,7 +975,7 @@ void CLCD::init (void) {
    else {
      delay(1);
    }
-   if(counter == 250) {
+   if(counter == 249) {
      #if defined(UI_FRAMEWORK_DEBUG)
        SERIAL_ECHO_START();
        SERIAL_ECHOLNPAIR("Timeout waiting for device ID, should be 124, got ", device_id);
@@ -806,21 +1043,21 @@ void CLCD::init (void) {
 
     CommandFifo cmd;
     #if   defined(USE_PORTRAIT_ORIENTATION)  &&  defined(USE_INVERTED_ORIENTATION) &&  defined(USE_MIRRORED_ORIENTATION)
-    cmd.set_rotate(7);
+    cmd.setrotate(7);
     #elif defined(USE_PORTRAIT_ORIENTATION)  && !defined(USE_INVERTED_ORIENTATION) &&  defined(USE_MIRRORED_ORIENTATION)
-    cmd.set_rotate(6);
+    cmd.setrotate(6);
     #elif !defined(USE_PORTRAIT_ORIENTATION) &&  defined(USE_INVERTED_ORIENTATION) &&  defined(USE_MIRRORED_ORIENTATION)
-    cmd.set_rotate(5);
+    cmd.setrotate(5);
     #elif !defined(USE_PORTRAIT_ORIENTATION) && !defined(USE_INVERTED_ORIENTATION) &&  defined(USE_MIRRORED_ORIENTATION)
-    cmd.set_rotate(4);
+    cmd.setrotate(4);
     #elif  defined(USE_PORTRAIT_ORIENTATION) &&  defined(USE_INVERTED_ORIENTATION) && !defined(USE_MIRRORED_ORIENTATION)
-    cmd.set_rotate(3);
+    cmd.setrotate(3);
     #elif defined(USE_PORTRAIT_ORIENTATION)  && !defined(USE_INVERTED_ORIENTATION) && !defined(USE_MIRRORED_ORIENTATION)
-    cmd.set_rotate(2);
+    cmd.setrotate(2);
     #elif !defined(USE_PORTRAIT_ORIENTATION) &&  defined(USE_INVERTED_ORIENTATION) && !defined(USE_MIRRORED_ORIENTATION)
-    cmd.set_rotate(1);
+    cmd.setrotate(1);
     #else // !defined(USE_PORTRAIT_ORIENTATION) && !defined(USE_INVERTED_ORIENTATION) && !defined(USE_MIRRORED_ORIENTATION)
-    cmd.set_rotate(0);
+    cmd.setrotate(0);
     #endif
     cmd.execute();
   #endif

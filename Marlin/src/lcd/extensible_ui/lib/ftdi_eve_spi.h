@@ -20,101 +20,120 @@
  *   location: <http://www.gnu.org/licenses/>.                              *
  ****************************************************************************/
 
-namespace SPI {
-  uint8_t  _soft_spi_xfer (uint8_t val);
-  void     _soft_spi_send (uint8_t val);
+#ifndef _FTDI_EVE_SPI_
+#define _FTDI_EVE_SPI_
 
-  void     spi_init           ();
+#include "ui.h"
+#include "ftdi_eve_pins.h"
 
-  void     spi_ftdi_select    ();
-  void     spi_ftdi_deselect  ();
+#if !defined(USE_FAST_AVR_IO) && !defined(SET_OUTPUT)
+   // Use standard Arduino Wire library
 
-  void     spi_flash_select   ();
-  void     spi_flash_deselect ();
+  #include <Wire.h>
+  #if !defined(CLCD_USE_SOFT_SPI)
+      #include "SPI.h"
+  #endif
+#endif
 
-  inline uint8_t spi_recv() {
-    #if defined(CLCD_USE_SOFT_SPI)
-      return _soft_spi_xfer(0x00);
-    #elif defined(USE_MARLIN_IO)
-      return spiRec();
-    #else
-      return SPI.transfer(0x00);
-    #endif
-  };
+namespace FTDI {
+  namespace SPI {
+    uint8_t  _soft_spi_xfer (uint8_t val);
+    void     _soft_spi_send (uint8_t val);
 
-  inline void spi_send (uint8_t val) {
-    #if defined(CLCD_USE_SOFT_SPI)
-      _soft_spi_send(val);
-    #elif defined(USE_MARLIN_IO)
-      spiSend(val);
-    #else
-      SPI.transfer(val);
-    #endif
-  };
+    void     spi_init           ();
 
-  inline void        spi_write_8    (uint8_t val)          {spi_send(val);};
-  inline uint8_t     spi_read_8     ()                     {return spi_recv();};
+    void     spi_ftdi_select    ();
+    void     spi_ftdi_deselect  ();
 
-  namespace least_significant_byte_first {
-    inline void     spi_write_16   (uint16_t val)          {spi_send(val >> 0);
-                                                            spi_send(val >> 8);};
-    inline void     spi_write_32   (uint32_t val)          {spi_send(val >> 0);
-                                                            spi_send(val >> 8);
-                                                            spi_send(val >> 16);
-                                                            spi_send(val >> 24);};
+    void     spi_flash_select   ();
+    void     spi_flash_deselect ();
 
-    inline uint8_t  spi_read_8     ()                      {return spi_recv();};
-    inline uint16_t spi_read_16    ()                      {return (((uint16_t) spi_recv()) <<  0) |
-                                                                   (((uint16_t) spi_recv()) <<  8);};
-    inline uint32_t spi_read_32    ()                      {return (((uint32_t) spi_recv()) <<  0) |
-                                                                   (((uint32_t) spi_recv()) <<  8) |
-                                                                   (((uint32_t) spi_recv()) << 16) |
-                                                                   (((uint32_t) spi_recv()) << 24);};
+    inline uint8_t spi_recv() {
+      #if defined(CLCD_USE_SOFT_SPI)
+        return _soft_spi_xfer(0x00);
+      #elif defined(USE_MARLIN_IO)
+        return spiRec();
+      #else
+        return ::SPI.transfer(0x00);
+      #endif
+    };
+
+    inline void spi_send (uint8_t val) {
+      #if defined(CLCD_USE_SOFT_SPI)
+        _soft_spi_send(val);
+      #elif defined(USE_MARLIN_IO)
+        spiSend(val);
+      #else
+        ::SPI.transfer(val);
+      #endif
+    };
+
+    inline void        spi_write_8    (uint8_t val)          {spi_send(val);};
+    inline uint8_t     spi_read_8     ()                     {return spi_recv();};
+
+    namespace least_significant_byte_first {
+      inline void     spi_write_16   (uint16_t val)          {spi_send(val >> 0);
+                                                              spi_send(val >> 8);};
+      inline void     spi_write_32   (uint32_t val)          {spi_send(val >> 0);
+                                                              spi_send(val >> 8);
+                                                              spi_send(val >> 16);
+                                                              spi_send(val >> 24);};
+
+      inline uint8_t  spi_read_8     ()                      {return spi_recv();};
+      inline uint16_t spi_read_16    ()                      {return (((uint16_t) spi_recv()) <<  0) |
+                                                                     (((uint16_t) spi_recv()) <<  8);};
+      inline uint32_t spi_read_32    ()                      {return (((uint32_t) spi_recv()) <<  0) |
+                                                                     (((uint32_t) spi_recv()) <<  8) |
+                                                                     (((uint32_t) spi_recv()) << 16) |
+                                                                     (((uint32_t) spi_recv()) << 24);};
+    }
+
+    namespace most_significant_byte_first {
+      inline void     spi_write_16   (uint16_t val)          {spi_send(val >> 8);
+                                                              spi_send(val >> 0);};
+      inline void     spi_write_24   (uint32_t val)          {spi_send(val >> 16);
+                                                              spi_send(val >> 8);
+                                                              spi_send(val >> 0);};
+      inline void     spi_write_32   (uint32_t val)          {spi_send(val >> 24);
+                                                              spi_send(val >> 16);
+                                                              spi_send(val >> 8);
+                                                              spi_send(val >> 0);};
+
+      inline uint16_t spi_read_16    ()                      {return (((uint16_t) spi_recv()) <<  8) |
+                                                                     (((uint16_t) spi_recv()) <<  0);};
+      inline uint32_t spi_read_32    ()                      {return (((uint32_t) spi_recv()) << 24) |
+                                                                     (((uint32_t) spi_recv()) << 16) |
+                                                                     (((uint32_t) spi_recv()) <<  8) |
+                                                                     (((uint32_t) spi_recv()) <<  0);};
+    }
+
+    inline uint8_t ram_write(const uint8_t *p) {return *p;}
+    inline uint8_t pgm_write(const uint8_t *p) {return pgm_read_byte(p);}
+
+    typedef uint8_t (*bulk_write_op)(const uint8_t*);
+
+    // Generic template for function for writing multiple bytes, plus padding bytes.
+    // The template parameter op is an inlineable function which is applied to each byte.
+
+    template<bulk_write_op byte_op>
+    void     spi_write_bulk (const void *data, uint16_t len, uint8_t padding) {
+      const uint8_t* p = (const uint8_t *)data;
+      while(len--)      spi_send(byte_op(p++));
+      while(padding--)  spi_send(0);
+    }
+
+    template<bulk_write_op byte_op>
+    void     spi_write_bulk (const void *data, uint16_t len) {
+      const uint8_t* p = (const uint8_t *)data;
+      while(len--)      spi_send(byte_op(p++));
+    }
+
+    void     spi_read_bulk   (      void *data, uint16_t len);
+    bool     spi_verify_bulk (const void *data, uint16_t len);
+
+    void     ftdi_reset (void);
+    void     test_pulse(void);
   }
-
-  namespace most_significant_byte_first {
-    inline void     spi_write_16   (uint16_t val)          {spi_send(val >> 8);
-                                                            spi_send(val >> 0);};
-    inline void     spi_write_24   (uint32_t val)          {spi_send(val >> 16);
-                                                            spi_send(val >> 8);
-                                                            spi_send(val >> 0);};
-    inline void     spi_write_32   (uint32_t val)          {spi_send(val >> 24);
-                                                            spi_send(val >> 16);
-                                                            spi_send(val >> 8);
-                                                            spi_send(val >> 0);};
-
-    inline uint16_t spi_read_16    ()                      {return (((uint16_t) spi_recv()) <<  8) |
-                                                                   (((uint16_t) spi_recv()) <<  0);};
-    inline uint32_t spi_read_32    ()                      {return (((uint32_t) spi_recv()) << 24) |
-                                                                   (((uint32_t) spi_recv()) << 16) |
-                                                                   (((uint32_t) spi_recv()) <<  8) |
-                                                                   (((uint32_t) spi_recv()) <<  0);};
-  }
-
-  inline uint8_t ram_write(const uint8_t *p) {return *p;}
-  inline uint8_t pgm_write(const uint8_t *p) {return pgm_read_byte(p);}
-
-  typedef uint8_t (*bulk_write_op)(const uint8_t*);
-
-  // Generic template for function for writing multiple bytes, plus padding bytes.
-  // The template parameter op is an inlineable function which is applied to each byte.
-
-  template<bulk_write_op byte_op>
-  void     spi_write_bulk (const void *data, uint16_t len, uint8_t padding) {
-    const uint8_t* p = (const uint8_t *)data;
-    while(len--)      spi_send(byte_op(p++));
-    while(padding--)  spi_send(0);
-  }
-
-  template<bulk_write_op byte_op>
-  void     spi_write_bulk (const void *data, uint16_t len) {
-    const uint8_t* p = (const uint8_t *)data;
-    while(len--)      spi_send(byte_op(p++));
-  }
-
-  void     spi_read_bulk   (      void *data, uint16_t len);
-  bool     spi_verify_bulk (const void *data, uint16_t len);
-
-  void     ftdi_reset (void);
-  void     test_pulse(void);
 }
+
+#endif // _FTDI_EVE_SPI_

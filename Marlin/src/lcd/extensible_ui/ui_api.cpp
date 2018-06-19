@@ -299,9 +299,9 @@ namespace Extensible_UI_API {
 
   bool isAxisPositionKnown(const axis_t axis) {
     switch(axis) {
-      case X:  return axis_known_position[X_AXIS];
-      case Y:  return axis_known_position[Y_AXIS];
-      case Z:  return axis_known_position[Z_AXIS];
+      case X:  return TEST(axis_known_position, X_AXIS);
+      case Y:  return TEST(axis_known_position, Y_AXIS);
+      case Z:  return TEST(axis_known_position, Z_AXIS);
       default: return true;
     }
   }

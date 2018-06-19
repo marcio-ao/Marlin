@@ -34,8 +34,8 @@
 
 #if ENABLED(EXTENSIBLE_UI)
 
-using namespace SPI;
-using namespace SPI::most_significant_byte_first;
+using namespace FTDI::SPI;
+using namespace FTDI::SPI::most_significant_byte_first;
 
 bool UIStorage::is_present = false;
 

@@ -182,21 +182,42 @@ class CLCD::CommandFifo {
     void cmd(uint32_t cmd32);
     void cmd(void* data, uint16_t len);
 
-    #if defined(USE_FTDI_FT810)
-    void set_rotate(uint8_t rotation);
-    #endif
+    void dlstart()      {cmd(FTDI::CMD_DLSTART);}
+    void swap()         {cmd(FTDI::CMD_SWAP);}
+    void coldstart()    {cmd(FTDI::CMD_COLDSTART);}
+    void screensaver()  {cmd(FTDI::CMD_SCREENSAVER);}
+    void stop()         {cmd(FTDI::CMD_STOP);}
+    void loadidentity() {cmd(FTDI::CMD_LOADIDENTITY);}
+    void setmatrix()    {cmd(FTDI::CMD_SETMATRIX);}
 
-    void track     (int16_t x, int16_t y, int16_t w, int16_t h, uint16_t tag);
-    void clock     (int16_t x, int16_t y, int16_t r,            uint16_t options, int16_t h, int16_t m, int16_t s, int16_t ms);
-    void gauge     (int16_t x, int16_t y, int16_t r,            uint16_t options, uint16_t major, uint16_t minor, uint16_t val, uint16_t range);
-    void dial      (int16_t x, int16_t y, int16_t r,            uint16_t options, uint16_t val);
-    void slider    (int16_t x, int16_t y, int16_t w, int16_t h, uint16_t options, uint16_t val, uint16_t range);
-    void progress  (int16_t x, int16_t y, int16_t w, int16_t h, uint16_t options, uint16_t val, uint16_t range);
-    void scrollbar (int16_t x, int16_t y, int16_t w, int16_t h, uint16_t options, uint16_t val, uint16_t size, uint16_t range);
-    void sketch    (int16_t x, int16_t y, uint16_t w, uint16_t h, uint32_t ptr, uint16_t format);
-    void gradient  (int16_t x0, int16_t y0, uint32_t rgb0, int16_t x1, int16_t y1, uint32_t rgb1);
+    void fgcolor     (uint32_t rgb);
+    void bgcolor     (uint32_t rgb);
+    void gradcolor   (uint32_t rgb);
+
+    void track       (int16_t x, int16_t y, int16_t w, int16_t h, uint16_t tag);
+    void clock       (int16_t x, int16_t y, int16_t r,            uint16_t options, int16_t h, int16_t m, int16_t s, int16_t ms);
+    void gauge       (int16_t x, int16_t y, int16_t r,            uint16_t options, uint16_t major, uint16_t minor, uint16_t val, uint16_t range);
+    void dial        (int16_t x, int16_t y, int16_t r,            uint16_t options, uint16_t val);
+    void slider      (int16_t x, int16_t y, int16_t w, int16_t h, uint16_t options, uint16_t val, uint16_t range);
+    void progress    (int16_t x, int16_t y, int16_t w, int16_t h, uint16_t options, uint16_t val, uint16_t range);
+    void scrollbar   (int16_t x, int16_t y, int16_t w, int16_t h, uint16_t options, uint16_t val, uint16_t size, uint16_t range);
+    void number      (int16_t x, int16_t y, int16_t font, uint16_t options, int32_t n);
+    void spinner     (int16_t x, int16_t y, uint16_t style, uint16_t scale);
+    void sketch      (int16_t x, int16_t y, uint16_t w, uint16_t h, uint32_t ptr, uint16_t format);
+    void gradient    (int16_t x0, int16_t y0, uint32_t rgb0, int16_t x1, int16_t y1, uint32_t rgb1);
+    void snapshot    (uint32_t ptr);
+    void loadimage   (uint32_t ptr, uint32_t options);
+    void getprops    (uint32_t ptr, uint32_t width, uint32_t height);
+
+    void scale       (int32_t sx, int32_t sy);
+    void rotate      (int32_t a);
+    void translate   (int32_t tx, int32_t ty);
 
     #if defined(USE_FTDI_FT810)
+      void setbase   (uint8_t base);
+      void setrotate (uint8_t rotation);
+      void setbitmap (uint32_t ptr, uint16_t fmt, uint16_t w, uint16_t h);
+      void snapshot2 (uint32_t fmt, uint32_t ptr, int16_t x, int16_t y, uint16_t w, uint16_t h);
       void mediafifo (uint32_t ptr, uint32_t size);
       void playvideo (uint32_t options);
       void videostart();
@@ -213,8 +234,13 @@ class CLCD::CommandFifo {
     void str (const char * const data);
     void str (progmem_str data);
 
-    void memcpy (uint32_t dst, uint32_t src, uint32_t size);
-    void append (uint32_t ptr, uint32_t size);
+    void memzero (uint32_t ptr, uint32_t size);
+    void memset  (uint32_t ptr, uint32_t value, uint32_t size);
+    void memcpy  (uint32_t dst, uint32_t src, uint32_t size);
+    void memcrc  (uint32_t ptr, uint32_t num, uint32_t result);
+    void inflate (uint32_t ptr);
+    void getptr  (uint32_t result);
+    void append  (uint32_t ptr, uint32_t size);
 };
 
 #endif // _FTDI_EVE_FUNCTIONS_H_

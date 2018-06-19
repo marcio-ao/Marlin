@@ -57,13 +57,8 @@
 
 // GRID_X and GRID_Y computes the positions of the divisions on
 // the layout grid.
-#if defined(USE_PORTRAIT_ORIENTATION)
-  #define GRID_X(x)        ((x)*(Vsize-EDGE_R)/GRID_COLS)
-  #define GRID_Y(y)        ((y)*Hsize/GRID_ROWS)
-#else
-  #define GRID_X(x)        ((x)*(Hsize-EDGE_R)/GRID_COLS)
-  #define GRID_Y(y)        ((y)*Vsize/GRID_ROWS)
-#endif
+#define GRID_X(x)        ((x)*(FTDI::display_width-EDGE_R)/GRID_COLS)
+#define GRID_Y(y)        ((y)*FTDI::display_height/GRID_ROWS)
 
 // BTN_X, BTN_Y, BTN_W and BTN_X returns the top-left and width
 // and height of a button, taking into account the button margins.
@@ -79,39 +74,31 @@
 #define BTN_SIZE(w,h)    BTN_W(w), BTN_H(h)
 
 // Draw a reference grid for ease of spacing out widgets.
-#if defined(USE_PORTRAIT_ORIENTATION)
-  #define DRAW_LAYOUT_GRID \
-    { \
-      cmd.cmd(LINE_WIDTH(4)); \
-      for(int i = 1; i <= GRID_COLS; i++) { \
-        cmd.cmd(BEGIN(LINES)); \
-        cmd.cmd(VERTEX2F(GRID_X(i) *16, 0         *16)); \
-        cmd.cmd(VERTEX2F(GRID_X(i) *16, Hsize     *16)); \
-      } \
-      for(int i = 1; i < GRID_ROWS; i++) { \
-        cmd.cmd(BEGIN(LINES)); \
-        cmd.cmd(VERTEX2F(0         *16, GRID_Y(i) *16)); \
-        cmd.cmd(VERTEX2F(Vsize     *16, GRID_Y(i) *16)); \
-      } \
-      cmd.cmd(LINE_WIDTH(16)); \
-    }
-#else
-  #define DRAW_LAYOUT_GRID \
-    { \
-      cmd.cmd(LINE_WIDTH(4)); \
-      for(int i = 1; i <= GRID_COLS; i++) { \
-        cmd.cmd(BEGIN(LINES)); \
-        cmd.cmd(VERTEX2F(GRID_X(i) *16, 0         *16)); \
-        cmd.cmd(VERTEX2F(GRID_X(i) *16, Vsize     *16)); \
-      } \
-      for(int i = 1; i < GRID_ROWS; i++) { \
-        cmd.cmd(BEGIN(LINES)); \
-        cmd.cmd(VERTEX2F(0         *16, GRID_Y(i) *16)); \
-        cmd.cmd(VERTEX2F(Hsize     *16, GRID_Y(i) *16)); \
-      } \
-      cmd.cmd(LINE_WIDTH(16)); \
-    }
-#endif
+#define DRAW_LAYOUT_GRID \
+  { \
+    cmd.cmd(LINE_WIDTH(4)); \
+    for(int i = 1; i <= GRID_COLS; i++) { \
+      cmd.cmd(BEGIN(LINES)); \
+      cmd.cmd(VERTEX2F(GRID_X(i) *16, 0             *16)); \
+      cmd.cmd(VERTEX2F(GRID_X(i) *16, FTDI::display_height *16)); \
+    } \
+    for(int i = 1; i < GRID_ROWS; i++) { \
+      cmd.cmd(BEGIN(LINES)); \
+      cmd.cmd(VERTEX2F(0                *16, GRID_Y(i) *16)); \
+      cmd.cmd(VERTEX2F(FTDI::display_width     *16, GRID_Y(i) *16)); \
+    } \
+    cmd.cmd(LINE_WIDTH(16)); \
+  }
+
+namespace FTDI {
+  #if defined(USE_PORTRAIT_ORIENTATION)
+    constexpr uint16_t display_width  = Vsize;
+    constexpr uint16_t display_height = Hsize;
+  #else
+    constexpr uint16_t display_width  = Hsize;
+    constexpr uint16_t display_height = Vsize;
+  #endif
+}
 
 /**************************** Enhanced Command Processor **************************/
 
@@ -173,26 +160,66 @@ class CommandProcessor : public CLCD::CommandFifo {
   public:
     inline CommandProcessor& set_button_style_callback(const btn_style_func_t *func) {_btn_style_callback = func; return *this;}
 
-    inline CommandProcessor& cmd     (uint32_t cmd32)           {CLCD::CommandFifo::cmd(cmd32); return *this;}
-    inline CommandProcessor& cmd     (void* data, uint16_t len) {CLCD::CommandFifo::cmd(data, len); return *this;}
-    inline CommandProcessor& execute()                          {CLCD::CommandFifo::execute(); return *this;}
+    inline CommandProcessor& tag      (uint8_t  tag)              {_tag = tag; cmd(FTDI::TAG(tag)); return *this;}
 
-    inline CommandProcessor& fgcolor (uint32_t rgb)             {cmd(FTDI::CMD_FGCOLOR); cmd(rgb); return *this;}
-    inline CommandProcessor& bgcolor (uint32_t rgb)             {cmd(FTDI::CMD_BGCOLOR); cmd(rgb); return *this;}
-    inline CommandProcessor& tag     (uint8_t  tag)             {_tag = tag; cmd(FTDI::TAG(tag)); return *this;}
+    inline CommandProcessor& font     (int16_t  font)             {_font = font; return *this;}
 
-    inline CommandProcessor& font    (int16_t  font)            {_font = font; return *this;}
+    inline CommandProcessor& enabled  (bool enabled)              {if(!enabled) _style |= STYLE_DISABLED; else _style &= ~STYLE_DISABLED; return *this;}
+    inline CommandProcessor& style    (uint8_t style)             {_style = style; return *this;}
 
-    inline CommandProcessor& enabled (bool enabled)             {if(!enabled) _style |= STYLE_DISABLED; else _style &= ~STYLE_DISABLED; return *this;}
-    inline CommandProcessor& style   (uint8_t style)            {_style = style; return *this;}
+    // Wrap all the CommandFifo routines to allow method chaining
+
+    inline CommandProcessor& cmd      (uint32_t cmd32)            {CLCD::CommandFifo::cmd(cmd32); return *this;}
+    inline CommandProcessor& cmd      (void* data, uint16_t len)  {CLCD::CommandFifo::cmd(data, len); return *this;}
+    inline CommandProcessor& execute()                            {CLCD::CommandFifo::execute(); return *this;}
+
+    inline CommandProcessor& fgcolor  (uint32_t rgb)              {CLCD::CommandFifo::fgcolor(rgb); return *this;}
+    inline CommandProcessor& bgcolor  (uint32_t rgb)              {CLCD::CommandFifo::bgcolor(rgb); return *this;}
+    inline CommandProcessor& gradcolor(uint32_t rgb)              {CLCD::CommandFifo::gradcolor(rgb); return *this;}
+
+    inline CommandProcessor& snapshot (uint32_t ptr)              {CLCD::CommandFifo::snapshot(ptr); return *this;}
+
+    inline CommandProcessor& loadimage(uint32_t ptr, uint32_t options)
+                                                                  {CLCD::CommandFifo::loadimage(ptr, options); return *this;}
+    inline CommandProcessor& sketch   (int16_t x, int16_t y, uint16_t w, uint16_t h, uint32_t ptr, uint16_t format)
+                                                                  {CLCD::CommandFifo::sketch(x, y, w, h, ptr, format); return *this;}
+    inline CommandProcessor& spinner  (int16_t x, int16_t y, uint16_t style, uint16_t scale)
+                                                                  {CLCD::CommandFifo::spinner(x, y, style, scale); return *this;}
+    inline CommandProcessor& screensaver  ()                      {CLCD::CommandFifo::screensaver(); return *this;}
+    inline CommandProcessor& setbase  (uint8_t base)              {CLCD::CommandFifo::setbase(base); return *this;}
+
+    inline CommandProcessor& loadidentity ()                      {CLCD::CommandFifo::loadidentity(); return *this;}
+    inline CommandProcessor& scale    (int32_t sx, int32_t sy)    {CLCD::CommandFifo::scale(sx,sy); return *this;}
+    inline CommandProcessor& rotate   (int32_t a)                 {CLCD::CommandFifo::rotate(a); return *this;}
+    inline CommandProcessor& translate(int32_t tx, int32_t ty)    {CLCD::CommandFifo::translate(tx,ty); return *this;}
+    inline CommandProcessor& setmatrix ()                         {CLCD::CommandFifo::setmatrix(); return *this;}
+
+    inline CommandProcessor& memzero  (uint32_t ptr, uint32_t size)
+                                                                  {CLCD::CommandFifo::memzero(ptr, size); return *this;}
+    inline CommandProcessor& memset   (uint32_t ptr, uint32_t val, uint32_t size)
+                                                                  {CLCD::CommandFifo::memset(ptr, val, size); return *this;}
+    inline CommandProcessor& memcpy   (uint32_t src, uint32_t dst, uint32_t size)
+                                                                  {CLCD::CommandFifo::memcpy(src, dst, size); return *this;}
+    inline CommandProcessor& memcrc   (uint32_t ptr, uint32_t num, uint32_t result)
+                                                                  {CLCD::CommandFifo::memcrc(ptr, num, result); return *this;}
+    inline CommandProcessor& inflate  (uint32_t ptr)
+                                                                  {CLCD::CommandFifo::inflate(ptr); return *this;}
+    inline CommandProcessor& getptr   (uint32_t result)
+                                                                  {CLCD::CommandFifo::getptr(result); return *this;}
+    inline CommandProcessor& getprops (uint32_t ptr, uint32_t width, uint32_t height)
+                                                                  {CLCD::CommandFifo::getprops(ptr, width, height); return *this;}
 
     #if defined(USE_FTDI_FT810)
-    inline CommandProcessor& mediafifo (uint32_t p, uint32_t s) {CLCD::CommandFifo::mediafifo(p, s); return *this;}
-    inline CommandProcessor& playvideo(uint32_t options)        {CLCD::CommandFifo::playvideo(options); return *this;}
+    inline CommandProcessor& setbitmap (uint32_t ptr, uint16_t fmt, uint16_t w, uint16_t h)
+                                                                  {CLCD::CommandFifo::setbitmap(ptr,fmt,w,h); return *this;}
+    inline CommandProcessor& snapshot2 (uint32_t fmt, uint32_t ptr, int16_t x, int16_t y, uint16_t w, uint16_t h)
+                                                                  {CLCD::CommandFifo::snapshot2(fmt,ptr,x,y,w,h); return *this;}
+    inline CommandProcessor& mediafifo (uint32_t p, uint32_t s)   {CLCD::CommandFifo::mediafifo(p, s); return *this;}
+    inline CommandProcessor& playvideo(uint32_t options)          {CLCD::CommandFifo::playvideo(options); return *this;}
     #endif
 
     inline CommandProcessor& gradient(int16_t x0, int16_t y0, uint32_t rgb0, int16_t x1, int16_t y1, uint32_t rgb1)
-                                                                {CLCD::CommandFifo::gradient(x0,y0,rgb0,x1,y1,rgb1); return *this;}
+                                                                  {CLCD::CommandFifo::gradient(x0,y0,rgb0,x1,y1,rgb1); return *this;}
 
     inline CommandProcessor& rectangle(int16_t x, int16_t y, int16_t w, int16_t h) {
       using namespace FTDI;
@@ -284,6 +311,15 @@ class CommandProcessor : public CLCD::CommandFifo {
       return *this;
     }
 
+    CommandProcessor& number(int16_t x, int16_t y, int16_t w, int16_t h, int32_t n, uint16_t options = FTDI::OPT_CENTER) {
+      using namespace FTDI;
+      CLCD::CommandFifo::number(
+        x + ((options & OPT_CENTERX) ? w/2 : ((options & OPT_RIGHTX) ? w : 0)),
+        y + ((options & OPT_CENTERY) ? h/2 : h),
+        _font, options, n);
+      return *this;
+    }
+
     template<typename T> FORCEDINLINE
     CommandProcessor& text(int16_t x, int16_t y, int16_t w, int16_t h, T text, uint16_t options = FTDI::OPT_CENTER) {
       using namespace FTDI;
@@ -326,11 +362,6 @@ class CommandProcessor : public CLCD::CommandFifo {
     CommandProcessor& keys(int16_t x, int16_t y, int16_t w, int16_t h, T keys, uint16_t options = FTDI::OPT_3D) {
       CLCD::CommandFifo::keys(x, y, w, h, _font, options);
       CLCD::CommandFifo::str(keys);
-      return *this;
-    }
-
-    inline CommandProcessor& sketch(int16_t x, int16_t y, uint16_t w, uint16_t h, uint32_t ptr, uint16_t format) {
-      CLCD::CommandFifo::sketch(x, y, w, h, ptr, format);
       return *this;
     }
 };

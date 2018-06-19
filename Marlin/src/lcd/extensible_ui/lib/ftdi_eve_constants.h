@@ -86,6 +86,7 @@
     constexpr uint32_t RAM_REG        = 0x302000;   // Registers
     constexpr uint32_t RAM_CMD        = 0x308000;   // Command Buffer
 
+    constexpr uint32_t RAM_G_SIZE_800 =  256l*1024l;   // 256k
     constexpr uint32_t RAM_G_SIZE     = 1024l*1024l;  // 1024k
   }
 #endif
@@ -363,98 +364,71 @@ namespace FTDI {
 // DISPLAY LIST COMMANDS
 
 namespace FTDI {
-  constexpr uint32_t BITMAP_LAYOUT_ARGB1555             = 0x00000000;
-  constexpr uint32_t BITMAP_LAYOUT_L1                   = 0x00080000;
-  constexpr uint32_t BITMAP_LAYOUT_L4                   = 0x00100000;
-  constexpr uint32_t BITMAP_LAYOUT_L8                   = 0x00180000;
-  constexpr uint32_t BITMAP_LAYOUT_RGB332               = 0x00200000;
-  constexpr uint32_t BITMAP_LAYOUT_ARGB2                = 0x00280000;
-  constexpr uint32_t BITMAP_LAYOUT_ARGB4                = 0x00300000;
-  constexpr uint32_t BITMAP_LAYOUT_RGB565               = 0x00380000;
-  constexpr uint32_t BITMAP_LAYOUT_PALETTED             = 0x00400000;
-  constexpr uint32_t BITMAP_LAYOUT_TEXT8X8              = 0x00480000;
-  constexpr uint32_t BITMAP_LAYOUT_TEXTVGA              = 0x00500000;
-  constexpr uint32_t BITMAP_LAYOUT_BARGRAPH             = 0x00580000;
+  constexpr uint8_t ARGB1555                           = 0;
+  constexpr uint8_t L1                                 = 1;
+  constexpr uint8_t L4                                 = 2;
+  constexpr uint8_t L8                                 = 3;
+  constexpr uint8_t RGB332                             = 4;
+  constexpr uint8_t ARGB2                              = 5;
+  constexpr uint8_t ARGB4                              = 6;
+  constexpr uint8_t RGB565                             = 7;
+  constexpr uint8_t PALETTED                           = 8;
+  constexpr uint8_t TEXT8X8                            = 9;
+  constexpr uint8_t TEXTVGA                            = 10;
+  constexpr uint8_t BARGRAPH                           = 11;
 
-  constexpr uint8_t ARGB1555                            = 0x00;
-  constexpr uint8_t L1                                  = 0x01;
-  constexpr uint8_t L4                                  = 0x02;
-  constexpr uint8_t L8                                  = 0x03;
-  constexpr uint8_t RGB332                              = 0x04;
-  constexpr uint8_t ARGB2                               = 0x05;
-  constexpr uint8_t ARGB4                               = 0x06;
-  constexpr uint8_t RGB565                              = 0x07;
-  constexpr uint8_t PALETTED                            = 0x08;
-  constexpr uint8_t TEXT8X8                             = 0x09;
-  constexpr uint8_t TEXTVGA                             = 0x0A;
-  constexpr uint8_t BARGRAPH                            = 0x0B;
+  constexpr uint8_t ALPHA_FUNC_NEVER                   = 0;
+  constexpr uint8_t ALPHA_FUNC_LESS                    = 1;
+  constexpr uint8_t ALPHA_FUNC_LEQUAL                  = 2;
+  constexpr uint8_t ALPHA_FUNC_GREATER                 = 3;
+  constexpr uint8_t ALPHA_FUNC_GEQUAL                  = 4;
+  constexpr uint8_t ALPHA_FUNC_EQUAL                   = 5;
+  constexpr uint8_t ALPHA_FUNC_NOTEQUAL                = 6;
+  constexpr uint8_t ALPHA_FUNC_ALWAYS                  = 7;
 
-  constexpr uint32_t ALPHA_FUNC_NEVER                   = 0x00000000;
-  constexpr uint32_t ALPHA_FUNC_LESS                    = 0x00010000;
-  constexpr uint32_t ALPHA_FUNC_LEQUAL                  = 0x00020000;
-  constexpr uint32_t ALPHA_FUNC_GREATER                 = 0x00030000;
-  constexpr uint32_t ALPHA_FUNC_GEQUAL                  = 0x00040000;
-  constexpr uint32_t ALPHA_FUNC_EQUAL                   = 0x00050000;
-  constexpr uint32_t ALPHA_FUNC_NOTEQUAL                = 0x00060000;
-  constexpr uint32_t ALPHA_FUNC_ALWAYS                  = 0x00070000;
+  constexpr uint8_t NEAREST                            = 0;
+  constexpr uint8_t BILINEAR                           = 1;
+  constexpr uint8_t BORDER                             = 0;
+  constexpr uint8_t REPEAT                             = 1;
 
-  constexpr uint8_t NEAREST                             = 0x00;
-  constexpr uint8_t BILINEAR                            = 0x01;
-  constexpr uint8_t BORDER                              = 0x00;
-  constexpr uint8_t REPEAT                              = 0x01;
+  constexpr uint8_t BLEND_FUNC_ZERO                    = 0;
+  constexpr uint8_t BLEND_FUNC_ONE                     = 1;
+  constexpr uint8_t BLEND_FUNC_SRC_ALPHA               = 2;
+  constexpr uint8_t BLEND_FUNC_DST_ALPHA               = 3;
+  constexpr uint8_t BLEND_FUNC_ONE_MINUS_SRC_ALPHA     = 4;
+  constexpr uint8_t BLEND_FUNC_ONE_MINUS_DST_ALPHA     = 5;
 
-  constexpr uint32_t BLEND_FUNC_SRC_ZERO                = 0x00000000;
-  constexpr uint32_t BLEND_FUNC_SRC_ONE                 = 0x00000008;
-  constexpr uint32_t BLEND_FUNC_SRC_SRC_ALPHA           = 0x00000010;
-  constexpr uint32_t BLEND_FUNC_SRC_DST_ALPHA           = 0x00000018;
-  constexpr uint32_t BLEND_FUNC_SRC_ONE_MINUS_SRC_ALPHA = 0x00000020;
-  constexpr uint32_t BLEND_FUNC_SRC_ONE_MINUS_DST_ALPHA = 0x00000028;
+  constexpr uint32_t COLOR_MASK_RED                    = 8;
+  constexpr uint32_t COLOR_MASK_GRN                    = 4;
+  constexpr uint32_t COLOR_MASK_BLU                    = 2;
+  constexpr uint32_t COLOR_MASK_ALPHA                  = 1;
 
-  constexpr uint32_t BLEND_FUNC_DST_ZERO                = 0x00000000;
-  constexpr uint32_t BLEND_FUNC_DST_ONE                 = 0x00000001;
-  constexpr uint32_t BLEND_FUNC_DST_SRC_ALPHA           = 0x00000002;
-  constexpr uint32_t BLEND_FUNC_DST_DST_ALPHA           = 0x00000003;
-  constexpr uint32_t BLEND_FUNC_DST_ONE_MINUS_SRC_ALPHA = 0x00000004;
-  constexpr uint32_t BLEND_FUNC_DST_ONE_MINUS_DST_ALPHA = 0x00000005;
+  constexpr uint8_t STENCIL_FUNC_NEVER                 = 0;
+  constexpr uint8_t STENCIL_FUNC_LESS                  = 1;
+  constexpr uint8_t STENCIL_FUNC_LEQUAL                = 2;
+  constexpr uint8_t STENCIL_FUNC_GREATER               = 3;
+  constexpr uint8_t STENCIL_FUNC_GEQUAL                = 4;
+  constexpr uint8_t STENCIL_FUNC_EQUAL                 = 5;
+  constexpr uint8_t STENCIL_FUNC_NOTEQUAL              = 6;
+  constexpr uint8_t STENCIL_FUNC_ALWAYS                = 7;
 
-  constexpr uint32_t COLOR_MASK_RED                     = 0x00000008;
-  constexpr uint32_t COLOR_MASK_GRN                     = 0x00000004;
-  constexpr uint32_t COLOR_MASK_BLU                     = 0x00000002;
-  constexpr uint32_t COLOR_MASK_ALPHA                   = 0x00000001;
-
-  constexpr uint32_t STENCIL_FUNC_NEVER                 = 0x00000000;
-  constexpr uint32_t STENCIL_FUNC_LESS                  = 0x00010000;
-  constexpr uint32_t STENCIL_FUNC_LEQUAL                = 0x00020000;
-  constexpr uint32_t STENCIL_FUNC_GREATER               = 0x00030000;
-  constexpr uint32_t STENCIL_FUNC_GEQUAL                = 0x00040000;
-  constexpr uint32_t STENCIL_FUNC_EQUAL                 = 0x00050000;
-  constexpr uint32_t STENCIL_FUNC_NOTEQUAL              = 0x00060000;
-  constexpr uint32_t STENCIL_FUNC_ALWAYS                = 0x00070000;
-
-  constexpr uint32_t STENCIL_OP_PASS_ZERO               = 0x00000000;
-  constexpr uint32_t STENCIL_OP_PASS_KEEP               = 0x00000001;
-  constexpr uint32_t STENCIL_OP_PASS_REPLACE            = 0x00000002;
-  constexpr uint32_t STENCIL_OP_PASS_INCR               = 0x00000003;
-  constexpr uint32_t STENCIL_OP_PASS_DECR               = 0x00000004;
-  constexpr uint32_t STENCIL_OP_PASS_INVERT             = 0x00000005;
-
-  constexpr uint32_t STENCIL_OP_FAIL_ZERO               = 0x00000000;
-  constexpr uint32_t STENCIL_OP_FAIL_KEEP               = 0x00000008;
-  constexpr uint32_t STENCIL_OP_FAIL_REPLACE            = 0x00000010;
-  constexpr uint32_t STENCIL_OP_FAIL_INCR               = 0x00000018;
-  constexpr uint32_t STENCIL_OP_FAIL_DECR               = 0x00000020;
-  constexpr uint32_t STENCIL_OP_FAIL_INVERT             = 0x00000028;
+  constexpr uint8_t STENCIL_OP_ZERO                    = 0;
+  constexpr uint8_t STENCIL_OP_KEEP                    = 1;
+  constexpr uint8_t STENCIL_OP_REPLACE                 = 2;
+  constexpr uint8_t STENCIL_OP_INCR                    = 3;
+  constexpr uint8_t STENCIL_OP_DECR                    = 4;
+  constexpr uint8_t STENCIL_OP_INVERT                  = 5;
 
   typedef enum: uint32_t {
-   BITMAPS                      = 0x00000001,
-   BEGIN_POINTS                 = 0x00000002,
-   LINES                        = 0x00000003,
-   LINE_STRIP                   = 0x00000004,
-   EDGE_STRIP_R                 = 0x00000005,
-   EDGE_STRIP_L                 = 0x00000006,
-   EDGE_STRIP_A                 = 0x00000007,
-   EDGE_STRIP_B                 = 0x00000008,
-   RECTS                        = 0x00000009
+   BITMAPS                                             = 1,
+   POINTS                                              = 2,
+   LINES                                               = 3,
+   LINE_STRIP                                          = 4,
+   EDGE_STRIP_R                                        = 5,
+   EDGE_STRIP_L                                        = 6,
+   EDGE_STRIP_A                                        = 7,
+   EDGE_STRIP_B                                        = 8,
+   RECTS                                               = 9
   } begin_t;
 
   namespace DL {
@@ -502,6 +476,13 @@ namespace FTDI {
     constexpr uint32_t TAG_MASK                           = 0x14000000;
     constexpr uint32_t VERTEX2F                           = 0x40000000;
     constexpr uint32_t VERTEX2II                          = 0x80000000;
+    #if defined(USE_FTDI_FT810)
+    constexpr uint32_t BITMAP_LAYOUT_H                    = 0x28000000;
+    constexpr uint32_t BITMAP_SIZE_H                      = 0x29000000;
+    constexpr uint32_t VERTEX_FORMAT                      = 0x27000000;
+    constexpr uint32_t VERTEX_TRANSLATE_X                 = 0x2B000000;
+    constexpr uint32_t VERTEX_TRANSLATE_Y                 = 0x2C000000;
+    #endif
   }
 }
 
@@ -557,10 +538,13 @@ namespace FTDI {
 #if defined(USE_FTDI_FT810)
   namespace FTDI {
     constexpr uint32_t CMD_SETROTATE                    = 0xFFFFFF36;
+    constexpr uint32_t CMD_SNAPSHOT2                    = 0xFFFFFF37;
+    constexpr uint32_t CMD_SETBASE                      = 0xFFFFFF38;
     constexpr uint32_t CMD_MEDIAFIFO                    = 0xFFFFFF39;
     constexpr uint32_t CMD_PLAYVIDEO                    = 0xFFFFFF3A;
     constexpr uint32_t CMD_VIDEOSTART                   = 0xFFFFFF40;
     constexpr uint32_t CMD_VIDEOFRAME                   = 0xFFFFFF41;
+    constexpr uint32_t CMD_SETBITMAP                    = 0xFFFFFF43;
   }
 #endif
 

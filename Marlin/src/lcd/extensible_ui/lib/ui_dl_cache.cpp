@@ -88,7 +88,7 @@ bool DLCache::wait_until_idle() {
       SERIAL_ECHOLNPGM("Timeout on DL_Cache::Wait_Until_Idle()");
       return false;
     }
-    #if ENABLED(EXTENSIBLE_UI)
+    #if defined(USE_MARLIN_IO)
       Extensible_UI_API::yield();
     #endif
   } while(CLCD::CommandFifo::is_processing());
