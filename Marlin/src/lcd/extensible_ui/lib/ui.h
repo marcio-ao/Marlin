@@ -32,6 +32,14 @@
 #else
     #include "Arduino.h"
 
+    #ifndef pgm_read_word_far
+    #define pgm_read_word_far pgm_read_word
+    #endif
+
+    #ifndef pgm_read_dword_far
+    #define pgm_read_dword_far pgm_read_dword
+    #endif
+
     // Load up compatibility routines
     #define EXTENSIBLE_UI
     #define _CAT(a, ...) a ## __VA_ARGS__

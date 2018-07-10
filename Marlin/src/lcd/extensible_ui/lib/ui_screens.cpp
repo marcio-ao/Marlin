@@ -1069,9 +1069,9 @@ bool AdvancedSettingsScreen::onTouchEnd(uint8_t tag) {
 /************************* CHANGE FILAMENT SCREEN *****************************/
 
 #define COOL_TEMP  40
-#define LOW_TEMP  100
-#define MED_TEMP  120
-#define HIGH_TEMP 140
+#define LOW_TEMP  180
+#define MED_TEMP  200
+#define HIGH_TEMP 220
 
 #define _STRINGIFY(v) #v
 #define STRINGIFY(v) _STRINGIFY(v)
@@ -1159,7 +1159,7 @@ void ChangeFilamentScreen::onRedraw(draw_mode_t what) {
     default_button_colors();
 
     const bool e_ok = screen_data.ChangeFilamentScreen.e_tag != 0;
-    const bool t_ok = screen_data.ChangeFilamentScreen.t_tag != 0 && (getActualTemp_celsius(getExtruder()) > getSoftenTemp() - 10);
+    const bool t_ok = getActualTemp_celsius(getExtruder()) > getSoftenTemp() - 10;
 
     const uint32_t tog2  = screen_data.ChangeFilamentScreen.t_tag == 2  ? Theme::toggle_on : Theme::toggle_off;
     const uint32_t tog3  = screen_data.ChangeFilamentScreen.t_tag == 3  ? Theme::toggle_on : Theme::toggle_off;
@@ -1231,7 +1231,7 @@ uint8_t ChangeFilamentScreen::getSoftenTemp() {
     case 2:  return LOW_TEMP;
     case 3:  return MED_TEMP;
     case 4:  return HIGH_TEMP;
-    default: return 0;
+    default: return EXTRUDE_MINTEMP;
   }
 }
 

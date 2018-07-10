@@ -27,12 +27,12 @@
 #include "ftdi_eve_pins.h"
 
 #if !defined(USE_FAST_AVR_IO) && !defined(SET_OUTPUT)
-   // Use standard Arduino Wire library
-
+  // Use standard Arduino Wire library
   #include <Wire.h>
-  #if !defined(CLCD_USE_SOFT_SPI)
-      #include "SPI.h"
-  #endif
+#endif
+
+#if !defined(CLCD_USE_SOFT_SPI)
+  #include "SPI.h"
 #endif
 
 namespace FTDI {
