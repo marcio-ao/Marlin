@@ -230,6 +230,8 @@ constexpr uint32_t file_addr = erase_unit_size + write_page_size;
     spi_write_32(reader.size());
     spi_flash_deselect();
 
+    wait_while_busy();
+
     addr = file_addr;
 
     // Write out the file itself
@@ -251,10 +253,11 @@ constexpr uint32_t file_addr = erase_unit_size + write_page_size;
       spi_flash_deselect();
       addr += nBytes;
 
+      wait_while_busy();
+
       if(nBytes != write_page_size)
         break;
 
-      wait_while_busy();
       #if ENABLED(EXTENSIBLE_UI)
         Extensible_UI_API::yield();
       #endif
@@ -273,8 +276,12 @@ constexpr uint32_t file_addr = erase_unit_size + write_page_size;
     spi_flash_select();
     spi_write_8(READ_DATA);
     spi_write_24(addr);
-    if(spi_read_32() != reader.size()) {
-      SERIAL_ECHOPGM("File index verification failed");
+    const uint32_t size     = spi_read_32();
+    const uint32_t expected = reader.size();
+    if(size != expected) {
+      SERIAL_ECHOPGM("File index verification failed. ");
+      SERIAL_ECHOPAIR("Expected ", expected);
+      SERIAL_ECHOLNPAIR(" got ", size);
       verifyOk = false;
     }
     spi_flash_deselect();

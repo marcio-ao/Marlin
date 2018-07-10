@@ -59,14 +59,8 @@
 
   #define CLCD_USE_SOFT_SPI // Hardware SPI not implemented yet
 
-#elif !defined(SET_OUTPUT)
+#elif !defined(USE_MARLIN_IO)
   // Use standard Arduino Wire library
-
-  #include <Wire.h>
-  #if !defined(CLCD_USE_SOFT_SPI)
-      #include "SPI.h"
-  #endif
-
   #define SET_OUTPUT(p)             pinMode(p, OUTPUT);
   #define SET_INPUT_PULLUP(p)       pinMode(p, INPUT_PULLUP);
   #define SET_INPUT(p)              pinMode(p, INPUT);
