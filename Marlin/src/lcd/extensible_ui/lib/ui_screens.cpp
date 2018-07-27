@@ -22,9 +22,6 @@
 
 #include "ui.h"
 
-#include "../../../sd/SdFile.h"
-#include "../../../sd/cardreader.h"
-
 #if ENABLED(EXTENSIBLE_UI)
 
 #include "ftdi_eve_constants.h"
@@ -38,13 +35,12 @@
 #include "ui_screens.h"
 #include "ui_theme.h"
 #include "ui_event_loop.h"
+#include "ui_storage.h"
+#include "ui_filereader.h"
 
 using namespace FTDI;
 
 #define N_ELEMENTS(a) (sizeof(a)/sizeof(a[0]))
-
-#define THEME(t) fgcolor(Theme::t)
-#define BTN_EN_THEME(en, theme) enabled(en)
 
 static tiny_timer_t refresh_timer;
 
@@ -59,6 +55,11 @@ static union {
   struct {uint8_t volume; uint8_t brightness;} InterfaceSettingsScreen;
   struct {char passcode[5];}                   LockScreen;
   struct {
+    uint8_t e_tag;
+    uint8_t t_tag;
+    uint8_t repeat_tag;
+  } ChangeFilamentScreen;
+  struct {
     uint8_t increment; // Must match ValueAdjusters.
     float e_rel[Extensible_UI_API::extruderCount];
   } MoveAxisScreen;
@@ -67,12 +68,14 @@ static union {
 /******************************* MENU SCREEN TABLE ******************************/
 
 SCREEN_TABLE {
-  //DECL_SCREEN(WidgetsScreen),
+
   DECL_SCREEN(BootScreen),
   DECL_SCREEN(AboutScreen),
   DECL_SCREEN(AlertBoxScreen),
   DECL_SCREEN(RestoreFailsafeScreen),
+  DECL_SCREEN(SaveSettingsScreen),
   DECL_SCREEN(ConfirmAbortPrint),
+  DECL_SCREEN(SpinnerScreen),
   DECL_SCREEN(CalibrationScreen),
   DECL_SCREEN(StatusScreen),
   DECL_SCREEN(MenuScreen),
@@ -83,25 +86,72 @@ SCREEN_TABLE {
 #if HAS_BED_PROBE
   DECL_SCREEN(ZOffsetScreen),
 #endif
+#if HOTENDS > 1
+  DECL_SCREEN(NozzleOffsetScreen),
+#endif
+#if ENABLED(BACKLASH_GCODE)
+  DECL_SCREEN(BacklashCompensationScreen),
+#endif
   DECL_SCREEN(FeedrateScreen),
   DECL_SCREEN(VelocityScreen),
   DECL_SCREEN(AccelerationScreen),
   DECL_SCREEN(JerkScreen),
   DECL_SCREEN(TemperatureScreen),
-  DECL_SCREEN(CalibrationRegistersScreen),
+  DECL_SCREEN(ChangeFilamentScreen),
   DECL_SCREEN(InterfaceSettingsScreen),
   DECL_SCREEN(LockScreen),
   DECL_SCREEN(FilesScreen),
+  DECL_SCREEN(DeveloperScreen),
+  DECL_SCREEN(EraseSPIFlashScreen),
+  DECL_SCREEN(WidgetsScreen),
+  DECL_SCREEN(CalibrationRegistersScreen),
   DECL_SCREEN(MediaPlayerScreen),
 };
 
 SCREEN_TABLE_POST
 
+/****************** COLOR SCALES ***********************/
+
+uint32_t Theme::getWarmColor(uint16_t temp, uint16_t cool, uint16_t low, uint16_t high) {
+  FTDI::rgb_t R0, R1, mix;
+  const uint16_t med = (low+high)/2;
+
+  float t;
+  if(temp < cool) {
+    R0 = cool_rgb;
+    R1 = low_rgb;
+    t  = 0;
+  }
+  else if(temp < low) {
+    R0 = cool_rgb;
+    R1 = low_rgb;
+    t = (float(temp)-cool)/(low-cool);
+  }
+  else if(temp < med) {
+    R0 = low_rgb;
+    R1 = med_rgb;
+    t = (float(temp)-low)/(med-low);
+  }
+  else if(temp < high) {
+    R0 = med_rgb;
+    R1 = high_rgb;
+    t = (float(temp)-med)/(high-med);
+  }
+  else if(temp >= high) {
+    R0 = med_rgb;
+    R1 = high_rgb;
+    t = 1;
+  }
+  FTDI::rgb_t::lerp(t, R0, R1, mix);
+  return mix;
+}
+
 /****************** BUTTON HIGHTLIGHTING ROUTINE ***********************/
 
 enum {
-  STYLE_DISABLED = 0x01,
-  STYLE_RED_BTN  = 0x02
+  STYLE_DISABLED  = 0x01,
+  STYLE_RED_BTN   = 0x02,
+  STYLE_LIGHT_BTN = 0x04
 };
 
 void BaseScreen::onEntry() {
@@ -119,11 +169,14 @@ bool BaseScreen::buttonStyleCallback(uint8_t tag, uint8_t &style, uint16_t &opti
     return false;
   }
 
+  #if defined(MENU_TIMEOUT)
+  if(get_pressed_tag() != 0) {
+    reset_menu_timeout();
+  }
+  #endif
+
   if(tag != 0 && get_pressed_tag() == tag) {
     options = OPT_FLAT;
-    #if defined(MENU_TIMEOUT)
-      last_interaction = millis();
-    #endif
     return false;
   }
 
@@ -136,6 +189,19 @@ bool BaseScreen::buttonStyleCallback(uint8_t tag, uint8_t &style, uint16_t &opti
     } else {
       cmd.cmd(COLOR_RGB(Theme::red_btn::rgb_enabled))
          .fgcolor(Theme::red_btn::fg_enabled);
+    }
+    return true;              // Call me again to reset the colors
+  }
+
+  if(style & STYLE_LIGHT_BTN) {
+    if(style & STYLE_DISABLED) {
+      cmd.cmd(COLOR_RGB(Theme::light_btn::rgb_disabled))
+         .fgcolor(Theme::light_btn::fg_disabled)
+         .tag(0);
+      style &= ~STYLE_DISABLED; // Clear the disabled flag
+    } else {
+      cmd.cmd(COLOR_RGB(Theme::light_btn::rgb_enabled))
+         .fgcolor(Theme::light_btn::fg_enabled);
     }
     return true;              // Call me again to reset the colors
   }
@@ -162,8 +228,14 @@ void BaseScreen::onIdle() {
     const uint32_t elapsed = millis() - last_interaction;
     if(elapsed > MENU_TIMEOUT * 1000) {
       GOTO_SCREEN(StatusScreen);
-      last_interaction = millis();
+      reset_menu_timeout();
     }
+  #endif
+}
+
+void BaseScreen::reset_menu_timeout() {
+  #if defined(MENU_TIMEOUT)
+    last_interaction = millis();
   #endif
 }
 
@@ -175,7 +247,7 @@ void BaseScreen::onIdle() {
 
 void BootScreen::onRedraw(draw_mode_t what) {
   CommandProcessor cmd;
-  cmd.cmd(CLEAR_COLOR_RGB(Theme::background));
+  cmd.cmd(CLEAR_COLOR_RGB(0x000000));
   cmd.cmd(CLEAR(true,true,true));
 
   CLCD::turn_on_backlight();
@@ -190,6 +262,7 @@ void BootScreen::onIdle() {
     // miscalibration that has been stored to EEPROM.
     GOTO_SCREEN(CalibrationScreen);
   } else {
+    MediaPlayerScreen::playBootMedia();
     GOTO_SCREEN(StatusScreen);
   }
 }
@@ -212,7 +285,7 @@ void AboutScreen::onRedraw(draw_mode_t what) {
 
   cmd       .font(Theme::font_large) .text(  BTN_POS(1,2), BTN_SIZE(4,1), F("Color Touch Panel"))
      .tag(2).font(Theme::font_medium).text(  BTN_POS(1,3), BTN_SIZE(4,1), F("(c) 2018 Aleph Objects, Inc."))
-                                     .text(  BTN_POS(1,5), BTN_SIZE(4,1), getFirmwareName())
+     .tag(0)                         .text(  BTN_POS(1,5), BTN_SIZE(4,1), getFirmwareName())
      .tag(1)                         .button(BTN_POS(2,7), BTN_SIZE(2,1), F("Okay"));
 
   #undef GRID_COLS
@@ -221,9 +294,9 @@ void AboutScreen::onRedraw(draw_mode_t what) {
 
 bool AboutScreen::onTouchEnd(uint8_t tag) {
   switch(tag) {
-    case 1:        GOTO_PREVIOUS();                         return true;
-    case 2:        GOTO_SCREEN(CalibrationRegistersScreen); return true;
-    default:                                                return false;
+    case 1:        GOTO_PREVIOUS();              return true;
+    case 2:        GOTO_SCREEN(DeveloperScreen); return true;
+    default:                                     return false;
   }
 }
 
@@ -256,6 +329,11 @@ void DialogBoxBaseClass::drawOkayButton() {
   CommandProcessor cmd;
   cmd.font(Theme::font_medium)
      .tag(1).button( BTN_POS(1,8), BTN_SIZE(2,1), F("Okay"));
+}
+
+void DialogBoxBaseClass::drawSpinner() {
+  CommandProcessor cmd;
+  cmd.spinner(BTN_POS(1,5), BTN_SIZE(2,2)).execute();
 }
 
 #undef GRID_COLS
@@ -301,10 +379,34 @@ void RestoreFailsafeScreen::onRedraw(draw_mode_t what) {
 bool RestoreFailsafeScreen::onTouchEnd(uint8_t tag) {
   switch(tag) {
     case 1:
-      Extensible_UI_API::enqueueCommands(F("M502\nM500"));
+      Extensible_UI_API::enqueueCommands(F("M502"));
       AlertBoxScreen::show(F("Factory settings restored."));
       // Remove RestoreFailsafeScreen from the stack
       // so the alert box doesn't return to it.
+      current_screen.forget();
+      return true;
+    default:
+      return DialogBoxBaseClass::onTouchEnd(tag);
+  }
+}
+
+/**************************** SAVE CHANGES SCREEN ***************************/
+
+void SaveSettingsScreen::onRedraw(draw_mode_t what) {
+  drawMessage(
+    F("Do you wish to save these"),
+    F("settings as power on defaults?")
+  );
+  drawYesNoButtons();
+}
+
+bool SaveSettingsScreen::onTouchEnd(uint8_t tag) {
+  switch(tag) {
+    case 1:
+      Extensible_UI_API::enqueueCommands(F("M500"));
+      AlertBoxScreen::show(F("Settings saved!"));
+      // Remove SaveSettingsScreen from the stack
+      // so the alert box doesn't return to me.
       current_screen.forget();
       return true;
     default:
@@ -332,6 +434,23 @@ bool ConfirmAbortPrint::onTouchEnd(uint8_t tag) {
       return DialogBoxBaseClass::onTouchEnd(tag);
   }
 }
+
+/****************************** SPINNER SCREEN *****************************/
+
+void SpinnerScreen::onRedraw(draw_mode_t what) {
+}
+
+void SpinnerScreen::show(const progmem_str line1, const progmem_str line2, const progmem_str line3) {
+  drawMessage(line1, line2, line3);
+  drawSpinner();
+  storeBackground();
+}
+
+void SpinnerScreen::hide() {
+  CommandProcessor cmd;
+  cmd.stop().execute();
+}
+
 
 /************************************ KILL SCREEN *******************************/
 
@@ -379,35 +498,37 @@ void StatusScreen::draw_axis_position(draw_mode_t what) {
   if(what & BACKGROUND) {
     cmd.tag(6)
     #if defined(USE_PORTRAIT_ORIENTATION)
-      .THEME(axis_label) .font(Theme::font_large)
+      .fgcolor(Theme::axis_label)
+        .font(Theme::font_large)
                          .button( BTN_POS(1,5), BTN_SIZE(2,1), F(""), OPT_FLAT)
                          .button( BTN_POS(1,6), BTN_SIZE(2,1), F(""), OPT_FLAT)
                          .button( BTN_POS(1,7), BTN_SIZE(2,1), F(""), OPT_FLAT)
 
-                         .font(Theme::font_small)
+        .font(Theme::font_small)
                          .text  ( BTN_POS(1,5), BTN_SIZE(1,1), F("X"))
                          .text  ( BTN_POS(1,6), BTN_SIZE(1,1), F("Y"))
                          .text  ( BTN_POS(1,7), BTN_SIZE(1,1), F("Z"))
 
-                         .font(Theme::font_medium)
-      .THEME(x_axis)     .button( BTN_POS(2,5), BTN_SIZE(2,1), F(""), OPT_FLAT)
-      .THEME(y_axis)     .button( BTN_POS(2,6), BTN_SIZE(2,1), F(""), OPT_FLAT)
-      .THEME(z_axis)     .button( BTN_POS(2,7), BTN_SIZE(2,1), F(""), OPT_FLAT);
+        .font(Theme::font_medium)
+        .fgcolor(Theme::x_axis) .button( BTN_POS(2,5), BTN_SIZE(2,1), F(""), OPT_FLAT)
+        .fgcolor(Theme::y_axis) .button( BTN_POS(2,6), BTN_SIZE(2,1), F(""), OPT_FLAT)
+        .fgcolor(Theme::z_axis) .button( BTN_POS(2,7), BTN_SIZE(2,1), F(""), OPT_FLAT);
     #else
-      .THEME(axis_label) .font(Theme::font_large)
+      .fgcolor(Theme::axis_label)
+        .font(Theme::font_large)
                          .button( BTN_POS(1,5), BTN_SIZE(1,2), F(""),  OPT_FLAT)
                          .button( BTN_POS(2,5), BTN_SIZE(1,2), F(""),  OPT_FLAT)
                          .button( BTN_POS(3,5), BTN_SIZE(1,2), F(""),  OPT_FLAT)
 
-                         .font(Theme::font_small)
+        .font(Theme::font_small)
                          .text  ( BTN_POS(1,5), BTN_SIZE(1,1), F("X"))
                          .text  ( BTN_POS(2,5), BTN_SIZE(1,1), F("Y"))
                          .text  ( BTN_POS(3,5), BTN_SIZE(1,1), F("Z"))
                          .font(Theme::font_medium)
 
-      .THEME(x_axis)     .button( BTN_POS(1,6), BTN_SIZE(1,1), F(""), OPT_FLAT)
-      .THEME(y_axis)     .button( BTN_POS(2,6), BTN_SIZE(1,1), F(""), OPT_FLAT)
-      .THEME(z_axis)     .button( BTN_POS(3,6), BTN_SIZE(1,1), F(""), OPT_FLAT);
+        .fgcolor(Theme::x_axis) .button( BTN_POS(1,6), BTN_SIZE(1,1), F(""), OPT_FLAT)
+        .fgcolor(Theme::y_axis) .button( BTN_POS(2,6), BTN_SIZE(1,1), F(""), OPT_FLAT)
+        .fgcolor(Theme::z_axis) .button( BTN_POS(3,6), BTN_SIZE(1,1), F(""), OPT_FLAT);
     #endif
   }
 
@@ -455,20 +576,20 @@ void StatusScreen::draw_temperature(draw_mode_t what) {
     cmd.font(Theme::font_small)
     #if defined(USE_PORTRAIT_ORIENTATION)
        .tag(5)
-       .THEME(temp)      .button( BTN_POS(1,1), BTN_SIZE(4,2), F(""), OPT_FLAT)
-                         .button( BTN_POS(1,1), BTN_SIZE(8,1), F(""), OPT_FLAT)
-       .THEME(fan_speed) .button( BTN_POS(5,2), BTN_SIZE(4,1), F(""), OPT_FLAT)
+       .fgcolor(Theme::temp)      .button( BTN_POS(1,1), BTN_SIZE(4,2), F(""), OPT_FLAT)
+                                  .button( BTN_POS(1,1), BTN_SIZE(8,1), F(""), OPT_FLAT)
+       .fgcolor(Theme::fan_speed) .button( BTN_POS(5,2), BTN_SIZE(4,1), F(""), OPT_FLAT)
        .tag(0)
-       .THEME(progress)  .button( BTN_POS(1,3), BTN_SIZE(4,1), F(""), OPT_FLAT)
-                         .button( BTN_POS(5,3), BTN_SIZE(4,1), F(""), OPT_FLAT);
+       .fgcolor(Theme::progress)  .button( BTN_POS(1,3), BTN_SIZE(4,1), F(""), OPT_FLAT)
+                                  .button( BTN_POS(5,3), BTN_SIZE(4,1), F(""), OPT_FLAT);
     #else
        .tag(5)
-       .THEME(temp)      .button( BTN_POS(1,1), BTN_SIZE(4,2), F(""), OPT_FLAT)
-                         .button( BTN_POS(1,1), BTN_SIZE(8,1), F(""), OPT_FLAT)
-       .THEME(fan_speed) .button( BTN_POS(5,2), BTN_SIZE(4,1), F(""), OPT_FLAT)
+       .fgcolor(Theme::temp)      .button( BTN_POS(1,1), BTN_SIZE(4,2), F(""), OPT_FLAT)
+                                  .button( BTN_POS(1,1), BTN_SIZE(8,1), F(""), OPT_FLAT)
+       .fgcolor(Theme::fan_speed) .button( BTN_POS(5,2), BTN_SIZE(4,1), F(""), OPT_FLAT)
        .tag(0)
-       .THEME(progress)  .button( BTN_POS(9,1), BTN_SIZE(4,1), F(""), OPT_FLAT)
-                         .button( BTN_POS(9,2), BTN_SIZE(4,1), F(""), OPT_FLAT);
+       .fgcolor(Theme::progress)  .button( BTN_POS(9,1), BTN_SIZE(4,1), F(""), OPT_FLAT)
+                                  .button( BTN_POS(9,2), BTN_SIZE(4,1), F(""), OPT_FLAT);
     #endif
 
     // Draw Extruder Bitmap on Extruder Temperature Button
@@ -535,12 +656,12 @@ void StatusScreen::draw_temperature(draw_mode_t what) {
       );
     #endif
 
-    cmd.tag(5)
-       .font(Theme::font_medium)
-       .text(BTN_POS(2,1), BTN_SIZE(3,1), e0_str)
-       .text(BTN_POS(6,1), BTN_SIZE(3,1), e1_str)
-       .text(BTN_POS(2,2), BTN_SIZE(3,1), bed_str)
-       .text(BTN_POS(6,2), BTN_SIZE(3,1), fan_str);
+      cmd.tag(5)
+         .font(Theme::font_medium)
+         .text(BTN_POS(2,1), BTN_SIZE(3,1), e0_str)
+         .text(BTN_POS(6,1), BTN_SIZE(3,1), e1_str)
+         .text(BTN_POS(2,2), BTN_SIZE(3,1), bed_str)
+         .text(BTN_POS(6,2), BTN_SIZE(3,1), fan_str);
   }
 }
 
@@ -551,11 +672,11 @@ void StatusScreen::draw_progress(draw_mode_t what) {
   if(what & BACKGROUND) {
     cmd.tag(0).font(Theme::font_small)
     #if defined(USE_PORTRAIT_ORIENTATION)
-       .THEME(progress) .button(BTN_POS(1,3), BTN_SIZE(4,1), F(""), OPT_FLAT)
-                        .button(BTN_POS(5,3), BTN_SIZE(4,1), F(""), OPT_FLAT);
+       .fgcolor(Theme::progress) .button(BTN_POS(1,3), BTN_SIZE(4,1), F(""), OPT_FLAT)
+                                 .button(BTN_POS(5,3), BTN_SIZE(4,1), F(""), OPT_FLAT);
     #else
-       .THEME(progress) .button(BTN_POS(9,1), BTN_SIZE(4,1), F(""), OPT_FLAT)
-                        .button(BTN_POS(9,2), BTN_SIZE(4,1), F(""), OPT_FLAT);
+       .fgcolor(Theme::progress) .button(BTN_POS(9,1), BTN_SIZE(4,1), F(""), OPT_FLAT)
+                                 .button(BTN_POS(9,2), BTN_SIZE(4,1), F(""), OPT_FLAT);
     #endif
   }
 
@@ -600,7 +721,7 @@ void StatusScreen::draw_interaction_buttons(draw_mode_t what) {
     } else {
       cmd.tag(0)
          .cmd(COLOR_RGB(Theme::status_bg))
-         .THEME(status_bg);
+         .fgcolor(Theme::status_bg);
     }
 
     cmd.font(Theme::font_medium)
@@ -656,7 +777,7 @@ void StatusScreen::draw_status_message(draw_mode_t what, const char * const mess
   #define GRID_COLS 1
   if(what & BACKGROUND) {
     CommandProcessor cmd;
-    cmd.THEME(status_msg)
+    cmd.fgcolor(Theme::status_msg)
        .tag(0)
        .font(Theme::font_large)
     #if defined(USE_PORTRAIT_ORIENTATION)
@@ -695,12 +816,14 @@ void StatusScreen::setStatusMessage(const char * const message) {
 void StatusScreen::onStartup() {
   // Load the bitmaps for the status screen
 
-  CLCD::flash_write_rgb332_bitmap(TD_Icon_Info.RAMG_addr,       TD_Icon,       sizeof(TD_Icon));
-  CLCD::flash_write_rgb332_bitmap(Extruder_Icon_Info.RAMG_addr, Extruder_Icon, sizeof(Extruder_Icon));
-  CLCD::flash_write_rgb332_bitmap(Bed_Heat_Icon_Info.RAMG_addr, Bed_Heat_Icon, sizeof(Bed_Heat_Icon));
-  CLCD::flash_write_rgb332_bitmap(Fan_Icon_Info.RAMG_addr,      Fan_Icon,      sizeof(Fan_Icon));
+  CLCD::mem_write_pgm(TD_Icon_Info.RAMG_addr,       TD_Icon,       sizeof(TD_Icon));
+  CLCD::mem_write_pgm(Extruder_Icon_Info.RAMG_addr, Extruder_Icon, sizeof(Extruder_Icon));
+  CLCD::mem_write_pgm(Bed_Heat_Icon_Info.RAMG_addr, Bed_Heat_Icon, sizeof(Bed_Heat_Icon));
+  CLCD::mem_write_pgm(Fan_Icon_Info.RAMG_addr,      Fan_Icon,      sizeof(Fan_Icon));
 
   setStatusMessage(F(WELCOME_MSG));
+
+  UIStorage::initialize();
 }
 
 void StatusScreen::onRedraw(draw_mode_t what) {
@@ -730,9 +853,7 @@ bool StatusScreen::onTouchEnd(uint8_t tag) {
   switch(tag) {
     case 1:
       #if defined(UI_FRAMEWORK_DEBUG)
-        #if defined (SERIAL_PROTOCOLLNPGM)
-          SERIAL_PROTOCOLLNPGM("Aborting print");
-        #endif
+          SERIAL_ECHO_START(); SERIAL_ECHOLNPGM("Aborting print");
       #endif
       GOTO_SCREEN(ConfirmAbortPrint);
       break;
@@ -777,30 +898,30 @@ void MenuScreen::onRedraw(draw_mode_t what) {
     #if defined(USE_PORTRAIT_ORIENTATION)
       #define GRID_ROWS 7
       #define GRID_COLS 2
-        .tag(2).enabled(1).button( BTN_POS(1,1), BTN_SIZE(1,1), F("Auto Home"))
-        .tag(3).enabled(1).button( BTN_POS(2,1), BTN_SIZE(1,1), F("Level X Axis"))
-        .tag(4).enabled(1).button( BTN_POS(1,2), BTN_SIZE(1,1), F("Move Axis"))
-        .tag(5).enabled(1).button( BTN_POS(2,2), BTN_SIZE(1,1), F("Motors Off"))
-        .tag(6).enabled(1).button( BTN_POS(1,3), BTN_SIZE(2,1), F("Temperature"))
-        .tag(7).enabled(0).button( BTN_POS(1,4), BTN_SIZE(2,1), F("Change Filament"))
-        .tag(8).enabled(1).button( BTN_POS(1,5), BTN_SIZE(2,1), F("Advanced Settings"))
-        .tag(9).enabled(1).button( BTN_POS(1,6), BTN_SIZE(2,1), F("About Firmware"))
-        .THEME(back_btn)
-        .tag(1).enabled(1).button( BTN_POS(1,7), BTN_SIZE(2,1), F("Back"));
+        .tag(2).button( BTN_POS(1,1), BTN_SIZE(1,1), F("Auto Home"))
+        .tag(3).button( BTN_POS(2,1), BTN_SIZE(1,1), F("Level X Axis"))
+        .tag(4).button( BTN_POS(1,2), BTN_SIZE(1,1), F("Move Axis"))
+        .tag(5).button( BTN_POS(2,2), BTN_SIZE(1,1), F("Motors Off"))
+        .tag(6).button( BTN_POS(1,3), BTN_SIZE(2,1), F("Temperature"))
+        .tag(7).button( BTN_POS(1,4), BTN_SIZE(2,1), F("Change Filament"))
+        .tag(8).button( BTN_POS(1,5), BTN_SIZE(2,1), F("Advanced Settings"))
+        .tag(9).button( BTN_POS(1,6), BTN_SIZE(2,1), F("About Firmware"))
+        .fgcolor(Theme::back_btn)
+        .tag(1).button( BTN_POS(1,7), BTN_SIZE(2,1), F("Back"));
       #undef GRID_COLS
       #undef GRID_ROWS
     #else
       #define GRID_ROWS 5
       #define GRID_COLS 2
-        .tag(2).enabled(1).button( BTN_POS(1,1), BTN_SIZE(1,1), F("Auto Home"))
-        .tag(3).enabled(1).button( BTN_POS(2,1), BTN_SIZE(1,1), F("Level X Axis"))
-        .tag(4).enabled(1).button( BTN_POS(1,2), BTN_SIZE(1,1), F("Move Axis"))
-        .tag(5).enabled(1).button( BTN_POS(2,2), BTN_SIZE(1,1), F("Motors Off"))
-        .tag(6).enabled(1).button( BTN_POS(1,3), BTN_SIZE(1,1), F("Temperature"))
-        .tag(7).enabled(0).button( BTN_POS(2,3), BTN_SIZE(1,1), F("Change Filament"))
-        .tag(8).enabled(1).button( BTN_POS(1,4), BTN_SIZE(1,1), F("Advanced Settings"))
-        .tag(9).enabled(1).button( BTN_POS(2,4), BTN_SIZE(1,1), F("About Firmware"))
-        .tag(1).enabled(1).button( BTN_POS(1,5), BTN_SIZE(2,1), F("Back"));
+        .tag(2).button( BTN_POS(1,1), BTN_SIZE(1,1), F("Auto Home"))
+        .tag(3).button( BTN_POS(2,1), BTN_SIZE(1,1), F("Level X Axis"))
+        .tag(4).button( BTN_POS(1,2), BTN_SIZE(1,1), F("Move Axis"))
+        .tag(5).button( BTN_POS(2,2), BTN_SIZE(1,1), F("Motors Off"))
+        .tag(6).button( BTN_POS(1,3), BTN_SIZE(1,1), F("Temperature"))
+        .tag(7).button( BTN_POS(2,3), BTN_SIZE(1,1), F("Change Filament"))
+        .tag(8).button( BTN_POS(1,4), BTN_SIZE(1,1), F("Advanced Settings"))
+        .tag(9).button( BTN_POS(2,4), BTN_SIZE(1,1), F("About Firmware"))
+        .tag(1).button( BTN_POS(1,5), BTN_SIZE(2,1), F("Back"));
       #undef GRID_COLS
       #undef GRID_ROWS
     #endif
@@ -819,6 +940,7 @@ bool MenuScreen::onTouchEnd(uint8_t tag) {
     case 4:  GOTO_SCREEN(MoveAxisScreen);                             break;
     case 5:  enqueueCommands(F("M84"));                               break;
     case 6:  GOTO_SCREEN(TemperatureScreen);                          break;
+    case 7:  GOTO_SCREEN(ChangeFilamentScreen);                       break;
     case 8:  GOTO_SCREEN(AdvancedSettingsScreen);                     break;
     case 9:  GOTO_SCREEN(AboutScreen);                                break;
     default:
@@ -840,7 +962,7 @@ void TuneScreen::onRedraw(draw_mode_t what) {
       #define GRID_ROWS 5
       #define GRID_COLS 2
        .tag(2).enabled(1)      .button( BTN_POS(1,1), BTN_SIZE(2,1), F("Temperature"))
-       .tag(3).enabled(0)      .button( BTN_POS(1,2), BTN_SIZE(2,1), F("Change Filament"))
+       .tag(3).enabled(1)      .button( BTN_POS(1,2), BTN_SIZE(2,1), F("Change Filament"))
        .tag(4)
       #if HAS_BED_PROBE
         .enabled(1)
@@ -849,14 +971,14 @@ void TuneScreen::onRedraw(draw_mode_t what) {
       #endif
                                .button( BTN_POS(1,3), BTN_SIZE(2,1), F("Z Offset"))
        .tag(5).enabled(1)      .button( BTN_POS(1,4), BTN_SIZE(2,1), F("Print Speed"))
-       .tag(1).THEME(back_btn) .button( BTN_POS(1,5), BTN_SIZE(2,1), F("Back"));
+       .tag(1).fgcolor(Theme::back_btn) .button( BTN_POS(1,5), BTN_SIZE(2,1), F("Back"));
       #undef GRID_COLS
       #undef GRID_ROWS
     #else
       #define GRID_ROWS 3
       #define GRID_COLS 2
        .tag(2).enabled(1)      .button( BTN_POS(1,1), BTN_SIZE(1,1), F("Temperature"))
-       .tag(3).enabled(0)      .button( BTN_POS(1,2), BTN_SIZE(1,1), F("Change Filament"))
+       .tag(3).enabled(1)      .button( BTN_POS(1,2), BTN_SIZE(1,1), F("Change Filament"))
        .tag(4)
       #if HAS_BED_PROBE
        .enabled(1)
@@ -865,7 +987,7 @@ void TuneScreen::onRedraw(draw_mode_t what) {
       #endif
                                .button( BTN_POS(2,1), BTN_SIZE(1,1), F("Z Offset"))
        .tag(5).enabled(1)      .button( BTN_POS(2,2), BTN_SIZE(1,1), F("Print Speed"))
-       .tag(1).THEME(back_btn) .button( BTN_POS(1,3), BTN_SIZE(2,1), F("Back"));
+       .tag(1).fgcolor(Theme::back_btn) .button( BTN_POS(1,3), BTN_SIZE(2,1), F("Back"));
       #undef GRID_COLS
       #undef GRID_ROWS
     #endif
@@ -876,6 +998,7 @@ bool TuneScreen::onTouchEnd(uint8_t tag) {
   switch(tag) {
     case 1:  GOTO_PREVIOUS();                    break;
     case 2:  GOTO_SCREEN(TemperatureScreen);     break;
+    case 3:  GOTO_SCREEN(ChangeFilamentScreen);  break;
     #if HAS_BED_PROBE
     case 4:  GOTO_SCREEN(ZOffsetScreen);         break;
     #endif
@@ -907,38 +1030,60 @@ void AdvancedSettingsScreen::onRedraw(draw_mode_t what) {
       #else
         .enabled(0)
       #endif
-      .tag(4) .button( BTN_POS(1,1), BTN_SIZE(1,2), F("Z Offset "))
+      .tag(2) .button( BTN_POS(1,1), BTN_SIZE(1,2), F("Z Offset "))
       .enabled(1)
-      .tag(5) .button( BTN_POS(1,3), BTN_SIZE(1,1), F("Steps/mm"))
-      .tag(6) .button( BTN_POS(2,1), BTN_SIZE(1,1), F("Velocity "))
-      .tag(7) .button( BTN_POS(2,2), BTN_SIZE(1,1), F("Acceleration"))
-      .tag(8) .button( BTN_POS(2,3), BTN_SIZE(1,1), F("Jerk"))
-      .tag(9) .button( BTN_POS(1,4), BTN_SIZE(2,1), F("Interface Settings"))
-      .tag(10).button( BTN_POS(1,5), BTN_SIZE(2,1), F("Restore Factory Settings"))
-      .tag(2) .button( BTN_POS(1,6), BTN_SIZE(2,1), F("Save As Default"))
-      .THEME(back_btn)
+      .tag(3) .button( BTN_POS(1,3), BTN_SIZE(1,1), F("Steps/mm"))
+      #if HOTENDS > 1
+      .enabled(1)
+      #else
+      .enabled(0)
+      #endif
+      .tag(4) .button( BTN_POS(1,4), BTN_SIZE(1,1), F("Dual Offset"))
+      .tag(9).button( BTN_POS(1,5), BTN_SIZE(2,1), F("Interface Settings"))
+      .tag(10).button( BTN_POS(1,6), BTN_SIZE(2,1), F("Restore Factory Settings"))
+      .tag(5) .button( BTN_POS(2,1), BTN_SIZE(1,1), F("Velocity "))
+      .tag(6) .button( BTN_POS(2,2), BTN_SIZE(1,1), F("Acceleration"))
+      .tag(7) .button( BTN_POS(2,3), BTN_SIZE(1,1), F("Jerk"))
+      #if ENABLED(BACKLASH_GCODE)
+      .enabled(1)
+      #else
+      .enabled(0)
+      #endif
+      .tag(8).button( BTN_POS(2,4), BTN_SIZE(1,1), F("Axis Backlash"))
+      .fgcolor(Theme::back_btn)
       .tag(1) .button( BTN_POS(1,7), BTN_SIZE(2,1), F("Back"));
       #undef GRID_COLS
       #undef GRID_ROWS
     #else
-      #define GRID_ROWS 5
+      #define GRID_ROWS 6
       #define GRID_COLS 2
       #if HAS_BED_PROBE
         .enabled(1)
       #else
         .enabled(0)
       #endif
-      .tag(4) .button( BTN_POS(1,1), BTN_SIZE(1,1), F("Z Offset "))
+      .tag(2) .button( BTN_POS(1,1),  BTN_SIZE(1,1), F("Z Offset "))
       .enabled(1)
-      .tag(5) .button( BTN_POS(1,2), BTN_SIZE(1,1), F("Steps/mm"))
-      .tag(9) .button( BTN_POS(1,3), BTN_SIZE(1,1), F("Interface Settings"))
-      .tag(6) .button( BTN_POS(2,1), BTN_SIZE(1,1), F("Velocity "))
-      .tag(7) .button( BTN_POS(2,2), BTN_SIZE(1,1), F("Acceleration"))
-      .tag(8) .button( BTN_POS(2,3), BTN_SIZE(1,1), F("Jerk"))
-      .tag(10).button( BTN_POS(1,4), BTN_SIZE(2,1), F("Restore Factory Settings"))
-      .tag(2) .button( BTN_POS(1,5), BTN_SIZE(1,1), F("Save"))
-      .THEME(back_btn)
-      .tag(1) .button( BTN_POS(2,5), BTN_SIZE(1,1), F("Back"));
+      .tag(3) .button( BTN_POS(1,2),  BTN_SIZE(1,1), F("Steps/mm"))
+      #if ENABLED(BACKLASH_GCODE)
+      .enabled(1)
+      #else
+      .enabled(0)
+      #endif
+      .tag(8).button( BTN_POS(1,3),  BTN_SIZE(1,1), F("Axis Backlash"))
+      #if HOTENDS > 1
+      .enabled(1)
+      #else
+      .enabled(0)
+      #endif
+      .tag(4) .button( BTN_POS(1,4),  BTN_SIZE(1,1), F("Dual Offset"))
+      .tag(5) .button( BTN_POS(2,1),  BTN_SIZE(1,1), F("Velocity "))
+      .tag(6) .button( BTN_POS(2,2),  BTN_SIZE(1,1), F("Acceleration"))
+      .tag(7) .button( BTN_POS(2,3),  BTN_SIZE(1,1), F("Jerk"))
+      .tag(9).button( BTN_POS(2,4),  BTN_SIZE(1,1), F("Interface Settings"))
+      .tag(10).button( BTN_POS(1,5),  BTN_SIZE(2,1), F("Restore Factory Settings"))
+      .fgcolor(Theme::back_btn)
+      .tag(1) .button( BTN_POS(1,6),  BTN_SIZE(2,1), F("Back"));
       #undef GRID_COLS
       #undef GRID_ROWS
     #endif
@@ -949,27 +1094,276 @@ bool AdvancedSettingsScreen::onTouchEnd(uint8_t tag) {
   using namespace Extensible_UI_API;
 
   switch(tag) {
-    case 1:  GOTO_PREVIOUS();                      break;
-    case 2:
-      enqueueCommands(F("M500"));
-      AlertBoxScreen::show(F("Settings saved!"));
-      break;
+    case 1:
+             // Remove AdvancedSettingsScreen from the stack
+             // so SaveSettingsScreen doesn't return here.
+             GOTO_SCREEN(SaveSettingsScreen);
+             current_screen.forget();
+             break;
     #if HAS_BED_PROBE
-    case 4:  GOTO_SCREEN(ZOffsetScreen);           break;
+    case 2:  GOTO_SCREEN(ZOffsetScreen);              break;
     #endif
-    case 5:  GOTO_SCREEN(StepsScreen);             break;
-    case 6:  GOTO_SCREEN(VelocityScreen);          break;
-    case 7:  GOTO_SCREEN(AccelerationScreen);      break;
-    case 8:  GOTO_SCREEN(JerkScreen);              break;
-    case 9:
-      GOTO_SCREEN(InterfaceSettingsScreen);
-      LockScreen::check_passcode();
-      break;
-    case 10: GOTO_SCREEN(RestoreFailsafeScreen);   break;
-    default:
-      return false;
+    case 3:  GOTO_SCREEN(StepsScreen);                break;
+    #if HOTENDS > 1
+    case 4:  GOTO_SCREEN(NozzleOffsetScreen);         break;
+    #endif
+    case 5:  GOTO_SCREEN(VelocityScreen);             break;
+    case 6:  GOTO_SCREEN(AccelerationScreen);         break;
+    case 7:  GOTO_SCREEN(JerkScreen);                 break;
+    #if ENABLED(BACKLASH_GCODE)
+    case 8:  GOTO_SCREEN(BacklashCompensationScreen); break;
+    #endif
+    case 9:  GOTO_SCREEN(InterfaceSettingsScreen); LockScreen::check_passcode(); break;
+    case 10: GOTO_SCREEN(RestoreFailsafeScreen);   LockScreen::check_passcode(); break;
+    default: return false;
   }
   return true;
+}
+
+/************************* CHANGE FILAMENT SCREEN *****************************/
+
+#define COOL_TEMP  40
+#define LOW_TEMP  180
+#define MED_TEMP  200
+#define HIGH_TEMP 220
+
+#define _STRINGIFY(v) #v
+#define STRINGIFY(v) _STRINGIFY(v)
+
+void ChangeFilamentScreen::drawTempGradient(uint16_t x, uint16_t y, uint16_t w, uint16_t h) {
+  CommandProcessor cmd;
+  cmd.cmd(SCISSOR_XY   (x, y))
+     .cmd(SCISSOR_SIZE (w, h/2))
+     .gradient         (x, y,     Theme::high_rgb, x, y+h/2, Theme::med_rgb)
+     .cmd(SCISSOR_XY   (x, y+h/2))
+     .cmd(SCISSOR_SIZE (w, h/2))
+     .gradient         (x, y+h/2, Theme::med_rgb,  x, y+h, Theme::low_rgb)
+     .cmd(SCISSOR_XY   ())
+     .cmd(SCISSOR_SIZE ());
+}
+
+void ChangeFilamentScreen::onEntry() {
+  screen_data.ChangeFilamentScreen.e_tag = Extensible_UI_API::getActiveTool() + 9;
+  screen_data.ChangeFilamentScreen.t_tag = 0;
+}
+
+void ChangeFilamentScreen::onRedraw(draw_mode_t what) {
+  using namespace Extensible_UI_API;
+  CommandProcessor cmd;
+
+  #if defined(USE_PORTRAIT_ORIENTATION)
+    #define GRID_COLS 2
+    #define GRID_ROWS 11
+  #else
+    #define GRID_COLS 4
+    #define GRID_ROWS 6
+  #endif
+
+  if(what & BACKGROUND) {
+    cmd.cmd(CLEAR_COLOR_RGB(Theme::background))
+       .cmd(CLEAR(true,true,true))
+    #if defined(USE_PORTRAIT_ORIENTATION)
+       .font(Theme::font_large)
+    #else
+       .font(Theme::font_medium)
+    #endif
+       .text(BTN_POS(1,1), BTN_SIZE(2,1), F("Hotend Selection:"))
+       .text(BTN_POS(1,3), BTN_SIZE(2,1), F("Soften Temp:"))
+    #if defined(USE_PORTRAIT_ORIENTATION)
+
+       .text(BTN_POS(1,7), BTN_SIZE(1,1), F("Current Temp:"))
+       .text(BTN_POS(1,8), BTN_SIZE(1,1), F("Unload:"))
+       .text(BTN_POS(2,8), BTN_SIZE(1,1), F("Load:"));
+    #else
+
+       .text(BTN_POS(3,1), BTN_SIZE(2,1), F("Current Temp:"))
+       .text(BTN_POS(3,3), BTN_SIZE(1,1), F("Unload:"))
+       .text(BTN_POS(4,3), BTN_SIZE(1,1), F("Load:"));
+    #endif
+
+    drawTempGradient(BTN_POS(1,4), BTN_SIZE(1,3));
+  }
+
+  if(what & FOREGROUND) {
+    char e_str[15];
+
+    sprintf_P(
+      e_str,
+      PSTR("%-3d / %-3d C"),
+      ROUND(getActualTemp_celsius(getExtruder())),
+      ROUND(getTargetTemp_celsius(getExtruder()))
+    );
+
+    const rgb_t tcol = Theme::getWarmColor(getActualTemp_celsius(getExtruder()));
+    cmd.cmd(COLOR_RGB(tcol))
+       .tag(15)
+    #if defined(USE_PORTRAIT_ORIENTATION)
+       .rectangle(BTN_POS(2,7), BTN_SIZE(1,1))
+    #else
+       .rectangle(BTN_POS(3,2), BTN_SIZE(2,1))
+    #endif
+       .cmd(COLOR_RGB(tcol.luminance() > 128 ? 0x000000 : 0xFFFFFF))
+       .font(Theme::font_medium)
+    #if defined(USE_PORTRAIT_ORIENTATION)
+       .text   (BTN_POS(2,7), BTN_SIZE(1,1), e_str);
+    #else
+       .text   (BTN_POS(3,2), BTN_SIZE(2,1), e_str);
+    #endif
+
+    default_button_colors();
+
+    const bool e_ok = screen_data.ChangeFilamentScreen.e_tag != 0;
+    const bool t_ok = getActualTemp_celsius(getExtruder()) > getSoftenTemp() - 10;
+
+    const uint32_t tog2  = screen_data.ChangeFilamentScreen.t_tag == 2  ? Theme::toggle_on : Theme::toggle_off;
+    const uint32_t tog3  = screen_data.ChangeFilamentScreen.t_tag == 3  ? Theme::toggle_on : Theme::toggle_off;
+    const uint32_t tog4  = screen_data.ChangeFilamentScreen.t_tag == 4  ? Theme::toggle_on : Theme::toggle_off;
+    const uint32_t tog10 = screen_data.ChangeFilamentScreen.e_tag == 10 ? Theme::toggle_on : Theme::toggle_off;
+    const uint32_t tog11 = screen_data.ChangeFilamentScreen.e_tag == 11 ? Theme::toggle_on : Theme::toggle_off;
+
+    cmd.font(Theme::font_large)
+       .tag(10).fgcolor(tog10)               .button (BTN_POS(1,2), BTN_SIZE(1,1), F("1"))
+    #if HOTENDS < 2
+       .enabled(false)
+    #else
+       .fgcolor(tog11)
+    #endif
+       .tag(11)               .button (BTN_POS(2,2), BTN_SIZE(1,1), F("2"));
+
+    // Mask out areas if the related functionality must be disabled.
+
+    #if defined(USE_PORTRAIT_ORIENTATION)
+    if(!e_ok) cmd.cmd(COLOR_RGB(Theme::background)).rectangle(BTN_POS(1,3), BTN_SIZE(2,7)).cmd(COLOR_RGB(0xFFFFFF));
+    if(!t_ok) cmd.cmd(COLOR_RGB(Theme::background)).rectangle(BTN_POS(1,8), BTN_SIZE(2,2)).cmd(COLOR_RGB(0xFFFFFF));
+    #else
+    if(!e_ok) cmd.cmd(COLOR_RGB(Theme::background)).rectangle(BTN_POS(1,3), BTN_SIZE(2,7))
+                                                   .rectangle(BTN_POS(3,1), BTN_SIZE(2,2)).cmd(COLOR_RGB(0xFFFFFF));
+    if(!t_ok) cmd.cmd(COLOR_RGB(Theme::background)).rectangle(BTN_POS(3,3), BTN_SIZE(2,3)).cmd(COLOR_RGB(0xFFFFFF));
+    #endif
+
+    if(e_ok && !t_ok) reset_menu_timeout();
+
+    const uint16_t tag7_opt = screen_data.ChangeFilamentScreen.repeat_tag == 7 ? OPT_FLAT : OPT_3D;
+    const uint16_t tag8_opt = screen_data.ChangeFilamentScreen.repeat_tag == 8 ? OPT_FLAT : OPT_3D;
+
+    #if defined(USE_PORTRAIT_ORIENTATION)
+      cmd.font(Theme::font_large)
+    #else
+      cmd.font(Theme::font_small)
+    #endif
+       .tag(2) .fgcolor(tog2) .enabled(e_ok) .button (BTN_POS(2,6), BTN_SIZE(1,1), F( STRINGIFY(LOW_TEMP)  "C (PLA)"))
+       .tag(3) .fgcolor(tog3) .enabled(e_ok) .button (BTN_POS(2,5), BTN_SIZE(1,1), F( STRINGIFY(MED_TEMP)  "C (ABS)"))
+       .tag(4) .fgcolor(tog4) .enabled(e_ok) .button (BTN_POS(2,4), BTN_SIZE(1,1), F( STRINGIFY(HIGH_TEMP) "C (High)"))
+       .fgcolor(Theme::toggle_off)
+
+    // Add tags to color gradient
+    .cmd(COLOR_MASK(0,0,0,0))
+    .tag(2) .rectangle(BTN_POS(1,6), BTN_SIZE(1,1))
+    .tag(3) .rectangle(BTN_POS(1,5), BTN_SIZE(1,1))
+    .tag(4) .rectangle(BTN_POS(1,4), BTN_SIZE(1,1))
+    .cmd(COLOR_MASK(1,1,1,1))
+
+    #if defined(USE_PORTRAIT_ORIENTATION)
+       .font(Theme::font_large)
+       .tag(5)                .enabled(t_ok) .button (BTN_POS(1,9),  BTN_SIZE(1,1), F("Momentary"))
+       .tag(6)                .enabled(t_ok) .button (BTN_POS(2,9),  BTN_SIZE(1,1), F("Momentary"))
+       .tag(7)                .enabled(t_ok) .button (BTN_POS(1,10), BTN_SIZE(1,1), F("Continuous"), tag7_opt)
+       .tag(8)                .enabled(t_ok) .button (BTN_POS(2,10), BTN_SIZE(1,1), F("Continuous"), tag8_opt)
+       .tag(1)                               .button (BTN_POS(1,11), BTN_SIZE(2,1), F("Back"));
+    #else
+       .font(Theme::font_medium)
+       .tag(5)                .enabled(t_ok) .button (BTN_POS(3,4), BTN_SIZE(1,1), F("Momentary"))
+       .tag(6)                .enabled(t_ok) .button (BTN_POS(4,4), BTN_SIZE(1,1), F("Momentary"))
+       .tag(7)                .enabled(t_ok) .button (BTN_POS(3,5), BTN_SIZE(1,1), F("Continuous"))
+       .tag(8)                .enabled(t_ok) .button (BTN_POS(4,5), BTN_SIZE(1,1), F("Continuous"))
+       .tag(1)                               .button (BTN_POS(3,6), BTN_SIZE(2,1), F("Back"));
+    #endif
+  }
+  #undef GRID_COLS
+  #undef GRID_ROWS
+}
+
+uint8_t ChangeFilamentScreen::getSoftenTemp() {
+  switch(screen_data.ChangeFilamentScreen.t_tag) {
+    case 2:  return LOW_TEMP;
+    case 3:  return MED_TEMP;
+    case 4:  return HIGH_TEMP;
+    default: return EXTRUDE_MINTEMP;
+  }
+}
+
+uint8_t ChangeFilamentScreen::getExtruder() {
+  switch(screen_data.ChangeFilamentScreen.e_tag) {
+    case 10: return 1;
+    case 11: return 2;
+    default: return 0;
+  }
+}
+
+bool ChangeFilamentScreen::onTouchEnd(uint8_t tag) {
+  using namespace Extensible_UI_API;
+  switch(tag) {
+    case 1:  GOTO_PREVIOUS();                      break;
+    case 2:
+    case 3:
+    case 4:
+      screen_data.ChangeFilamentScreen.t_tag = tag;
+      setTargetTemp_celsius(getExtruder(), getSoftenTemp());
+      break;
+    case 7: screen_data.ChangeFilamentScreen.repeat_tag = (screen_data.ChangeFilamentScreen.repeat_tag == 7) ? 0 : 7; break;
+    case 8: screen_data.ChangeFilamentScreen.repeat_tag = (screen_data.ChangeFilamentScreen.repeat_tag == 8) ? 0 : 8; break;
+    case 10:
+    case 11:
+      screen_data.ChangeFilamentScreen.e_tag = tag;
+      screen_data.ChangeFilamentScreen.t_tag = 0;
+      setActiveTool(getExtruder());
+      break;
+    case 15: GOTO_SCREEN(TemperatureScreen); break;
+  }
+  return true;
+}
+
+bool ChangeFilamentScreen::onTouchHeld(uint8_t tag) {
+  using namespace Extensible_UI_API;
+
+  // We don't want to stack up moves, so wait until the
+  // machine is idle before sending another.
+  if(isMoving()) {
+    return false;
+  }
+
+  float increment_mm  = 1;
+
+  axis_t axis;
+  switch(screen_data.ChangeFilamentScreen.e_tag) {
+    case 10: axis = E0; break;
+    case 11: axis = E1; break;
+    case 12: axis = E2; break;
+    case 13: axis = E3; break;
+    default: return false;
+  }
+
+  switch(tag) {
+    case  5: increment_mm *= -1; break;
+    case  6: increment_mm *=  1; break;
+    case  7: increment_mm *= -1; break;
+    case  8: increment_mm *=  1; break;
+    default: return false;
+  }
+
+  const float feedrate_mm_s = abs(increment_mm * TOUCH_REPEATS_PER_SECOND);
+  setAxisPosition_mm(axis, getAxisPosition_mm(axis) + increment_mm, feedrate_mm_s);
+  return true;
+}
+
+void ChangeFilamentScreen::onIdle() {
+  if(screen_data.ChangeFilamentScreen.repeat_tag) onTouchHeld(screen_data.ChangeFilamentScreen.repeat_tag);
+
+  if(refresh_timer.elapsed(STATUS_UPDATE_INTERVAL)) {
+    onRefresh();
+    refresh_timer.start();
+  }
+  BaseScreen::onIdle();
 }
 
 /******************************** CALIBRATION SCREEN ****************************/
@@ -989,9 +1383,8 @@ void CalibrationScreen::onEntry() {
   // be misinterpreted.
   while(CLCD::is_touching()) {
     #if defined(UI_FRAMEWORK_DEBUG)
-      #if defined (SERIAL_PROTOCOLLNPGM)
-        SERIAL_PROTOCOLLNPGM("Waiting for touch release");
-      #endif
+      SERIAL_ECHO_START();
+      SERIAL_ECHOLNPGM("Waiting for touch release");
     #endif
   }
   BaseScreen::onEntry();
@@ -1024,20 +1417,8 @@ void CalibrationScreen::onRedraw(draw_mode_t what) {
 
 void CalibrationScreen::onIdle() {
   if(!CommandProcessor::is_processing()) {
-    #if defined(UI_FRAMEWORK_DEBUG)
-      #if defined (SERIAL_PROTOCOLLNPGM)
-        SERIAL_PROTOCOLLNPGM("Calibration finished");
-      #endif
-    #endif
     GOTO_SCREEN(StatusScreen);
   }
-  #if defined(UI_FRAMEWORK_DEBUG)
-    else {
-      #if defined (SERIAL_PROTOCOLLNPGM)
-        SERIAL_PROTOCOLLNPGM("Waiting for calibration to finish.");
-      #endif
-    }
-  #endif
 }
 
 /*************************** GENERIC VALUE ADJUSTMENT SCREEN ******************************/
@@ -1047,7 +1428,7 @@ void CalibrationScreen::onIdle() {
   #define GRID_ROWS 10
 #else
   #define GRID_COLS 18
-  #define GRID_ROWS  6
+  #define GRID_ROWS  7
 #endif
 
 ValueAdjusters::widgets_t::widgets_t(draw_mode_t what) : _what(what) {
@@ -1061,9 +1442,9 @@ ValueAdjusters::widgets_t::widgets_t(draw_mode_t what) : _what(what) {
     CommandProcessor cmd;
     cmd.font(Theme::font_medium)
     #if defined(USE_PORTRAIT_ORIENTATION)
-       .THEME(back_btn).tag(1).button( BTN_POS(1,10), BTN_SIZE(13,1), F("Back"));
+       .fgcolor(Theme::back_btn).tag(1).button( BTN_POS(1,10), BTN_SIZE(13,1), F("Back"));
     #else
-       .THEME(back_btn).tag(1).button( BTN_POS(15,6), BTN_SIZE(4,1), F("Back"));
+       .fgcolor(Theme::back_btn).tag(1).button( BTN_POS(15,7), BTN_SIZE(4,1),  F("Back"));
     #endif
   }
 
@@ -1075,9 +1456,9 @@ void ValueAdjusters::widgets_t::heading(const char *label) {
   cmd.font(Theme::font_medium);
   if(_what & BACKGROUND) {
     #if defined(USE_PORTRAIT_ORIENTATION)
-      cmd.tag(0).THEME(background).button( BTN_POS(1, _line), BTN_SIZE(12,1), (progmem_str) label, OPT_FLAT);
+      cmd.tag(0).fgcolor(Theme::background).button( BTN_POS(1, _line), BTN_SIZE(12,1), progmem_str(label), OPT_FLAT);
     #else
-      cmd.tag(0).THEME(background).button( BTN_POS(5, _line), BTN_SIZE(8,1),  (progmem_str) label, OPT_FLAT);
+      cmd.tag(0).fgcolor(Theme::background).button( BTN_POS(5, _line), BTN_SIZE(8,1),  progmem_str(label), OPT_FLAT);
     #endif
   }
 
@@ -1104,9 +1485,9 @@ void ValueAdjusters::widgets_t::_draw_increment_btn(uint8_t line, const uint8_t 
   }
 
   if(screen_data.ValueAdjusters.increment == tag) {
-    cmd.THEME(toggle_on);
+    cmd.fgcolor(Theme::toggle_on);
   } else {
-    cmd.THEME(toggle_off);
+    cmd.fgcolor(Theme::toggle_off);
   }
 
   switch(tag) {
@@ -1116,16 +1497,6 @@ void ValueAdjusters::widgets_t::_draw_increment_btn(uint8_t line, const uint8_t 
     case 243: label = PSTR(  "1"    ); pos = _decimals + 0; break;
     case 244: label = PSTR( "10"    ); pos = _decimals + 1; break;
     case 245: label = PSTR("100"    ); pos = _decimals + 2; break;
-    default:
-      #if defined(UI_FRAMEWORK_DEBUG)
-        #if defined(SERIAL_PROTOCOLLNPAIR)
-        SERIAL_PROTOCOLLNPAIR("Unknown tag for increment btn: ", tag);
-        #else
-        Serial.print(F("Unknown tag for increment btn:"));
-        Serial.println(tag);
-        #endif
-      #endif
-      ;
   }
 
   cmd.tag(tag)
@@ -1140,18 +1511,17 @@ void ValueAdjusters::widgets_t::_draw_increment_btn(uint8_t line, const uint8_t 
       case 1: cmd.button( BTN_POS(7,_line), BTN_SIZE(2,1), progmem_str(label)); break;
       case 2: cmd.button( BTN_POS(9,_line), BTN_SIZE(2,1), progmem_str(label)); break;
     #else
-      case 0: cmd.button( BTN_POS(15,2), BTN_SIZE(4,1), progmem_str(label)); break;
-      case 1: cmd.button( BTN_POS(15,3), BTN_SIZE(4,1), progmem_str(label)); break;
-      case 2: cmd.button( BTN_POS(15,4), BTN_SIZE(4,1), progmem_str(label)); break;
+      case 0: cmd.button( BTN_POS(15,2),    BTN_SIZE(4,1), progmem_str(label)); break;
+      case 1: cmd.button( BTN_POS(15,3),    BTN_SIZE(4,1), progmem_str(label)); break;
+      case 2: cmd.button( BTN_POS(15,4),    BTN_SIZE(4,1), progmem_str(label)); break;
     #endif
   }
 }
 
 void ValueAdjusters::widgets_t::increments() {
-  CommandProcessor cmd;
-
   if(_what & BACKGROUND) {
-    cmd.THEME(background)
+    CommandProcessor cmd;
+    cmd.fgcolor(Theme::background)
        .tag(0)
     #if defined(USE_PORTRAIT_ORIENTATION)
        .font(Theme::font_small).button( BTN_POS(1, _line),  BTN_SIZE(4,1), F("Increment:"), OPT_FLAT);
@@ -1175,8 +1545,8 @@ void ValueAdjusters::widgets_t::adjuster(uint8_t tag, const char *label,float va
   if(_what & BACKGROUND) {
     cmd.enabled(1)
        .font(Theme::font_small)
-       .fgcolor(_color)  .tag(0).button( BTN_POS(5,_line), BTN_SIZE(5,1), F(""),               OPT_FLAT)
-       .THEME(background).tag(0).button( BTN_POS(1,_line), BTN_SIZE(4,1), (progmem_str) label, OPT_FLAT);
+       .fgcolor(_color)            .tag(0).button( BTN_POS(5,_line), BTN_SIZE(5,1), F(""),               OPT_FLAT)
+       .fgcolor(Theme::background) .tag(0).button( BTN_POS(1,_line), BTN_SIZE(4,1), (progmem_str) label, OPT_FLAT);
   }
 
   if(_what & FOREGROUND) {
@@ -1185,8 +1555,8 @@ void ValueAdjusters::widgets_t::adjuster(uint8_t tag, const char *label,float va
     default_button_colors();
     cmd.enabled(1)
        .font(Theme::font_medium)
-       .tag(tag  ).button( BTN_POS(10,_line), BTN_SIZE(2,1),  F("-"), OPT_3D)
-       .tag(tag+1).button( BTN_POS(12,_line), BTN_SIZE(2,1),  F("+"), OPT_3D);
+       .tag(tag  ).button( BTN_POS(10,_line), BTN_SIZE(2,1),  F("-"))
+       .tag(tag+1).button( BTN_POS(12,_line), BTN_SIZE(2,1),  F("+"));
 
     dtostrf(value, 5, _decimals, b);
     strcat_P(b, PSTR(" "));
@@ -1251,21 +1621,21 @@ void MoveAxisScreen::onRedraw(draw_mode_t what) {
   w.precision(1);
   w.units(PSTR("mm"));
 
-  w.heading(                             PSTR("Move Axis"));
-  w.color(Theme::x_axis  ).adjuster(  2, PSTR("X:"),  getAxisPosition_mm(X));
-  w.color(Theme::y_axis  ).adjuster(  4, PSTR("Y:"),  getAxisPosition_mm(Y));
-  w.color(Theme::z_axis  ).adjuster(  6, PSTR("Z:"),  getAxisPosition_mm(Z));
+  w.heading(                                PSTR("Move Axis"));
+  w.color(Theme::x_axis  )   .adjuster(  2, PSTR("X:"),  getAxisPosition_mm(X));
+  w.color(Theme::y_axis  )   .adjuster(  4, PSTR("Y:"),  getAxisPosition_mm(Y));
+  w.color(Theme::z_axis  )   .adjuster(  6, PSTR("Z:"),  getAxisPosition_mm(Z));
 
   #if EXTRUDERS == 1
-    w.color(Theme::e_axis).adjuster(  8, PSTR("E:"),  screen_data.MoveAxisScreen.e_rel[0]);
+    w.color(Theme::e_axis)   .adjuster(  8, PSTR("E:"),  screen_data.MoveAxisScreen.e_rel[0]);
   #elif EXTRUDERS > 1
-    w.color(Theme::e_axis).adjuster(  8, PSTR("E1:"), screen_data.MoveAxisScreen.e_rel[0]);
-    w.color(Theme::e_axis).adjuster( 10, PSTR("E2:"), screen_data.MoveAxisScreen.e_rel[1]);
+    w.color(Theme::e_axis)   .adjuster(  8, PSTR("E1:"), screen_data.MoveAxisScreen.e_rel[0]);
+    w.color(Theme::e_axis)   .adjuster( 10, PSTR("E2:"), screen_data.MoveAxisScreen.e_rel[1]);
     #if EXTRUDERS > 2
-      w.color(Theme::e_axis).adjuster(  12, PSTR("E3:"), screen_data.MoveAxisScreen.e_rel[2]);
+      w.color(Theme::e_axis) .adjuster( 12, PSTR("E3:"), screen_data.MoveAxisScreen.e_rel[2]);
     #endif
     #if EXTRUDERS > 3
-      w.color(Theme::e_axis).adjuster(  14, PSTR("E4:"), screen_data.MoveAxisScreen.e_rel[4]);
+      w.color(Theme::e_axis) .adjuster( 14, PSTR("E4:"), screen_data.MoveAxisScreen.e_rel[4]);
     #endif
   #endif
   w.increments();
@@ -1380,20 +1750,20 @@ void StepsScreen::onRedraw(draw_mode_t what) {
   w.precision(0);
   w.units(PSTR("st/mm"));
 
-  w.heading(                            PSTR("Steps/mm"));
-  w.color(Theme::x_axis).adjuster(   2, PSTR("X:"),  getAxisSteps_per_mm(X) );
-  w.color(Theme::y_axis).adjuster(   4, PSTR("Y:"),  getAxisSteps_per_mm(Y) );
-  w.color(Theme::z_axis).adjuster(   6, PSTR("Z:"),  getAxisSteps_per_mm(Z) );
+  w.heading(                               PSTR("Steps/mm"));
+  w.color(Theme::x_axis)     .adjuster( 2, PSTR("X:"),  getAxisSteps_per_mm(X) );
+  w.color(Theme::y_axis)     .adjuster( 4, PSTR("Y:"),  getAxisSteps_per_mm(Y) );
+  w.color(Theme::z_axis)     .adjuster( 6, PSTR("Z:"),  getAxisSteps_per_mm(Z) );
   #if EXTRUDERS == 1 || DISABLED(DISTINCT_E_FACTORS)
-    w.color(Theme::e_axis).adjuster( 8, PSTR("E:"),  getAxisSteps_per_mm(E0) );
+    w.color(Theme::e_axis)   .adjuster( 8, PSTR("E:"),  getAxisSteps_per_mm(E0) );
   #elif EXTRUDERS > 1
-    w.color(Theme::e_axis).adjuster( 8, PSTR("E1:"), getAxisSteps_per_mm(E0) );
-    w.color(Theme::e_axis).adjuster(10, PSTR("E2:"), getAxisSteps_per_mm(E1) );
+    w.color(Theme::e_axis)   .adjuster( 8, PSTR("E1:"), getAxisSteps_per_mm(E0) );
+    w.color(Theme::e_axis)   .adjuster(10, PSTR("E2:"), getAxisSteps_per_mm(E1) );
     #if EXTRUDERS > 2
-      w.color(Theme::e_axis).adjuster(12, PSTR("E3:"), getAxisSteps_per_mm(E2) );
+      w.color(Theme::e_axis) .adjuster(12, PSTR("E3:"), getAxisSteps_per_mm(E2) );
     #endif
     #if EXTRUDERS > 3
-      w.color(Theme::e_axis).adjuster(14, PSTR("E4:"), getAxisSteps_per_mm(E3) );
+      w.color(Theme::e_axis) .adjuster(14, PSTR("E4:"), getAxisSteps_per_mm(E3) );
     #endif
   #endif
   w.increments();
@@ -1463,6 +1833,88 @@ bool StepsScreen::onTouchHeld(uint8_t tag) {
   }
 #endif // HAS_BED_PROBE
 
+/***************************** NOZZLE OFFSET SCREEN ***************************/
+
+#if HOTENDS > 1
+  void NozzleOffsetScreen::onRedraw(draw_mode_t what) {
+    using namespace Extensible_UI_API;
+
+    widgets_t w(what);
+    w.precision(2).units(PSTR("mm"));
+
+    w.heading(                          PSTR("Nozzle Offset"));
+    w.color(Theme::x_axis).adjuster(2,  PSTR("X:"), getNozzleOffset_mm(X, 1));
+    w.color(Theme::y_axis).adjuster(4,  PSTR("Y:"), getNozzleOffset_mm(Y, 1));
+    w.color(Theme::z_axis).adjuster(6,  PSTR("Z:"), getNozzleOffset_mm(Z, 1));
+    w.increments();
+  }
+
+  bool NozzleOffsetScreen::onTouchHeld(uint8_t tag) {
+    using namespace Extensible_UI_API;
+
+    float inc = getIncrement();
+    axis_t axis;
+
+    switch(tag) {
+      case  2:  axis = X;  inc *= -1;  break;
+      case  3:  axis = X;  inc *=  1;  break;
+      case  4:  axis = Y;  inc *= -1;  break;
+      case  5:  axis = Y;  inc *=  1;  break;
+      case  6:  axis = Z;  inc *= -1;  break;
+      case  7:  axis = Z;  inc *=  1;  break;
+      default:
+        return false;
+    }
+
+    setNozzleOffset_mm(axis, 1, getNozzleOffset_mm(axis,1) + inc);
+    onRefresh();
+    return true;
+  }
+#endif // HOTENDS > 1
+
+/************************* BACKLASH COMPENSATION SCREEN **********************/
+
+#if ENABLED(BACKLASH_GCODE)
+  void BacklashCompensationScreen::onRedraw(draw_mode_t what) {
+    using namespace Extensible_UI_API;
+
+    widgets_t w(what);
+    w.precision(2).units(PSTR("mm"));
+
+    w.heading(                          PSTR("Axis Backlash"));
+    w.color(Theme::x_axis).adjuster(2,  PSTR("X:"), getAxisBacklash_mm(X));
+    w.color(Theme::y_axis).adjuster(4,  PSTR("Y:"), getAxisBacklash_mm(Y));
+    w.color(Theme::z_axis).adjuster(6,  PSTR("Z:"), getAxisBacklash_mm(Z));
+    w.color(Theme::other ).adjuster(8,  PSTR("Smoothing:"), getBacklashSmoothing_mm());
+    w.precision(0).units(PSTR("%")).adjuster(10, PSTR("Correction:"), getBacklashCorrection_percent());
+    w.precision(2).increments();
+  }
+
+  bool BacklashCompensationScreen::onTouchHeld(uint8_t tag) {
+    using namespace Extensible_UI_API;
+
+    const float inc = getIncrement();
+
+    switch(tag) {
+      case  2:   setAxisBacklash_mm(X, getAxisBacklash_mm(X) - inc);  break;
+      case  3:   setAxisBacklash_mm(X, getAxisBacklash_mm(X) + inc);  break;
+      case  4:   setAxisBacklash_mm(Y, getAxisBacklash_mm(Y) - inc);  break;
+      case  5:   setAxisBacklash_mm(Y, getAxisBacklash_mm(Y) + inc);  break;
+      case  6:   setAxisBacklash_mm(Z, getAxisBacklash_mm(Z) - inc);  break;
+      case  7:   setAxisBacklash_mm(Z, getAxisBacklash_mm(Z) + inc);  break;
+      case  8:   setBacklashSmoothing_mm(getBacklashSmoothing_mm() - inc);  break;
+      case  9:   setBacklashSmoothing_mm(getBacklashSmoothing_mm() + inc);  break;
+      case  10:  setBacklashCorrection_percent(getBacklashCorrection_percent() - inc*100);  break;
+      case  11:  setBacklashCorrection_percent(getBacklashCorrection_percent() + inc*100);  break;
+      default:
+        return false;
+    }
+
+    onRefresh();
+    return true;
+  }
+#endif // ENABLED(BACKLASH_GCODE)
+
 /***************************** FEEDRATE SCREEN ***************************/
 
 void FeedrateScreen::onRedraw(draw_mode_t what) {
@@ -1499,20 +1951,20 @@ void VelocityScreen::onRedraw(draw_mode_t what) {
   w.precision(0);
   w.units(PSTR("mm/s"));
 
-  w.heading(                            PSTR("Maximum Velocity"));
-  w.color(Theme::x_axis).adjuster(   2, PSTR("X:"),  getAxisMaxFeedrate_mm_s(X) );
-  w.color(Theme::y_axis).adjuster(   4, PSTR("Y:"),  getAxisMaxFeedrate_mm_s(Y) );
-  w.color(Theme::z_axis).adjuster(   6, PSTR("Z:"),  getAxisMaxFeedrate_mm_s(Z) );
+  w.heading(                                PSTR("Maximum Velocity"));
+  w.color(Theme::x_axis)     .adjuster(  2, PSTR("X:"),  getAxisMaxFeedrate_mm_s(X) );
+  w.color(Theme::y_axis)     .adjuster(  4, PSTR("Y:"),  getAxisMaxFeedrate_mm_s(Y) );
+  w.color(Theme::z_axis)     .adjuster(  6, PSTR("Z:"),  getAxisMaxFeedrate_mm_s(Z) );
   #if EXTRUDERS == 1 || DISABLED(DISTINCT_E_FACTORS)
-    w.color(Theme::e_axis).adjuster( 8, PSTR("E:"),  getAxisMaxFeedrate_mm_s(E0) );
+    w.color(Theme::e_axis)   .adjuster(  8, PSTR("E:"),  getAxisMaxFeedrate_mm_s(E0) );
   #elif EXTRUDERS > 1
-    w.color(Theme::e_axis).adjuster( 8, PSTR("E1:"), getAxisMaxFeedrate_mm_s(E0) );
-    w.color(Theme::e_axis).adjuster(10, PSTR("E2:"), getAxisMaxFeedrate_mm_s(E1) );
+    w.color(Theme::e_axis)   .adjuster(  8, PSTR("E1:"), getAxisMaxFeedrate_mm_s(E0) );
+    w.color(Theme::e_axis)   .adjuster( 10, PSTR("E2:"), getAxisMaxFeedrate_mm_s(E1) );
     #if EXTRUDERS > 2
-      w.color(Theme::e_axis).adjuster(12, PSTR("E3"), getAxisMaxFeedrate_mm_s(E2) );
+      w.color(Theme::e_axis) .adjuster( 12, PSTR("E3"), getAxisMaxFeedrate_mm_s(E2) );
     #endif
     #if EXTRUDERS > 3
-      w.color(Theme::e_axis).adjuster(14, PSTR("E4"), getAxisMaxFeedrate_mm_s(E3) );
+      w.color(Theme::e_axis) .adjuster( 14, PSTR("E4"), getAxisMaxFeedrate_mm_s(E3) );
     #endif
   #endif
   w.increments();
@@ -1563,20 +2015,20 @@ void AccelerationScreen::onRedraw(draw_mode_t what) {
   w.precision(0);
   w.units(PSTR("mm/s^2"));
 
-  w.heading(                            PSTR("Maximum Acceleration"));
-  w.color(Theme::x_axis).adjuster(   2, PSTR("X:"),  getAxisMaxAcceleration_mm_s2(X) );
-  w.color(Theme::y_axis).adjuster(   4, PSTR("Y:"),  getAxisMaxAcceleration_mm_s2(Y) );
-  w.color(Theme::z_axis).adjuster(   6, PSTR("Z:"),  getAxisMaxAcceleration_mm_s2(Z) );
+  w.heading(                             PSTR("Maximum Acceleration"));
+  w.color(Theme::x_axis)  .adjuster(  2, PSTR("X:"),  getAxisMaxAcceleration_mm_s2(X) );
+  w.color(Theme::y_axis)  .adjuster(  4, PSTR("Y:"),  getAxisMaxAcceleration_mm_s2(Y) );
+  w.color(Theme::z_axis)  .adjuster(  6, PSTR("Z:"),  getAxisMaxAcceleration_mm_s2(Z) );
   #if EXTRUDERS == 1 || DISABLED(DISTINCT_E_FACTORS)
-    w.color(Theme::e_axis).adjuster( 8, PSTR("E:"),  getAxisMaxAcceleration_mm_s2(E0) );
+    w.color(Theme::e_axis) .adjuster( 8, PSTR("E:"),  getAxisMaxAcceleration_mm_s2(E0) );
   #elif EXTRUDERS > 1
-    w.color(Theme::e_axis).adjuster( 8, PSTR("E1:"), getAxisMaxAcceleration_mm_s2(E0) );
-    w.color(Theme::e_axis).adjuster(10, PSTR("E2:"), getAxisMaxAcceleration_mm_s2(E1) );
+    w.color(Theme::e_axis) .adjuster( 8, PSTR("E1:"), getAxisMaxAcceleration_mm_s2(E0) );
+    w.color(Theme::e_axis) .adjuster(10, PSTR("E2:"), getAxisMaxAcceleration_mm_s2(E1) );
     #if EXTRUDERS > 2
-    w.color(Theme::e_axis).adjuster(12, PSTR("E3:"), getAxisMaxAcceleration_mm_s2(E2) );
+    w.color(Theme::e_axis) .adjuster(12, PSTR("E3:"), getAxisMaxAcceleration_mm_s2(E2) );
     #endif
     #if EXTRUDERS > 3
-    w.color(Theme::e_axis).adjuster(14, PSTR("E4:"), getAxisMaxAcceleration_mm_s2(E3) );
+    w.color(Theme::e_axis) .adjuster(14, PSTR("E4:"), getAxisMaxAcceleration_mm_s2(E3) );
     #endif
   #endif
   w.increments();
@@ -1627,11 +2079,11 @@ void JerkScreen::onRedraw(draw_mode_t what) {
   w.precision(1);
   w.units(PSTR("mm/s"));
 
-  w.heading(                          PSTR("Maximum Jerk"));
-  w.color(Theme::x_axis).adjuster( 2, PSTR("X:"),  getAxisMaxJerk_mm_s(X) );
-  w.color(Theme::y_axis).adjuster( 4, PSTR("Y:"),  getAxisMaxJerk_mm_s(Y) );
-  w.color(Theme::z_axis).adjuster( 6, PSTR("Z:"),  getAxisMaxJerk_mm_s(Z) );
-  w.color(Theme::e_axis).adjuster( 8, PSTR("E:"),  getAxisMaxJerk_mm_s(E0) );
+  w.heading(                           PSTR("Maximum Jerk"));
+  w.color(Theme::x_axis) .adjuster( 2, PSTR("X:"),  getAxisMaxJerk_mm_s(X) );
+  w.color(Theme::y_axis) .adjuster( 4, PSTR("Y:"),  getAxisMaxJerk_mm_s(Y) );
+  w.color(Theme::z_axis) .adjuster( 6, PSTR("Z:"),  getAxisMaxJerk_mm_s(Z) );
+  w.color(Theme::e_axis) .adjuster( 8, PSTR("E:"),  getAxisMaxJerk_mm_s(E0) );
   w.increments();
 }
 
@@ -1661,6 +2113,14 @@ bool JerkScreen::onTouchHeld(uint8_t tag) {
 
 /*********************** INTERFACE SETTINGS SCREEN ********************/
 
+void InterfaceSettingsScreen::onStartup() {
+  loadSettings();
+}
+
+void InterfaceSettingsScreen::onExit() {
+  saveSettings();
+}
+
 void InterfaceSettingsScreen::onEntry() {
   screen_data.InterfaceSettingsScreen.brightness = CLCD::get_brightness();
   screen_data.InterfaceSettingsScreen.volume     = FTDI::SoundPlayer::get_volume();
@@ -1674,13 +2134,11 @@ void InterfaceSettingsScreen::onRedraw(draw_mode_t what) {
   if(what & BACKGROUND) {
     cmd.cmd(CLEAR_COLOR_RGB(Theme::background))
        .cmd(CLEAR(true,true,true))
-       .bgcolor(Theme::theme_darkest)
-       .THEME(theme_light)
 
     #define GRID_COLS 4
     #define GRID_ROWS 8
 
-       .font(Theme::font_large)
+       .font(Theme::font_medium)
        .text      (BTN_POS(1,1), BTN_SIZE(4,1), F("Interface Settings"))
     #undef EDGE_R
     #define EDGE_R 30
@@ -1765,6 +2223,71 @@ void InterfaceSettingsScreen::onIdle() {
   BaseScreen::onIdle();
 }
 
+#if ENABLED(BACKLASH_GCODE)
+  extern float backlash_distance_mm[XYZ];
+  extern float backlash_correction;
+  #ifdef BACKLASH_SMOOTHING_MM
+    extern float backlash_smoothing_mm;
+  #endif
+#endif
+
+void InterfaceSettingsScreen::defaultSettings() {
+  LockScreen::passcode = 0;
+  FTDI::SoundPlayer::set_volume(255);
+  CLCD::set_brightness(255);
+  // TODO: This really should be moved to the EEPROM
+  #if ENABLED(BACKLASH_GCODE)
+    constexpr float backlash[XYZ] = BACKLASH_DISTANCE_MM;
+    backlash_distance_mm[X_AXIS]  = backlash[X_AXIS];
+    backlash_distance_mm[Y_AXIS]  = backlash[Y_AXIS];
+    backlash_distance_mm[Z_AXIS]  = backlash[Z_AXIS];
+    backlash_correction           = BACKLASH_CORRECTION;
+    #ifdef BACKLASH_SMOOTHING_MM
+      backlash_smoothing_mm       = BACKLASH_SMOOTHING_MM;
+    #endif
+  #endif
+}
+
+void InterfaceSettingsScreen::saveSettings() {
+  persistent_data_t      data;
+  data.magic_word        = 'LULZ';
+  data.version           = 0;
+  data.sound_volume      = FTDI::SoundPlayer::get_volume();
+  data.screen_brightness = CLCD::get_brightness();
+  data.passcode          = LockScreen::passcode;
+  // TODO: This really should be moved to the EEPROM
+  #if ENABLED(BACKLASH_GCODE)
+    data.backlash_distance_mm[X_AXIS] = backlash_distance_mm[X_AXIS];
+    data.backlash_distance_mm[Y_AXIS] = backlash_distance_mm[Y_AXIS];
+    data.backlash_distance_mm[Z_AXIS] = backlash_distance_mm[Z_AXIS];
+    data.backlash_correction          = backlash_correction;
+    #ifdef BACKLASH_SMOOTHING_MM
+      data.backlash_smoothing_mm      = backlash_smoothing_mm;
+    #endif
+  #endif
+  UIStorage::write_data(&data, sizeof(data));
+}
+
+void InterfaceSettingsScreen::loadSettings() {
+  persistent_data_t data;
+  UIStorage::read_data(&data, sizeof(data));
+  if(data.magic_word == 'LULZ' && data.version == 0) {
+    FTDI::SoundPlayer::set_volume(data.sound_volume);
+    CLCD::set_brightness(data.screen_brightness);
+    LockScreen::passcode = data.passcode;
+    // TODO: This really should be moved to the EEPROM
+    #if ENABLED(BACKLASH_GCODE)
+      backlash_distance_mm[X_AXIS] = data.backlash_distance_mm[X_AXIS];
+      backlash_distance_mm[Y_AXIS] = data.backlash_distance_mm[Y_AXIS];
+      backlash_distance_mm[Z_AXIS] = data.backlash_distance_mm[Z_AXIS];
+      backlash_correction          = data.backlash_correction;
+      #ifdef BACKLASH_SMOOTHING_MM
+        backlash_smoothing_mm      = data.backlash_smoothing_mm;
+      #endif
+    #endif
+  }
+}
+
 /****************************** LOCK SCREEN ***************************/
 
 uint16_t LockScreen::passcode = 0;
@@ -1790,7 +2313,7 @@ void LockScreen::onRedraw(draw_mode_t what) {
       #define GRID_ROWS 10
     #else
       #define GRID_COLS 1
-      #define GRID_ROWS 6
+      #define GRID_ROWS 7
     #endif
 
     #define MARGIN_T 3
@@ -1830,6 +2353,7 @@ void LockScreen::onRedraw(draw_mode_t what) {
        .text(BTN_POS(1,1), BTN_SIZE(1,1), message)
        .font(Theme::font_xlarge)
        .text(BTN_POS(1,2), BTN_SIZE(1,1), screen_data.LockScreen.passcode)
+       .font(Theme::font_large)
        #endif
        #if defined(USE_NUMERIC_PASSCODE)
        .keys(BTN_POS(1,l+1), BTN_SIZE(1,1), F("123"),        get_pressed_tag())
@@ -1843,8 +2367,8 @@ void LockScreen::onRedraw(draw_mode_t what) {
        .keys(BTN_POS(1,l+4), BTN_SIZE(1,1), F("zxcvbnm!?<"), get_pressed_tag());
        #endif
 
-    #define MARGIN_T 5
-    #define MARGIN_B 5
+    #define MARGIN_T MARGIN_DEFAULT
+    #define MARGIN_B MARGIN_DEFAULT
 
     #undef GRID_COLS
     #undef GRID_ROWS
@@ -2007,10 +2531,10 @@ void FilesScreen::onRedraw(draw_mode_t what) {
 
         cmd.tag(tag);
         if(screen_data.FilesScreen.selected_tag == tag) {
-          cmd.THEME(files_selected);
+          cmd.fgcolor(Theme::files_selected);
           dirSelected = isDir;
         } else {
-          cmd.THEME(background);
+          cmd.fgcolor(Theme::background);
         }
         cmd.font(Theme::font_medium)
            .button( BTN_POS(1,header_h+line), BTN_SIZE(6,1), F(""),               OPT_FLAT)
@@ -2038,8 +2562,9 @@ void FilesScreen::onRedraw(draw_mode_t what) {
        .tag(0).text( BTN_POS(1,1), BTN_SIZE(4,1), page_str, OPT_CENTER);
 
     cmd.font(Theme::font_medium)
-       .tag(241).BTN_EN_THEME(prevEnabled, light).button( BTN_POS(5,1),  BTN_SIZE(1,header_h), F("<"))
-       .tag(242).BTN_EN_THEME(nextEnabled, light).button( BTN_POS(6,1),  BTN_SIZE(1,header_h), F(">"));
+       .style(STYLE_LIGHT_BTN)
+       .tag(241).enabled(prevEnabled).button( BTN_POS(5,1),  BTN_SIZE(1,header_h), F("<"))
+       .tag(242).enabled(nextEnabled).button( BTN_POS(6,1),  BTN_SIZE(1,header_h), F(">"));
 
     #undef MARGIN_T
     #undef MARGIN_B
@@ -2048,7 +2573,7 @@ void FilesScreen::onRedraw(draw_mode_t what) {
     const uint8_t y = GRID_ROWS - footer_h + 1;
     const uint8_t h = footer_h;
     cmd.enabled(true)
-       .THEME(back_btn).tag(backTag).button( BTN_POS(1,y), BTN_SIZE(3,h), F("Back"));
+       .fgcolor(Theme::back_btn).tag(backTag).button( BTN_POS(1,y), BTN_SIZE(3,h), F("Back"));
 
     cmd.enabled(itemSelected);
     if(dirSelected) {
@@ -2059,8 +2584,8 @@ void FilesScreen::onRedraw(draw_mode_t what) {
 
     #undef MARGIN_T
     #undef MARGIN_B
-    #define MARGIN_T 5
-    #define MARGIN_B 5
+    #define MARGIN_T MARGIN_DEFAULT
+    #define MARGIN_B MARGIN_DEFAULT
 
     #undef GRID_COLS
     #undef GRID_ROWS
@@ -2106,6 +2631,118 @@ bool FilesScreen::onTouchEnd(uint8_t tag) {
   return true;
 }
 
+/******************************* DEVELOPER MENU *****************************/
+
+void DeveloperScreen::onRedraw(draw_mode_t what) {
+  if(what & BACKGROUND) {
+    CommandProcessor cmd;
+    cmd.cmd(CLEAR_COLOR_RGB(Theme::background))
+       .cmd(CLEAR(true,true,true))
+       .font(Theme::font_medium);
+
+    default_button_colors();
+
+    #ifdef SPI_FLASH_SS
+    constexpr bool has_flash = true;
+    #else
+    constexpr bool has_flash = false;
+    #endif
+
+    #if ENABLED(SDSUPPORT)
+    constexpr bool has_media = true;
+    #else
+    constexpr bool has_media = false;
+    #endif
+
+    #if defined(USE_PORTRAIT_ORIENTATION)
+      #define GRID_ROWS 9
+      #define GRID_COLS 1
+      cmd.font(Theme::font_large)         .text  ( BTN_POS(1,1), BTN_SIZE(1,1), F("Developer Menu"))
+         .tag(2).font(Theme::font_medium) .button( BTN_POS(1,2), BTN_SIZE(1,1), F("Show All Widgets"))
+         .tag(3)                          .button( BTN_POS(1,3), BTN_SIZE(1,1), F("Show Touch Registers"))
+         .tag(4)                          .button( BTN_POS(1,4), BTN_SIZE(1,1), F("Play Song"))
+         .tag(5).enabled(has_media)       .button( BTN_POS(1,5), BTN_SIZE(1,1), F("Play Video from Media"))
+         .tag(6).enabled(has_flash)       .button( BTN_POS(1,6), BTN_SIZE(1,1), F("Play Video from SPI Flash"))
+         .tag(7).enabled(has_flash)       .button( BTN_POS(1,7), BTN_SIZE(1,1), F("Load Video to SPI Flash"))
+         .tag(8).enabled(has_flash)       .button( BTN_POS(1,8), BTN_SIZE(1,1), F("Erase SPI Flash"))
+         .tag(1).fgcolor(Theme::back_btn) .button( BTN_POS(1,9), BTN_SIZE(1,1), F("Back"));
+      #undef GRID_COLS
+      #undef GRID_ROWS
+    #else
+      #define GRID_ROWS 5
+      #define GRID_COLS 2
+      cmd.font(Theme::font_medium)        .text  ( BTN_POS(1,1), BTN_SIZE(2,1), F("Developer Menu"))
+         .tag(2).font(Theme::font_small)  .button( BTN_POS(1,2), BTN_SIZE(1,1), F("Show All Widgets"))
+         .tag(3)                          .button( BTN_POS(1,3), BTN_SIZE(1,1), F("Show Touch Registers"))
+         .tag(4)                          .button( BTN_POS(1,4), BTN_SIZE(1,1), F("Play Song"))
+         .tag(5).enabled(has_media)       .button( BTN_POS(2,2), BTN_SIZE(1,1), F("Play Video from Media"))
+         .tag(6).enabled(has_flash)       .button( BTN_POS(2,3), BTN_SIZE(1,1), F("Play Video from SPI Flash"))
+         .tag(7).enabled(has_flash)       .button( BTN_POS(2,4), BTN_SIZE(1,1), F("Load Video to SPI Flash"))
+         .tag(8).enabled(has_flash)       .button( BTN_POS(2,5), BTN_SIZE(1,1), F("Erase SPI Flash"))
+         .tag(1).fgcolor(Theme::back_btn) .button( BTN_POS(1,5), BTN_SIZE(1,1), F("Back"));
+      #undef GRID_COLS
+      #undef GRID_ROWS
+    #endif
+  }
+}
+
+bool DeveloperScreen::onTouchEnd(uint8_t tag) {
+  switch(tag) {
+    case 1:  GOTO_PREVIOUS();                            break;
+    case 2:  GOTO_SCREEN(WidgetsScreen);                 break;
+    case 3:  GOTO_SCREEN(CalibrationRegistersScreen);    break;
+    case 4:  sound.play(js_bach_joy, PLAY_ASYNCHRONOUS); break;
+    #if ENABLED(SDSUPPORT)
+    case 5: if(!MediaPlayerScreen::playCardMedia()) AlertBoxScreen::show(F("Cannot open STARTUP.AVI")); break;
+    #endif
+    #ifdef SPI_FLASH_SS
+    case 6: if(!MediaPlayerScreen::playBootMedia()) AlertBoxScreen::show(F("No boot media available")); break;
+    case 7:
+    {
+      SpinnerScreen::show(F("Saving..."));
+      UIStorage::error_t res = UIStorage::write_file(F("STARTUP.AVI"));
+      SpinnerScreen::hide();
+      switch(res) {
+        case UIStorage::SUCCESS:        AlertBoxScreen::show(F("File copied!")); break;
+        case UIStorage::READ_ERROR:     AlertBoxScreen::show(F("Failed to read file")); break;
+        case UIStorage::VERIFY_ERROR:   AlertBoxScreen::show(F("Failed to verify file")); break;
+        case UIStorage::FILE_NOT_FOUND: AlertBoxScreen::show(F("Cannot open STARTUP.AVI")); break;
+      }
+      break;
+    }
+    case 8: GOTO_SCREEN(EraseSPIFlashScreen); break;
+    #endif
+    default: return false;
+  }
+  return true;
+}
+
+/**************************** ERASE SPI FLASH SCREEN ***************************/
+
+void EraseSPIFlashScreen::onRedraw(draw_mode_t what) {
+  drawMessage(
+    F("Are you sure?"),
+    F("SPI flash will be erased.")
+  );
+  drawYesNoButtons();
+}
+
+bool EraseSPIFlashScreen::onTouchEnd(uint8_t tag) {
+  switch(tag) {
+    case 1:
+      SpinnerScreen::show(F("Erasing..."));
+      UIStorage::erase_data();
+      SpinnerScreen::hide();
+      AlertBoxScreen::show(F("SPI flash erased"));
+      // Remove EraseSPIFlashScreen from the stack
+      // so the alert box doesn't return to me.
+      current_screen.forget();
+      return true;
+    default:
+      return DialogBoxBaseClass::onTouchEnd(tag);
+  }
+}
+
 /***************************** WIDGET DEMO SCREEN ***************************/
 
 uint16_t dial_val;
@@ -2125,32 +2762,55 @@ void WidgetsScreen::onRedraw(draw_mode_t what) {
      .cmd(CLEAR(true,true,true));
 
   cmd.bgcolor(Theme::theme_darkest)
-     .THEME(theme_light);
+     .fgcolor(Theme::theme_light);
 
-  #define GRID_COLS 4
-  #define GRID_ROWS 8
+  #if defined(USE_PORTRAIT_ORIENTATION)
+    #define GRID_COLS 3
+    #define GRID_ROWS 8
+    cmd.font(Theme::font_large)
+              .text      (BTN_POS(1,1),  BTN_SIZE(3,1), F("Sample Widgets"))
+       .tag(2).dial      (BTN_POS(1,2),  BTN_SIZE(1,2), dial_val)
+       .tag(0).clock     (BTN_POS(1,4),  BTN_SIZE(1,2), 3, 30, 45, 0)
+              .gauge     (BTN_POS(1,6),  BTN_SIZE(1,2), 5, 4, slider_val,  0xFFFFU)
 
-  cmd.font(Theme::font_large)
-            .text      (BTN_POS(1,1),  BTN_SIZE(4,1), F("Sample Widgets"))
-     .tag(1).dial      (BTN_POS(1,2),  BTN_SIZE(1,3), dial_val)
-     .tag(2).dial      (BTN_POS(1,5),  BTN_SIZE(1,3), slider_val)
-     .tag(0).clock     (BTN_POS(2,2),  BTN_SIZE(1,3), 3, 30, 45, 0)
-            .gauge     (BTN_POS(2,5),  BTN_SIZE(1,3), 5, 4, slider_val,  0xFFFFU)
+       .font(Theme::font_medium)
+       .tag(4).slider    (BTN_POS(2,3),  BTN_SIZE(2,1), slider_val,        0xFFFFU)
+       .tag(5).progress  (BTN_POS(2,4),  BTN_SIZE(2,1), slider_val,        0xFFFFU)
+       .tag(6).scrollbar (BTN_POS(2,5),  BTN_SIZE(2,1), slider_val, 1000,  0xFFFFU)
 
-     .font(Theme::font_medium)
-     .tag(3).slider    (BTN_POS(3,3),  BTN_SIZE(2,1), slider_val,        0xFFFFU)
-     .tag(4).progress  (BTN_POS(3,4),  BTN_SIZE(2,1), slider_val,        0xFFFFU)
-     .tag(5).scrollbar (BTN_POS(3,5),  BTN_SIZE(2,1), slider_val, 1000,  0xFFFFU)
+       .font(Theme::font_small)
+       .tag(0).text      (BTN_POS(2,6),  BTN_SIZE(1,1), F("Show grid:"))
+       .tag(7).toggle    (BTN_POS(3,6),  BTN_SIZE(1,1), F("no\xFFyes"), show_grid)
 
-     .font(Theme::font_small)
-     .tag(0).text      (BTN_POS(3,6),  BTN_SIZE(1,1), F("Show grid:"))
-     .tag(6).toggle    (BTN_POS(4,6),  BTN_SIZE(1,1), F("no\xFFyes"), show_grid)
+       .font(Theme::font_medium)
+       .tag(1).button    (BTN_POS(1, 8), BTN_SIZE(1,1), F("Back"))
+              .button    (BTN_POS(2, 8), BTN_SIZE(1,1), F("1"))
+              .button    (BTN_POS(3, 8), BTN_SIZE(1,1), F("2"));
+  #else
+    #define GRID_COLS 4
+    #define GRID_ROWS 8
 
-     .font(Theme::font_medium)
-     .tag(6).button    (BTN_POS(1, 8), BTN_SIZE(1,1), F("1"))
-            .button    (BTN_POS(2, 8), BTN_SIZE(1,1), F("2"))
-            .button    (BTN_POS(3, 8), BTN_SIZE(1,1), F("3"))
-            .button    (BTN_POS(4, 8), BTN_SIZE(1,1), F("4"));
+    cmd.font(Theme::font_large)
+              .text      (BTN_POS(1,1),  BTN_SIZE(4,1), F("Sample Widgets"))
+       .tag(2).dial      (BTN_POS(1,2),  BTN_SIZE(1,3), dial_val)
+       .tag(3).dial      (BTN_POS(1,5),  BTN_SIZE(1,3), slider_val)
+       .tag(0).clock     (BTN_POS(2,2),  BTN_SIZE(1,3), 3, 30, 45, 0)
+              .gauge     (BTN_POS(2,5),  BTN_SIZE(1,3), 5, 4, slider_val,  0xFFFFU)
+
+       .font(Theme::font_medium)
+       .tag(4).slider    (BTN_POS(3,3),  BTN_SIZE(2,1), slider_val,        0xFFFFU)
+       .tag(5).progress  (BTN_POS(3,4),  BTN_SIZE(2,1), slider_val,        0xFFFFU)
+       .tag(6).scrollbar (BTN_POS(3,5),  BTN_SIZE(2,1), slider_val, 1000,  0xFFFFU)
+
+       .font(Theme::font_small)
+       .tag(0).text      (BTN_POS(3,6),  BTN_SIZE(1,1), F("Show grid:"))
+       .tag(7).toggle    (BTN_POS(4,6),  BTN_SIZE(1,1), F("no\xFFyes"), show_grid)
+
+       .font(Theme::font_medium)
+       .tag(1).button    (BTN_POS(1, 8), BTN_SIZE(2,1), F("Back"))
+              .button    (BTN_POS(3, 8), BTN_SIZE(1,1), F("1"))
+              .button    (BTN_POS(4, 8), BTN_SIZE(1,1), F("2"));
+  #endif
 
   if(show_grid) DRAW_LAYOUT_GRID
 }
@@ -2158,12 +2818,20 @@ void WidgetsScreen::onRedraw(draw_mode_t what) {
 bool WidgetsScreen::onTouchStart(uint8_t tag) {
   CommandProcessor cmd;
   switch(tag) {
-    case 1: cmd.track_circular (BTN_POS(1,2), BTN_SIZE(1,3), 1).execute(); break;
-    case 2: cmd.track_circular (BTN_POS(1,5), BTN_SIZE(1,3), 2).execute(); break;
-    case 3: cmd.track_linear   (BTN_POS(3,3), BTN_SIZE(2,1), 3).execute(); break;
-    case 4: cmd.track_linear   (BTN_POS(3,4), BTN_SIZE(2,1), 4).execute(); break;
-    case 5: cmd.track_linear   (BTN_POS(3,5), BTN_SIZE(2,1), 5).execute(); break;
-    case 6: show_grid = !show_grid; break;
+    case 1: GOTO_PREVIOUS();                                               break;
+  #if defined(USE_PORTRAIT_ORIENTATION)
+    case 2: cmd.track_circular (BTN_POS(1,2), BTN_SIZE(1,2), 2).execute(); break;
+    case 4: cmd.track_linear   (BTN_POS(2,3), BTN_SIZE(2,1), 4).execute(); break;
+    case 5: cmd.track_linear   (BTN_POS(2,4), BTN_SIZE(2,1), 5).execute(); break;
+    case 6: cmd.track_linear   (BTN_POS(2,5), BTN_SIZE(2,1), 6).execute(); break;
+  #else
+    case 2: cmd.track_circular (BTN_POS(1,2), BTN_SIZE(1,3), 2).execute(); break;
+    case 3: cmd.track_circular (BTN_POS(1,5), BTN_SIZE(1,3), 3).execute(); break;
+    case 4: cmd.track_linear   (BTN_POS(3,3), BTN_SIZE(2,1), 4).execute(); break;
+    case 5: cmd.track_linear   (BTN_POS(3,4), BTN_SIZE(2,1), 5).execute(); break;
+    case 6: cmd.track_linear   (BTN_POS(3,5), BTN_SIZE(2,1), 6).execute(); break;
+  #endif
+    case 7: show_grid = !show_grid; break;
     default:
       return false;
   }
@@ -2215,19 +2883,19 @@ void CalibrationRegistersScreen::onRedraw(draw_mode_t what) {
   #define GRID_COLS 2
   cmd.tag(0)
      .font(28)
-     .THEME(transformA).button( BTN_POS(1,1), BTN_SIZE(1,1), F("TOUCH TRANSFORM_A"), OPT_3D)
-     .THEME(transformB).button( BTN_POS(1,2), BTN_SIZE(1,1), F("TOUCH TRANSFORM_B"), OPT_3D)
-     .THEME(transformC).button( BTN_POS(1,3), BTN_SIZE(1,1), F("TOUCH TRANSFORM_C"), OPT_3D)
-     .THEME(transformD).button( BTN_POS(1,4), BTN_SIZE(1,1), F("TOUCH TRANSFORM_D"), OPT_3D)
-     .THEME(transformE).button( BTN_POS(1,5), BTN_SIZE(1,1), F("TOUCH TRANSFORM_E"), OPT_3D)
-     .THEME(transformF).button( BTN_POS(1,6), BTN_SIZE(1,1), F("TOUCH TRANSFORM_F"), OPT_3D)
+     .fgcolor(Theme::transformA)  .button( BTN_POS(1,1), BTN_SIZE(1,1), F("TOUCH TRANSFORM_A"))
+     .fgcolor(Theme::transformB)  .button( BTN_POS(1,2), BTN_SIZE(1,1), F("TOUCH TRANSFORM_B"))
+     .fgcolor(Theme::transformC)  .button( BTN_POS(1,3), BTN_SIZE(1,1), F("TOUCH TRANSFORM_C"))
+     .fgcolor(Theme::transformD)  .button( BTN_POS(1,4), BTN_SIZE(1,1), F("TOUCH TRANSFORM_D"))
+     .fgcolor(Theme::transformE)  .button( BTN_POS(1,5), BTN_SIZE(1,1), F("TOUCH TRANSFORM_E"))
+     .fgcolor(Theme::transformF)  .button( BTN_POS(1,6), BTN_SIZE(1,1), F("TOUCH TRANSFORM_F"))
 
-     .THEME(transformVal).button( BTN_POS(2,1), BTN_SIZE(1,1), F(""), OPT_FLAT)
-     .THEME(transformVal).button( BTN_POS(2,2), BTN_SIZE(1,1), F(""), OPT_FLAT)
-     .THEME(transformVal).button( BTN_POS(2,3), BTN_SIZE(1,1), F(""), OPT_FLAT)
-     .THEME(transformVal).button( BTN_POS(2,4), BTN_SIZE(1,1), F(""), OPT_FLAT)
-     .THEME(transformVal).button( BTN_POS(2,5), BTN_SIZE(1,1), F(""), OPT_FLAT)
-     .THEME(transformVal).button( BTN_POS(2,6), BTN_SIZE(1,1), F(""), OPT_FLAT);
+     .fgcolor(Theme::transformVal).button( BTN_POS(2,1), BTN_SIZE(1,1), F(""), OPT_FLAT)
+     .fgcolor(Theme::transformVal).button( BTN_POS(2,2), BTN_SIZE(1,1), F(""), OPT_FLAT)
+     .fgcolor(Theme::transformVal).button( BTN_POS(2,3), BTN_SIZE(1,1), F(""), OPT_FLAT)
+     .fgcolor(Theme::transformVal).button( BTN_POS(2,4), BTN_SIZE(1,1), F(""), OPT_FLAT)
+     .fgcolor(Theme::transformVal).button( BTN_POS(2,5), BTN_SIZE(1,1), F(""), OPT_FLAT)
+     .fgcolor(Theme::transformVal).button( BTN_POS(2,6), BTN_SIZE(1,1), F(""), OPT_FLAT);
 
   sprintf_P(b, PSTR("0x%08lX"), T_Transform_A); cmd.font(28).text  ( BTN_POS(2,1), BTN_SIZE(1,1), b);
   sprintf_P(b, PSTR("0x%08lX"), T_Transform_B); cmd.font(28).text  ( BTN_POS(2,2), BTN_SIZE(1,1), b);
@@ -2236,11 +2904,9 @@ void CalibrationRegistersScreen::onRedraw(draw_mode_t what) {
   sprintf_P(b, PSTR("0x%08lX"), T_Transform_E); cmd.font(28).text  ( BTN_POS(2,5), BTN_SIZE(1,1), b);
   sprintf_P(b, PSTR("0x%08lX"), T_Transform_F); cmd.font(28).text  ( BTN_POS(2,6), BTN_SIZE(1,1), b);
 
-  cmd.THEME(back_btn).tag(1).font(Theme::font_medium).button( BTN_POS(2,7), BTN_SIZE(1,1), F("Back"));
+  cmd.fgcolor(Theme::back_btn).tag(1).font(Theme::font_medium).button( BTN_POS(2,7), BTN_SIZE(1,1), F("Back"));
   #undef GRID_COLS
   #undef GRID_ROWS
-
-  sound.play(js_bach_joy, PLAY_ASYNCHRONOUS);
 }
 
 bool CalibrationRegistersScreen::onTouchEnd(uint8_t tag) {
@@ -2263,51 +2929,54 @@ void MediaPlayerScreen::onEntry() {
 void MediaPlayerScreen::onRedraw(draw_mode_t what) {
 }
 
-void MediaPlayerScreen::lookForAutoPlayMedia() {
+bool MediaPlayerScreen::playCardMedia() {
+  char fname[15];
+  strcpy_P(fname, PSTR("STARTUP.AVI"));
+
+  MediaFileReader reader;
+  if(!reader.open(fname))
+    return false;
+
+  SERIAL_ECHO_START();
+  SERIAL_ECHOLNPGM("Starting to play STARTUP.AVI");
+  playStream(&reader, MediaFileReader::read);
+  reader.close();
+  return true;
+}
+
+// Attempt to play media from the onboard SPI flash chip
+bool MediaPlayerScreen::playBootMedia() {
+  UIStorage::BootMediaReader reader;
+  if(!reader.isAvailable()) return false;
+
+  SERIAL_ECHO_START();
+  SERIAL_ECHOLNPGM("Starting to play boot video");
+  playStream(&reader, UIStorage::BootMediaReader::read);
+  return true;
+}
+
+void MediaPlayerScreen::playStream(void *obj, media_streamer_func_t *data_stream) {
   #if defined(USE_FTDI_FT810)
-    char     buf[512];
-    Sd2Card  card;
-    SdVolume volume;
-    SdFile   root, file;
-
-    // Check to see if a video file exists
-
-    card.init(SPI_SPEED, SDSS);
-    volume.init(&card);
-    root.openRoot(&volume);
-
-    strcpy_P(buf, PSTR("AUTOPLAY.AVI"));
-
-    if(!root.exists(buf)) return;
-
-    if(!file.open(&root, buf, O_READ)) {
-      #ifdef SERIAL_PROTOCOLLNPGM
-        SERIAL_PROTOCOLLNPGM("Failed to open AUTOPLAY.AVI");
-      #else
-        Serial.println("Failed to open AUTOPLAY.AVI");
-      #endif
-      return;
-    }
-
-    #ifdef SERIAL_PROTOCOLLNPGM
-      SERIAL_PROTOCOLLNPGM("Starting to play AUTOPLAY.AVI");
-    #else
-      Serial.println("Starting to play AUTOPLAY.AVI");
-    #endif
-
     // Set up the media FIFO on the end of RAMG, as the top of RAMG
     // will be used as the framebuffer.
 
+    uint8_t        buf[512];
     const uint32_t block_size = 512;
     const uint32_t fifo_size  = block_size * 2;
     const uint32_t fifo_start = RAM_G + RAM_G_SIZE - fifo_size;
 
     CommandProcessor cmd;
     cmd.cmd(CMD_DLSTART)
-       .cmd(CLEAR_COLOR_RGB(0x00FF00))
+       .cmd(CLEAR_COLOR_RGB(0x000000))
        .cmd(CLEAR(true,true,true))
+       .cmd(DL::DL_DISPLAY)
+       .cmd(CMD_SWAP)
+       .execute()
+       .cmd(CMD_DLSTART)
        .mediafifo(fifo_start, fifo_size)
        .playvideo(OPT_FULLSCREEN | OPT_MEDIAFIFO | OPT_NOTEAR)
+       .cmd(DL::DL_DISPLAY)
+       .cmd(CMD_SWAP)
        .execute();
 
     uint32_t writePtr = 0;
@@ -2316,9 +2985,10 @@ void MediaPlayerScreen::lookForAutoPlayMedia() {
     uint32_t t = millis();
     uint8_t timeouts;
 
+    uint16_t checksum = 0;
     do {
       // Write block n
-      nBytes = file.read(buf, block_size);
+      nBytes = (*data_stream)(obj, buf, block_size);
       if(nBytes == -1) break;
 
       if(millis() - t > 10) {
@@ -2338,8 +3008,10 @@ void MediaPlayerScreen::lookForAutoPlayMedia() {
           t = millis();
           timeouts--;
           if(timeouts == 0) {
-            SERIAL_PROTOCOLLNPGM("Timeout playing video");
-            return;
+            SERIAL_ECHO_START();
+            SERIAL_ECHOLNPGM("Timeout playing video");
+            cmd.reset();
+            goto exit;
           }
         }
       } while(CLCD::mem_read_32(REG_MEDIAFIFO_READ) != writePtr);
@@ -2349,21 +3021,16 @@ void MediaPlayerScreen::lookForAutoPlayMedia() {
       CLCD::mem_write_32(REG_MEDIAFIFO_WRITE, writePtr);
     } while(nBytes == block_size);
 
-    file.close();
+    SERIAL_ECHO_START();
+    SERIAL_ECHOLNPGM("Done playing video");
 
-    #ifdef SERIAL_PROTOCOLLNPGM
-      SERIAL_PROTOCOLLNPGM("Done playing video");
-    #else
-      Serial.println("Done playing video");
-    #endif
-
+  exit:
     // Since playing media overwrites RAMG, we need to reinitialize
     // everything that is stored in RAMG.
-
     cmd.cmd(CMD_DLSTART).execute();
     DLCache::init();
     StatusScreen::onStartup();
-  #endif
+  #endif // USE_FTDI_FT810
 }
 
 /***************************** MARLIN CALLBACKS  ***************************/
@@ -2376,8 +3043,6 @@ namespace Extensible_UI_API {
   void onMediaInserted() {
     StatusScreen::setStatusMessage(F(MSG_SD_INSERTED));
     sound.play(media_inserted, PLAY_ASYNCHRONOUS);
-
-    MediaPlayerScreen::lookForAutoPlayMedia();
   }
 
   void onMediaRemoved() {
@@ -2391,6 +3056,14 @@ namespace Extensible_UI_API {
 
   void onStatusChanged(progmem_str lcd_msg) {
     StatusScreen::setStatusMessage(lcd_msg);
+  }
+
+  void onFactoryReset() {
+    InterfaceSettingsScreen::defaultSettings();
+  }
+
+  void onStoreSettings() {
+    InterfaceSettingsScreen::saveSettings();
   }
 }
 

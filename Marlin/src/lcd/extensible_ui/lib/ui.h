@@ -32,6 +32,14 @@
 #else
     #include "Arduino.h"
 
+    #ifndef pgm_read_word_far
+    #define pgm_read_word_far pgm_read_word
+    #endif
+
+    #ifndef pgm_read_dword_far
+    #define pgm_read_dword_far pgm_read_dword
+    #endif
+
     // Load up compatibility routines
     #define EXTENSIBLE_UI
     #define _CAT(a, ...) a ## __VA_ARGS__
@@ -43,6 +51,11 @@
     #define WELCOME_MSG     "Printer Ready"
     #define MSG_SD_INSERTED "Media Inserted"
     #define MSG_SD_REMOVED  "Media Removed"
+
+    #define SERIAL_ECHO_START()
+    #define SERIAL_ECHOLNPGM(str)        Serial.println(F(str))
+    #define SERIAL_ECHOPGM(str)          Serial.print(F(str))
+    #define SERIAL_ECHOLNPAIR(str, val) {Serial.print(F(str)); Serial.println(value);}
 #endif
 
 #endif // _UI_CONFIG_H_

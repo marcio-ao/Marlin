@@ -32,7 +32,18 @@
 #include "../../sd/cardreader.h"
 #include "../../libs/duration_t.h"
 
+#if DO_SWITCH_EXTRUDER || ENABLED(SWITCHING_NOZZLE) || ENABLED(PARKING_EXTRUDER)
+  #include "../../module/tool_change.h"
+#endif
+
 #include "ui_api.h"
+
+#if ENABLED(BACKLASH_GCODE)
+  extern float backlash_distance_mm[XYZ], backlash_correction;
+  #ifdef BACKLASH_SMOOTHING_MM
+    extern float backlash_smoothing_mm;
+  #endif
+#endif
 
 inline float clamp(const float value, const float minimum, const float maximum) {
   return MAX(MIN(value, maximum), minimum);
@@ -124,6 +135,20 @@ namespace Extensible_UI_API {
     #if EXTRUDERS > 1
       active_extruder = old_extruder;
     #endif
+  }
+
+  void setActiveTool(uint8_t extruder) {
+    extruder--; // Make zero based
+    #if DO_SWITCH_EXTRUDER || ENABLED(SWITCHING_NOZZLE) || ENABLED(PARKING_EXTRUDER)
+      if(extruder != active_extruder) {
+        tool_change(extruder);
+      }
+    #endif
+    active_extruder = extruder;
+  }
+
+  uint8_t getActiveTool() {
+    return active_extruder + 1;
   }
 
   bool isMoving() { return planner.has_blocks_queued(); }
@@ -258,6 +283,32 @@ namespace Extensible_UI_API {
     }
   #endif // HAS_BED_PROBE
 
+  #if HOTENDS > 1
+    float getNozzleOffset_mm(const axis_t axis, uint8_t extruder) {
+      if(extruder >= HOTENDS) return 0;
+      return hotend_offset[axis][extruder];
+    }
+
+    void setNozzleOffset_mm(const axis_t axis, uint8_t extruder, float offset) {
+      if(extruder >= HOTENDS) return;
+      hotend_offset[axis][extruder] = offset;
+    }
+  #endif
+
+  #if ENABLED(BACKLASH_GCODE)
+    float getAxisBacklash_mm(const axis_t axis)       {return backlash_distance_mm[axis];}
+    void setAxisBacklash_mm(const axis_t axis, float distance)
+                                                      {backlash_distance_mm[axis] = distance;}
+
+    float getBacklashCorrection_percent()             {return backlash_correction*100;}
+    void setBacklashCorrection_percent(float percent) {backlash_correction = clamp(percent, 0, 100)/100;}
+
+    #ifdef BACKLASH_SMOOTHING_MM
+      float getBacklashSmoothing_mm()                 {return backlash_smoothing_mm;}
+      void setBacklashSmoothing_mm(float distance)    {backlash_smoothing_mm = distance;}
+    #endif
+  #endif
+
   uint8_t getProgress_percent() {
     #if ENABLED(SDSUPPORT)
       return card.percentDone();
@@ -281,9 +332,9 @@ namespace Extensible_UI_API {
 
   bool isAxisPositionKnown(const axis_t axis) {
     switch(axis) {
-      case X:  return axis_known_position[X_AXIS];
-      case Y:  return axis_known_position[Y_AXIS];
-      case Z:  return axis_known_position[Z_AXIS];
+      case X:  return TEST(axis_known_position, X_AXIS);
+      case Y:  return TEST(axis_known_position, Y_AXIS);
+      case Z:  return TEST(axis_known_position, Z_AXIS);
       default: return true;
     }
   }

@@ -31,12 +31,8 @@ uint8_t ScreenRef::lookupScreen(onRedraw_func_t onRedraw_ptr) {
     }
   }
   #if defined(UI_FRAMEWORK_DEBUG)
-    #if defined(SERIAL_PROTOCOLLNPAIR)
-    SERIAL_PROTOCOLLNPAIR("Screen not found: ", (uintptr_t) onRedraw_ptr);
-    #else
-    Serial.print("Screen not found: ");
-    Serial.println((uintptr_t) onRedraw_ptr, HEX);
-    #endif
+    SERIAL_ECHO_START();
+    SERIAL_ECHOPAIR("Screen not found: ", (uintptr_t) onRedraw_ptr);
   #endif
   return 0xFF;
 }
@@ -46,23 +42,10 @@ void ScreenRef::setScreen(onRedraw_func_t onRedraw_ptr) {
   if(type != 0xFF) {
     setType(type);
     #if defined(UI_FRAMEWORK_DEBUG)
-      #if defined(SERIAL_PROTOCOLLNPAIR)
-      SERIAL_PROTOCOLLNPAIR("New screen: ",type);
-      #else
-      Serial.print("New screen: ");
-      Serial.println(type);
-      #endif
+      SERIAL_ECHO_START();
+      SERIAL_ECHOPAIR("New screen: ", type);
     #endif
-    return;
   }
-  #if defined(UI_FRAMEWORK_DEBUG)
-    #if defined(SERIAL_PROTOCOLLNPAIR)
-    SERIAL_PROTOCOLLNPAIR("Screen not found: ", (uintptr_t) onRedraw_ptr);
-    #else
-    Serial.print("Screen not found: ");
-    Serial.println((uintptr_t) onRedraw_ptr, HEX);
-    #endif
-  #endif
 }
 
 void ScreenRef::initializeAll() {
@@ -105,6 +88,7 @@ void ScreenStack::goTo(onRedraw_func_t s) {
 }
 
 void ScreenStack::goBack() {
+  onExit();
   pop();
   onEntry();
 }

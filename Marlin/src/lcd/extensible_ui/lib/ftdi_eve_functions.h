@@ -100,51 +100,40 @@
 
 typedef const __FlashStringHelper *progmem_str;
 
+class UIStorage;
+
 class CLCD {
-  private:
-    static void     spi_init (void);
-    static void     spi_select (void);
-    static void     spi_deselect (void);
+  friend class UIStorage;
 
-    static uint8_t  _soft_spi_transfer (uint8_t spiOutByte);
-    static void    _soft_spi_send (uint8_t spiOutByte);
-
-    static void     spi_send(uint8_t spiOutByte);
-    static uint8_t  spi_recv();
-
-    static void     mem_read_addr  (uint32_t reg_address);
-    static void     mem_write_addr (uint32_t reg_address);
-    static void     mem_read_bulk  (uint32_t reg_address, uint8_t *data, uint16_t len);
   public:
-    static uint8_t  mem_read_8   (uint32_t reg_address);
-    static uint16_t mem_read_16  (uint32_t reg_address);
-    static uint32_t mem_read_32  (uint32_t reg_address);
-    static void     mem_write_8  (uint32_t reg_address, uint8_t w_data);
-    static void     mem_write_16 (uint32_t reg_address, uint16_t w_data);
-    static void     mem_write_32 (uint32_t reg_address, uint32_t w_data);
-    static void     mem_write_bulk (uint32_t reg_address, const void *data, uint16_t len, uint8_t padding = 0);
-    static void     mem_write_bulk (uint32_t reg_address, progmem_str str, uint16_t len, uint8_t padding = 0);
+    static void     spi_write_addr (uint32_t reg_address);
+    static void     spi_read_addr  (uint32_t reg_address);
 
-    static inline uint32_t pack_rgb(uint8_t r, uint8_t g, uint8_t b) {
-      return (uint32_t(r) << 16) | (uint32_t(g) << 8) | uint32_t(b);
-    }
+    static uint8_t  mem_read_8     (uint32_t reg_address);
+    static uint16_t mem_read_16    (uint32_t reg_address);
+    static uint32_t mem_read_32    (uint32_t reg_address);
+    static void     mem_read_bulk  (uint32_t reg_address, uint8_t *data, uint16_t len);
+
+    static void     mem_write_8    (uint32_t reg_address, uint8_t w_data);
+    static void     mem_write_16   (uint32_t reg_address, uint16_t w_data);
+    static void     mem_write_32   (uint32_t reg_address, uint32_t w_data);
+    static void     mem_write_bulk (uint32_t reg_address, const void *data, uint16_t len, uint8_t padding = 0);
+    static void     mem_write_pgm  (uint32_t reg_address, const void *data, uint16_t len, uint8_t padding = 0);
+    static void     mem_write_bulk (uint32_t reg_address, progmem_str str, uint16_t len, uint8_t padding = 0);
+    static void     mem_write_xbm  (uint32_t reg_address, progmem_str str, uint16_t len, uint8_t padding = 0);
 
   public:
     class CommandFifo;
 
     static void init (void);
     static void turn_on_backlight (void);
-    static void reset (void);
-    static void test_pulse(void);
     static void enable (void);
     static void disable (void);
     static void set_brightness (uint8_t brightness);
     static uint8_t get_brightness();
     static void host_cmd (unsigned char host_command, unsigned char byte2);
 
-
     static void get_font_metrics (uint8_t font, struct FontMetrics &fm);
-    static void flash_write_rgb332_bitmap (uint32_t mem_address, const unsigned char* p_rgb332_array, uint16_t num_bytes);
 
     static uint8_t get_tag ()     {return mem_read_8(FTDI::REG_TOUCH_TAG);}
     static bool is_touching ()    {return (mem_read_32(FTDI::REG_TOUCH_DIRECT_XY) & 0x80000000) == 0;}
@@ -193,22 +182,47 @@ class CLCD::CommandFifo {
     void cmd(uint32_t cmd32);
     void cmd(void* data, uint16_t len);
 
-    #if defined(USE_FTDI_FT810)
-    void set_rotate(uint8_t rotation);
-    #endif
+    void dlstart()      {cmd(FTDI::CMD_DLSTART);}
+    void swap()         {cmd(FTDI::CMD_SWAP);}
+    void coldstart()    {cmd(FTDI::CMD_COLDSTART);}
+    void screensaver()  {cmd(FTDI::CMD_SCREENSAVER);}
+    void stop()         {cmd(FTDI::CMD_STOP);}
+    void loadidentity() {cmd(FTDI::CMD_LOADIDENTITY);}
+    void setmatrix()    {cmd(FTDI::CMD_SETMATRIX);}
 
-    void track     (int16_t x, int16_t y, int16_t w, int16_t h, uint16_t tag);
-    void clock     (int16_t x, int16_t y, int16_t r,            uint16_t options, int16_t h, int16_t m, int16_t s, int16_t ms);
-    void gauge     (int16_t x, int16_t y, int16_t r,            uint16_t options, uint16_t major, uint16_t minor, uint16_t val, uint16_t range);
-    void dial      (int16_t x, int16_t y, int16_t r,            uint16_t options, uint16_t val);
-    void slider    (int16_t x, int16_t y, int16_t w, int16_t h, uint16_t options, uint16_t val, uint16_t range);
-    void progress  (int16_t x, int16_t y, int16_t w, int16_t h, uint16_t options, uint16_t val, uint16_t range);
-    void scrollbar (int16_t x, int16_t y, int16_t w, int16_t h, uint16_t options, uint16_t val, uint16_t size, uint16_t range);
-    void sketch    (int16_t x, int16_t y, uint16_t w, uint16_t h, uint32_t ptr, uint16_t format);
-    void mediafifo (uint32_t ptr, uint32_t size);
-    void playvideo (uint32_t options);
-    void videostart();
-    void videoframe(uint32_t dst, uint32_t ptr);
+    void fgcolor     (uint32_t rgb);
+    void bgcolor     (uint32_t rgb);
+    void gradcolor   (uint32_t rgb);
+
+    void track       (int16_t x, int16_t y, int16_t w, int16_t h, uint16_t tag);
+    void clock       (int16_t x, int16_t y, int16_t r,            uint16_t options, int16_t h, int16_t m, int16_t s, int16_t ms);
+    void gauge       (int16_t x, int16_t y, int16_t r,            uint16_t options, uint16_t major, uint16_t minor, uint16_t val, uint16_t range);
+    void dial        (int16_t x, int16_t y, int16_t r,            uint16_t options, uint16_t val);
+    void slider      (int16_t x, int16_t y, int16_t w, int16_t h, uint16_t options, uint16_t val, uint16_t range);
+    void progress    (int16_t x, int16_t y, int16_t w, int16_t h, uint16_t options, uint16_t val, uint16_t range);
+    void scrollbar   (int16_t x, int16_t y, int16_t w, int16_t h, uint16_t options, uint16_t val, uint16_t size, uint16_t range);
+    void number      (int16_t x, int16_t y, int16_t font, uint16_t options, int32_t n);
+    void spinner     (int16_t x, int16_t y, uint16_t style, uint16_t scale);
+    void sketch      (int16_t x, int16_t y, uint16_t w, uint16_t h, uint32_t ptr, uint16_t format);
+    void gradient    (int16_t x0, int16_t y0, uint32_t rgb0, int16_t x1, int16_t y1, uint32_t rgb1);
+    void snapshot    (uint32_t ptr);
+    void loadimage   (uint32_t ptr, uint32_t options);
+    void getprops    (uint32_t ptr, uint32_t width, uint32_t height);
+
+    void scale       (int32_t sx, int32_t sy);
+    void rotate      (int32_t a);
+    void translate   (int32_t tx, int32_t ty);
+
+    #if defined(USE_FTDI_FT810)
+      void setbase   (uint8_t base);
+      void setrotate (uint8_t rotation);
+      void setbitmap (uint32_t ptr, uint16_t fmt, uint16_t w, uint16_t h);
+      void snapshot2 (uint32_t fmt, uint32_t ptr, int16_t x, int16_t y, uint16_t w, uint16_t h);
+      void mediafifo (uint32_t ptr, uint32_t size);
+      void playvideo (uint32_t options);
+      void videostart();
+      void videoframe(uint32_t dst, uint32_t ptr);
+    #endif
 
     // All the following must be followed by str()
     void text      (int16_t x, int16_t y,                       int16_t font, uint16_t options);
@@ -220,8 +234,13 @@ class CLCD::CommandFifo {
     void str (const char * const data);
     void str (progmem_str data);
 
-    void memcpy (uint32_t dst, uint32_t src, uint32_t size);
-    void append (uint32_t ptr, uint32_t size);
+    void memzero (uint32_t ptr, uint32_t size);
+    void memset  (uint32_t ptr, uint32_t value, uint32_t size);
+    void memcpy  (uint32_t dst, uint32_t src, uint32_t size);
+    void memcrc  (uint32_t ptr, uint32_t num, uint32_t result);
+    void inflate (uint32_t ptr);
+    void getptr  (uint32_t result);
+    void append  (uint32_t ptr, uint32_t size);
 };
 
 #endif // _FTDI_EVE_FUNCTIONS_H_

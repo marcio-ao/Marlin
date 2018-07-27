@@ -127,7 +127,9 @@
 #define HEATER_2_PIN       11
 #define HEATER_BED_PIN      8
 
-#define FAN_PIN            12
+#ifndef FAN_PIN
+  #define FAN_PIN          12
+#endif
 #define CONTROLLER_FAN_PIN -1
 
 //
@@ -176,7 +178,7 @@
 
 #endif // ULTRA_LCD
 
-#if ENABLED(HAVE_TMC2208)
+#if HAS_DRIVER(TMC2208)
   /**
    * TMC2208 stepper drivers
    *

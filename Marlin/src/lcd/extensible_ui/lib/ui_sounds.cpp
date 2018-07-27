@@ -66,10 +66,9 @@ namespace FTDI {
     CLCD::mem_write_8( REG_PLAY,  1);
 
     #if defined(UI_FRAMEWORK_DEBUG)
-      #if defined (SERIAL_PROTOCOLLNPAIR)
-        SERIAL_PROTOCOLPAIR("Playing note ", note);
-        SERIAL_PROTOCOLLNPAIR(", instrument ", effect);
-      #endif
+      SERIAL_ECHO_START();
+      SERIAL_ECHOPAIR("Playing note ", note);
+      SERIAL_ECHOLNPAIR(", instrument ", effect);
     #endif
   }
 

@@ -148,7 +148,9 @@
 //
 // Heaters / Fans
 //
-#define FAN_PIN             4   // D4 PC26 FET_PWM1
+#ifndef FAN_PIN
+  #define FAN_PIN           4   // D4 PC26 FET_PWM1
+#endif
 #define FAN1_PIN            5   // D5 PC25 FET_PWM2
 
 #define HEATER_0_PIN        6   // D6 PC24 FET_PWM3
@@ -156,16 +158,11 @@
 #define HEATER_2_PIN        8   // D8 PC22 FET_PWM5
 #define HEATER_BED_PIN      9   // D9 PC21 BED_PWM
 
-//
-// Misc. Functions
-//
-#define SDSS               87   // D87 PA29 CS
-
 //////////////////////////
 // LCDs and Controllers //
 //////////////////////////
 
-#if ENABLED(ULTRA_LCD) || ENABLED(EXTENSIBLE_UI)
+#if ENABLED(ULTRA_LCD)  || ENABLED(EXTENSIBLE_UI)
   #if ENABLED(NEWPANEL) || ENABLED(EXTENSIBLE_UI)
     #define BEEPER_PIN     23   // D24 PA15_CTS1
     #define LCD_PINS_RS    17   // D17 PA12_RXD1
@@ -183,3 +180,24 @@
     #define BTN_ENC        16   // D16 PA13_TXD1 // the click
   #endif  // NEWPANEL
 #endif // ULTRA_LCD
+
+//
+// Misc. Functions
+//
+
+// Internal MicroSD card reader on the PCB
+#define INT_SCK_PIN         42   // D42 PA19/MCCK
+#define INT_MISO_PIN        43   // D43 PA20/MCCDA
+#define INT_MOSI_PIN        73   // D73 PA21/MCDA0
+#define INT_SDSS            55   // D55 PA24/MCDA3
+
+// The external SD card reader on SC2, as well as 2 Mbyte SPI Flash
+#define SCK_PIN             76   // D76 PA27
+#define MISO_PIN            74   // D74 PA25
+#define MOSI_PIN            75   // D75 PA26
+#define SDSS                87   // D87 PA29
+#define SPI_FLASH_SS        52   // D52 PB21
+
+// Connect servos to pins on the GPIO header J20
+#define SERVO0_PIN        20   // D20 PB12 (Header Pin 20)
+#define SERVO1_PIN        21   // D21 PB13 (Header Pin 19)

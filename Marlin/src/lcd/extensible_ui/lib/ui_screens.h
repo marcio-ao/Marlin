@@ -39,15 +39,19 @@ enum {
   MENU_SCREEN_CACHE,
   TUNE_SCREEN_CACHE,
   ALERT_BOX_CACHE,
+  SPINNER_CACHE,
   ADVANCED_SETTINGS_SCREEN_CACHE,
   MOVE_AXIS_SCREEN_CACHE,
   TEMPERATURE_SCREEN_CACHE,
   STEPS_SCREEN_CACHE,
   ZOFFSET_SCREEN_CACHE,
+  NOZZLE_OFFSET_SCREEN_CACHE,
+  BACKLASH_COMPENSATION_SCREEN_CACHE,
   FEEDRATE_SCREEN_CACHE,
   VELOCITY_SCREEN_CACHE,
   ACCELERATION_SCREEN_CACHE,
   JERK_SCREEN_CACHE,
+  CHANGE_FILAMENT_SCREEN_CACHE,
   INTERFACE_SETTINGS_SCREEN_CACHE,
   LOCK_SCREEN_CACHE,
   FILES_SCREEN_CACHE
@@ -58,6 +62,7 @@ enum {
 
 #define STATUS_SCREEN_DL_SIZE        2048
 #define ALERT_BOX_DL_SIZE            3072
+#define SPINNER_DL_SIZE              3072
 
 /************************** REFRESH METHOD SHIMS ***************************/
 
@@ -82,11 +87,8 @@ class CachedScreen {
     static bool storeBackground(){
       DLCache dlcache(DL_SLOT);
       if(!dlcache.store(DL_SIZE)) {
-        #if defined (SERIAL_PROTOCOLLNPAIR)
-          SERIAL_PROTOCOLLN("CachedScreen::storeBackground() failed: not enough DL cache space");
-        #else
-          Serial.print(CachedScreen::storeBackground() failed: not enough DL cache space);
-        #endif
+        SERIAL_ECHO_START();
+        SERIAL_ECHOLNPGM("CachedScreen::storeBackground() failed: not enough DL cache space");
         return false;
       }
       return true;
@@ -135,9 +137,10 @@ class BaseScreen : public UIScreen {
     #endif
 
     static void default_button_colors();
-
   public:
     static bool buttonStyleCallback(uint8_t tag, uint8_t &style, uint16_t &options, bool post);
+
+    static void reset_menu_timeout();
 
     static void onEntry();
     static void onIdle();
@@ -168,6 +171,7 @@ class DialogBoxBaseClass : public BaseScreen  {
     static void drawMessage(const progmem_str line1, const progmem_str line2 = 0, const progmem_str line3 = 0);
     static void drawYesNoButtons();
     static void drawOkayButton();
+    static void drawSpinner();
 
     static void onRedraw(draw_mode_t what) {};
   public:
@@ -187,10 +191,23 @@ class RestoreFailsafeScreen : public DialogBoxBaseClass, public UncachedScreen {
     static bool onTouchEnd(uint8_t tag);
 };
 
+class SaveSettingsScreen : public DialogBoxBaseClass, public UncachedScreen {
+  public:
+    static void onRedraw(draw_mode_t what);
+    static bool onTouchEnd(uint8_t tag);
+};
+
 class ConfirmAbortPrint : public DialogBoxBaseClass, public UncachedScreen {
   public:
     static void onRedraw(draw_mode_t what);
     static bool onTouchEnd(uint8_t tag);
+};
+
+class SpinnerScreen : public DialogBoxBaseClass, public CachedScreen<SPINNER_CACHE,SPINNER_DL_SIZE> {
+  public:
+    static void onRedraw(draw_mode_t what);
+    static void show(const progmem_str line1, const progmem_str line2 = 0, const progmem_str line3 = 0);
+    static void hide();
 };
 
 class StatusScreen : public BaseScreen, public CachedScreen<STATUS_SCREEN_CACHE,STATUS_SCREEN_DL_SIZE> {
@@ -240,6 +257,20 @@ class AdvancedSettingsScreen : public BaseScreen, public CachedScreen<ADVANCED_S
   public:
     static void onRedraw(draw_mode_t what);
     static bool onTouchEnd(uint8_t tag);
+};
+
+class ChangeFilamentScreen : public BaseScreen, public CachedScreen<CHANGE_FILAMENT_SCREEN_CACHE> {
+  private:
+    static uint8_t getSoftenTemp();
+    static uint8_t getExtruder();
+    static void drawTempGradient(uint16_t x, uint16_t y, uint16_t w, uint16_t h);
+    static uint32_t getTempColor(uint32_t temp);
+  public:
+    static void onEntry();
+    static void onRedraw(draw_mode_t what);
+    static bool onTouchEnd(uint8_t tag);
+    static bool onTouchHeld(uint8_t tag);
+    static void onIdle();
 };
 
 class ValueAdjusters : public BaseScreen {
@@ -296,6 +327,22 @@ class StepsScreen : public ValueAdjusters, public CachedScreen<STEPS_SCREEN_CACH
   };
 #endif
 
+#if HOTENDS > 1
+  class NozzleOffsetScreen : public ValueAdjusters, public CachedScreen<NOZZLE_OFFSET_SCREEN_CACHE> {
+    public:
+      static void onRedraw(draw_mode_t what);
+      static bool onTouchHeld(uint8_t tag);
+  };
+#endif
+
+#if ENABLED(BACKLASH_GCODE)
+  class BacklashCompensationScreen : public ValueAdjusters, public CachedScreen<BACKLASH_COMPENSATION_SCREEN_CACHE> {
+    public:
+      static void onRedraw(draw_mode_t what);
+      static bool onTouchHeld(uint8_t tag);
+  };
+#endif
+
 class FeedrateScreen : public ValueAdjusters, public CachedScreen<FEEDRATE_SCREEN_CACHE> {
   public:
     static void onRedraw(draw_mode_t what);
@@ -328,8 +375,31 @@ class TemperatureScreen : public ValueAdjusters, public CachedScreen<TEMPERATURE
 };
 
 class InterfaceSettingsScreen : public BaseScreen, public CachedScreen<INTERFACE_SETTINGS_SCREEN_CACHE> {
+  private:
+    struct persistent_data_t {
+      uint32_t magic_word;
+      uint16_t version;
+      uint8_t  sound_volume;
+      uint8_t  screen_brightness;
+      uint16_t passcode;
+      // TODO: The following should really be stored in the EEPROM
+      #if ENABLED(BACKLASH_GCODE)
+        float backlash_distance_mm[XYZ];
+        float backlash_correction;
+        #ifdef BACKLASH_SMOOTHING_MM
+          float backlash_smoothing_mm;
+        #endif
+      #endif
+    };
+
   public:
+    static void saveSettings();
+    static void loadSettings();
+    static void defaultSettings();
+
+    static void onStartup();
     static void onEntry();
+    static void onExit();
     static void onRedraw(draw_mode_t what);
     static bool onTouchStart(uint8_t tag);
     static bool onTouchEnd(uint8_t tag);
@@ -338,6 +408,8 @@ class InterfaceSettingsScreen : public BaseScreen, public CachedScreen<INTERFACE
 
 class LockScreen : public BaseScreen, public CachedScreen<LOCK_SCREEN_CACHE> {
   private:
+    friend InterfaceSettingsScreen;
+
     static uint16_t passcode;
 
     static char & message_style();
@@ -365,6 +437,18 @@ class FilesScreen : public BaseScreen, public CachedScreen<FILES_SCREEN_CACHE> {
     static bool onTouchEnd(uint8_t tag);
 };
 
+class DeveloperScreen : public BaseScreen, public UncachedScreen {
+  public:
+    static void onRedraw(draw_mode_t what);
+    static bool onTouchEnd(uint8_t tag);
+};
+
+class EraseSPIFlashScreen : public DialogBoxBaseClass, public UncachedScreen {
+  public:
+    static void onRedraw(draw_mode_t what);
+    static bool onTouchEnd(uint8_t tag);
+};
+
 class WidgetsScreen : public BaseScreen, public UncachedScreen {
   public:
     static void onEntry();
@@ -374,11 +458,17 @@ class WidgetsScreen : public BaseScreen, public UncachedScreen {
 };
 
 class MediaPlayerScreen : public BaseScreen, public UncachedScreen {
+  private:
+    typedef int16_t media_streamer_func_t(void *obj, void *buff, size_t bytes);
+
   public:
-    static void lookForAutoPlayMedia();
+    static bool playCardMedia();
+    static bool playBootMedia();
 
     static void onEntry();
     static void onRedraw(draw_mode_t what);
+
+    static void playStream(void *obj, media_streamer_func_t *data_stream);
 };
 
 #endif // _UI_SCREENS_

@@ -24,10 +24,6 @@
 
 #include "ui_config.h"
 
-// Uncomment the following to disable the DL caching mechanism
-// (note, this will keep the LCD status message from working)
-//#define DL_CACHE_DISABLED
-
 /******************* DISPLAY LIST CACHE MANAGEMENT ************************/
 /* The Display List Cache mechanism stores the display list corresponding
  * to a menu into RAM_G so that on subsequent calls drawing the menu does

@@ -90,12 +90,8 @@ namespace Extensible_UI_API {
       case UNPRESSED:
         if(tag != 0) {
           #if defined(UI_FRAMEWORK_DEBUG)
-            #if defined (SERIAL_PROTOCOLLNPAIR)
-              SERIAL_PROTOCOLLNPAIR("Touch start: ", tag);
-            #else
-              Serial.print(F("Touch start: "));
-              Serial.println(tag);
-            #endif
+            SERIAL_ECHO_START();
+            SERIAL_ECHOPAIR("Touch start: ", tag);
           #endif
 
           pressed_tag = tag;
@@ -156,12 +152,8 @@ namespace Extensible_UI_API {
             if(event_flags.touch_end_sound) sound.play(Theme::unpress_sound);
 
             #if defined(UI_FRAMEWORK_DEBUG)
-              #if defined (SERIAL_PROTOCOLLNPAIR)
-                SERIAL_PROTOCOLLNPAIR("Touch end: ", pressed_tag);
-              #else
-                Serial.print(F("Touch end: "));
-                Serial.println(pressed_tag);
-              #endif
+              SERIAL_ECHO_START();
+              SERIAL_ECHOPAIR("Touch end: ", tag);
             #endif
 
             const uint8_t saved_pressed_tag = pressed_tag;

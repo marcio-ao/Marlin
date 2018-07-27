@@ -20,7 +20,7 @@
  *
  */
 
-#if !defined(STM32F4)
+#if !defined(STM32F4) && !defined(STM32F4xx)
   #error "Oops!  Make sure you have an STM32F4 board selected from the 'Tools -> Boards' menu."
 #endif
 
@@ -115,7 +115,9 @@
 #define HEATER_1_PIN       PA2
 #define HEATER_BED_PIN     PA0
 
-#define FAN_PIN            PC6
+#ifndef FAN_PIN
+  #define FAN_PIN          PC6
+#endif
 #define FAN1_PIN           PC7
 #define FAN2_PIN           PC8
 

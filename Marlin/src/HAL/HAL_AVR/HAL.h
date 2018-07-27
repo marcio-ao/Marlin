@@ -1,30 +1,21 @@
-/* **************************************************************************
-
- Marlin 3D Printer Firmware
- Copyright (C) 2016 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
-
- Copyright (c) 2016 Bob Cousins bobcousins42@googlemail.com
-
- This program is free software: you can redistribute it and/or modify
- it under the terms of the GNU General Public License as published by
- the Free Software Foundation, either version 3 of the License, or
- (at your option) any later version.
-
- This program is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
-
- You should have received a copy of the GNU General Public License
- along with this program.  If not, see <http://www.gnu.org/licenses/>.
-****************************************************************************/
-
 /**
- * Description: HAL for AVR
+ * Marlin 3D Printer Firmware
+ * Copyright (C) 2016 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
+ * Copyright (c) 2016 Bob Cousins bobcousins42@googlemail.com
  *
- * For __AVR__
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
 
 #ifndef _HAL_AVR_H_
 #define _HAL_AVR_H_
@@ -61,8 +52,8 @@
 //#define analogInputToDigitalPin(IO) IO
 
 #ifndef CRITICAL_SECTION_START
-  #define CRITICAL_SECTION_START  unsigned char _sreg = SREG; cli();
-  #define CRITICAL_SECTION_END    SREG = _sreg;
+  #define CRITICAL_SECTION_START  unsigned char _sreg = SREG; cli()
+  #define CRITICAL_SECTION_END    SREG = _sreg
 #endif
 #define ISRS_ENABLED() TEST(SREG, SREG_I)
 #define ENABLE_ISRS()  sei()
@@ -115,31 +106,22 @@ extern "C" {
   int freeMemory(void);
 }
 
-// eeprom
-//void eeprom_write_byte(unsigned char *pos, unsigned char value);
-//unsigned char eeprom_read_byte(unsigned char *pos);
-
 // timers
 #define HAL_TIMER_RATE          ((F_CPU) / 8)    // i.e., 2MHz or 2.5MHz
 
 #define STEP_TIMER_NUM          1
 #define TEMP_TIMER_NUM          0
-#define PULSE_TIMER_NUM         TEMP_TIMER_NUM
-
-#define HAL_STEPPER_TIMER_RATE  HAL_TIMER_RATE
-#define HAL_TICKS_PER_US        ((HAL_STEPPER_TIMER_RATE) / 1000000) // Cannot be of type double
-#define STEPPER_TIMER_PRESCALE  8
-#define STEP_TIMER_MIN_INTERVAL 8 // minimum time in µs between stepper interrupts
+#define PULSE_TIMER_NUM         STEP_TIMER_NUM
 
 #define TEMP_TIMER_FREQUENCY    ((F_CPU) / 64.0 / 256.0)
 
-#define TIMER_OCR_1             OCR1A
-#define TIMER_COUNTER_1         TCNT1
+#define STEPPER_TIMER_RATE      HAL_TIMER_RATE
+#define STEPPER_TIMER_PRESCALE  8
+#define STEPPER_TIMER_TICKS_PER_US ((STEPPER_TIMER_RATE) / 1000000) // Cannot be of type double
 
-#define TIMER_OCR_0             OCR0A
-#define TIMER_COUNTER_0         TCNT0
-
-#define PULSE_TIMER_PRESCALE    8
+#define PULSE_TIMER_RATE       STEPPER_TIMER_RATE   // frequency of pulse timer
+#define PULSE_TIMER_PRESCALE   STEPPER_TIMER_PRESCALE
+#define PULSE_TIMER_TICKS_PER_US STEPPER_TIMER_TICKS_PER_US
 
 #define ENABLE_STEPPER_DRIVER_INTERRUPT()  SBI(TIMSK1, OCIE1A)
 #define DISABLE_STEPPER_DRIVER_INTERRUPT() CBI(TIMSK1, OCIE1A)
@@ -149,7 +131,42 @@ extern "C" {
 #define DISABLE_TEMPERATURE_INTERRUPT()    CBI(TIMSK0, OCIE0B)
 #define TEMPERATURE_ISR_ENABLED()         TEST(TIMSK0, OCIE0B)
 
-#define HAL_timer_start(timer_num, frequency)
+FORCE_INLINE void HAL_timer_start(const uint8_t timer_num, const uint32_t frequency) {
+  UNUSED(frequency);
+  switch (timer_num) {
+    case STEP_TIMER_NUM:
+      // waveform generation = 0100 = CTC
+      SET_WGM(1, CTC_OCRnA);
+
+      // output mode = 00 (disconnected)
+      SET_COMA(1, NORMAL);
+
+      // Set the timer pre-scaler
+      // Generally we use a divider of 8, resulting in a 2MHz timer
+      // frequency on a 16MHz MCU. If you are going to change this, be
+      // sure to regenerate speed_lookuptable.h with
+      // create_speed_lookuptable.py
+      SET_CS(1, PRESCALER_8);  //  CS 2 = 1/8 prescaler
+
+      // Init Stepper ISR to 122 Hz for quick starting
+      // (F_CPU) / (STEPPER_TIMER_PRESCALE) / frequency
+      OCR1A = 0x4000;
+      TCNT1 = 0;
+      break;
+
+    case TEMP_TIMER_NUM:
+      // Use timer0 for temperature measurement
+      // Interleave temperature interrupt with millies interrupt
+      OCR0B = 128;
+      break;
+  }
+}
+
+#define TIMER_OCR_1             OCR1A
+#define TIMER_COUNTER_1         TCNT1
+
+#define TIMER_OCR_0             OCR0A
+#define TIMER_COUNTER_0         TCNT0
 
 #define _CAT(a, ...) a ## __VA_ARGS__
 #define HAL_timer_set_compare(timer, compare) (_CAT(TIMER_OCR_, timer) = compare)
@@ -328,12 +345,16 @@ inline void HAL_adc_init(void) {
   #define HAL_START_ADC(pin) ADCSRB = 0; SET_ADMUX_ADCSRA(pin)
 #endif
 
-#define HAL_READ_ADC ADC
+#define HAL_READ_ADC()  ADC
+#define HAL_ADC_READY() !TEST(ADCSRA, ADSC)
 
 #define GET_PIN_MAP_PIN(index) index
 #define GET_PIN_MAP_INDEX(pin) pin
 #define PARSED_PIN_INDEX(code, dval) parser.intval(code, dval)
 
 #define HAL_SENSITIVE_PINS 0, 1
+
+// AVR compatibility
+#define strtof strtod
 
 #endif // _HAL_AVR_H_

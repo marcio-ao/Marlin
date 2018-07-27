@@ -21,8 +21,6 @@
  *
  */
 
-
-
 #ifndef _HAL_STM32F4_H
 #define _HAL_STM32F4_H
 
@@ -41,13 +39,16 @@
 
 #include "Arduino.h"
 
+#ifdef USBCON
+  #include <USBSerial.h>
+#endif
+
 #include "../math_32bit.h"
 #include "../HAL_SPI.h"
 #include "fastio_STM32F4.h"
 #include "watchdog_STM32F4.h"
 
 #include "HAL_timers_STM32F4.h"
-
 
 // --------------------------------------------------------------------------
 // Defines
@@ -186,6 +187,7 @@ extern "C" {
 */
 
 extern "C" char* _sbrk(int incr);
+
 /*
 static int freeMemory() {
   volatile int top;
@@ -193,6 +195,7 @@ static int freeMemory() {
   return top;
 }
 */
+
 static int freeMemory() {
   volatile char top;
   return &top - reinterpret_cast<char*>(_sbrk(0));
@@ -225,7 +228,8 @@ void eeprom_update_block (const void *__src, void *__dst, size_t __n);
 inline void HAL_adc_init(void) {}
 
 #define HAL_START_ADC(pin)  HAL_adc_start_conversion(pin)
-#define HAL_READ_ADC        HAL_adc_result
+#define HAL_READ_ADC()      HAL_adc_result
+#define HAL_ADC_READY()     true
 
 void HAL_adc_start_conversion(const uint8_t adc_pin);
 
