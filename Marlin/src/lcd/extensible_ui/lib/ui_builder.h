@@ -43,11 +43,13 @@
   #define MARGIN_R         5
   #define MARGIN_T         5
   #define MARGIN_B         5
+  #define MARGIN_DEFAULT   5
 #else
   #define MARGIN_L         3
   #define MARGIN_R         3
   #define MARGIN_T         3
   #define MARGIN_B         3
+  #define MARGIN_DEFAULT   3
 #endif
 
 // EDGE_R adds some black space on the right edge of the display
@@ -183,16 +185,16 @@ class CommandProcessor : public CLCD::CommandFifo {
                                                                   {CLCD::CommandFifo::loadimage(ptr, options); return *this;}
     inline CommandProcessor& sketch   (int16_t x, int16_t y, uint16_t w, uint16_t h, uint32_t ptr, uint16_t format)
                                                                   {CLCD::CommandFifo::sketch(x, y, w, h, ptr, format); return *this;}
-    inline CommandProcessor& spinner  (int16_t x, int16_t y, uint16_t style, uint16_t scale)
-                                                                  {CLCD::CommandFifo::spinner(x, y, style, scale); return *this;}
     inline CommandProcessor& screensaver  ()                      {CLCD::CommandFifo::screensaver(); return *this;}
+    #if defined(USE_FTDI_FT810)
     inline CommandProcessor& setbase  (uint8_t base)              {CLCD::CommandFifo::setbase(base); return *this;}
-
+    #endif
     inline CommandProcessor& loadidentity ()                      {CLCD::CommandFifo::loadidentity(); return *this;}
     inline CommandProcessor& scale    (int32_t sx, int32_t sy)    {CLCD::CommandFifo::scale(sx,sy); return *this;}
     inline CommandProcessor& rotate   (int32_t a)                 {CLCD::CommandFifo::rotate(a); return *this;}
     inline CommandProcessor& translate(int32_t tx, int32_t ty)    {CLCD::CommandFifo::translate(tx,ty); return *this;}
     inline CommandProcessor& setmatrix ()                         {CLCD::CommandFifo::setmatrix(); return *this;}
+    inline CommandProcessor& stop ()                              {CLCD::CommandFifo::stop(); return *this;}
 
     inline CommandProcessor& memzero  (uint32_t ptr, uint32_t size)
                                                                   {CLCD::CommandFifo::memzero(ptr, size); return *this;}
@@ -362,6 +364,12 @@ class CommandProcessor : public CLCD::CommandFifo {
     CommandProcessor& keys(int16_t x, int16_t y, int16_t w, int16_t h, T keys, uint16_t options = FTDI::OPT_3D) {
       CLCD::CommandFifo::keys(x, y, w, h, _font, options);
       CLCD::CommandFifo::str(keys);
+      return *this;
+    }
+
+    FORCEDINLINE CommandProcessor& spinner(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t style = 0, uint16_t scale = 0) {
+      circular_widget_box(x, y, w, h);
+      CLCD::CommandFifo::spinner(x, y, style, scale);
       return *this;
     }
 };

@@ -38,6 +38,13 @@
 
 #include "ui_api.h"
 
+#if ENABLED(BACKLASH_GCODE)
+  extern float backlash_distance_mm[XYZ], backlash_correction;
+  #ifdef BACKLASH_SMOOTHING_MM
+    extern float backlash_smoothing_mm;
+  #endif
+#endif
+
 inline float clamp(const float value, const float minimum, const float maximum) {
   return MAX(MIN(value, maximum), minimum);
 }
@@ -275,6 +282,32 @@ namespace Extensible_UI_API {
       }
     }
   #endif // HAS_BED_PROBE
+
+  #if HOTENDS > 1
+    float getNozzleOffset_mm(const axis_t axis, uint8_t extruder) {
+      if(extruder >= HOTENDS) return 0;
+      return hotend_offset[axis][extruder];
+    }
+
+    void setNozzleOffset_mm(const axis_t axis, uint8_t extruder, float offset) {
+      if(extruder >= HOTENDS) return;
+      hotend_offset[axis][extruder] = offset;
+    }
+  #endif
+
+  #if ENABLED(BACKLASH_GCODE)
+    float getAxisBacklash_mm(const axis_t axis)       {return backlash_distance_mm[axis];}
+    void setAxisBacklash_mm(const axis_t axis, float distance)
+                                                      {backlash_distance_mm[axis] = distance;}
+
+    float getBacklashCorrection_percent()             {return backlash_correction*100;}
+    void setBacklashCorrection_percent(float percent) {backlash_correction = clamp(percent, 0, 100)/100;}
+
+    #ifdef BACKLASH_SMOOTHING_MM
+      float getBacklashSmoothing_mm()                 {return backlash_smoothing_mm;}
+      void setBacklashSmoothing_mm(float distance)    {backlash_smoothing_mm = distance;}
+    #endif
+  #endif
 
   uint8_t getProgress_percent() {
     #if ENABLED(SDSUPPORT)

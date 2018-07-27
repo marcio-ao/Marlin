@@ -75,6 +75,7 @@ SCREEN_TABLE {
   DECL_SCREEN(RestoreFailsafeScreen),
   DECL_SCREEN(SaveSettingsScreen),
   DECL_SCREEN(ConfirmAbortPrint),
+  DECL_SCREEN(SpinnerScreen),
   DECL_SCREEN(CalibrationScreen),
   DECL_SCREEN(StatusScreen),
   DECL_SCREEN(MenuScreen),
@@ -84,6 +85,12 @@ SCREEN_TABLE {
   DECL_SCREEN(StepsScreen),
 #if HAS_BED_PROBE
   DECL_SCREEN(ZOffsetScreen),
+#endif
+#if HOTENDS > 1
+  DECL_SCREEN(NozzleOffsetScreen),
+#endif
+#if ENABLED(BACKLASH_GCODE)
+  DECL_SCREEN(BacklashCompensationScreen),
 #endif
   DECL_SCREEN(FeedrateScreen),
   DECL_SCREEN(VelocityScreen),
@@ -95,6 +102,7 @@ SCREEN_TABLE {
   DECL_SCREEN(LockScreen),
   DECL_SCREEN(FilesScreen),
   DECL_SCREEN(DeveloperScreen),
+  DECL_SCREEN(EraseSPIFlashScreen),
   DECL_SCREEN(WidgetsScreen),
   DECL_SCREEN(CalibrationRegistersScreen),
   DECL_SCREEN(MediaPlayerScreen),
@@ -239,7 +247,7 @@ void BaseScreen::reset_menu_timeout() {
 
 void BootScreen::onRedraw(draw_mode_t what) {
   CommandProcessor cmd;
-  cmd.cmd(CLEAR_COLOR_RGB(Theme::background));
+  cmd.cmd(CLEAR_COLOR_RGB(0x000000));
   cmd.cmd(CLEAR(true,true,true));
 
   CLCD::turn_on_backlight();
@@ -254,6 +262,7 @@ void BootScreen::onIdle() {
     // miscalibration that has been stored to EEPROM.
     GOTO_SCREEN(CalibrationScreen);
   } else {
+    MediaPlayerScreen::playBootMedia();
     GOTO_SCREEN(StatusScreen);
   }
 }
@@ -276,7 +285,7 @@ void AboutScreen::onRedraw(draw_mode_t what) {
 
   cmd       .font(Theme::font_large) .text(  BTN_POS(1,2), BTN_SIZE(4,1), F("Color Touch Panel"))
      .tag(2).font(Theme::font_medium).text(  BTN_POS(1,3), BTN_SIZE(4,1), F("(c) 2018 Aleph Objects, Inc."))
-                                     .text(  BTN_POS(1,5), BTN_SIZE(4,1), getFirmwareName())
+     .tag(0)                         .text(  BTN_POS(1,5), BTN_SIZE(4,1), getFirmwareName())
      .tag(1)                         .button(BTN_POS(2,7), BTN_SIZE(2,1), F("Okay"));
 
   #undef GRID_COLS
@@ -320,6 +329,11 @@ void DialogBoxBaseClass::drawOkayButton() {
   CommandProcessor cmd;
   cmd.font(Theme::font_medium)
      .tag(1).button( BTN_POS(1,8), BTN_SIZE(2,1), F("Okay"));
+}
+
+void DialogBoxBaseClass::drawSpinner() {
+  CommandProcessor cmd;
+  cmd.spinner(BTN_POS(1,5), BTN_SIZE(2,2)).execute();
 }
 
 #undef GRID_COLS
@@ -420,6 +434,23 @@ bool ConfirmAbortPrint::onTouchEnd(uint8_t tag) {
       return DialogBoxBaseClass::onTouchEnd(tag);
   }
 }
+
+/****************************** SPINNER SCREEN *****************************/
+
+void SpinnerScreen::onRedraw(draw_mode_t what) {
+}
+
+void SpinnerScreen::show(const progmem_str line1, const progmem_str line2, const progmem_str line3) {
+  drawMessage(line1, line2, line3);
+  drawSpinner();
+  storeBackground();
+}
+
+void SpinnerScreen::hide() {
+  CommandProcessor cmd;
+  cmd.stop().execute();
+}
+
 
 /************************************ KILL SCREEN *******************************/
 
@@ -992,6 +1023,38 @@ void AdvancedSettingsScreen::onRedraw(draw_mode_t what) {
     default_button_colors();
     cmd.font(Theme::font_medium)
     #if defined(USE_PORTRAIT_ORIENTATION)
+      #define GRID_ROWS 7
+      #define GRID_COLS 2
+      #if HAS_BED_PROBE
+        .enabled(1)
+      #else
+        .enabled(0)
+      #endif
+      .tag(2) .button( BTN_POS(1,1), BTN_SIZE(1,2), F("Z Offset "))
+      .enabled(1)
+      .tag(3) .button( BTN_POS(1,3), BTN_SIZE(1,1), F("Steps/mm"))
+      #if HOTENDS > 1
+      .enabled(1)
+      #else
+      .enabled(0)
+      #endif
+      .tag(4) .button( BTN_POS(1,4), BTN_SIZE(1,1), F("Dual Offset"))
+      .tag(9).button( BTN_POS(1,5), BTN_SIZE(2,1), F("Interface Settings"))
+      .tag(10).button( BTN_POS(1,6), BTN_SIZE(2,1), F("Restore Factory Settings"))
+      .tag(5) .button( BTN_POS(2,1), BTN_SIZE(1,1), F("Velocity "))
+      .tag(6) .button( BTN_POS(2,2), BTN_SIZE(1,1), F("Acceleration"))
+      .tag(7) .button( BTN_POS(2,3), BTN_SIZE(1,1), F("Jerk"))
+      #if ENABLED(BACKLASH_GCODE)
+      .enabled(1)
+      #else
+      .enabled(0)
+      #endif
+      .tag(8).button( BTN_POS(2,4), BTN_SIZE(1,1), F("Axis Backlash"))
+      .fgcolor(Theme::back_btn)
+      .tag(1) .button( BTN_POS(1,7), BTN_SIZE(2,1), F("Back"));
+      #undef GRID_COLS
+      #undef GRID_ROWS
+    #else
       #define GRID_ROWS 6
       #define GRID_COLS 2
       #if HAS_BED_PROBE
@@ -999,36 +1062,28 @@ void AdvancedSettingsScreen::onRedraw(draw_mode_t what) {
       #else
         .enabled(0)
       #endif
-      .tag(4) .button( BTN_POS(1,1), BTN_SIZE(1,2), F("Z Offset "))
+      .tag(2) .button( BTN_POS(1,1),  BTN_SIZE(1,1), F("Z Offset "))
       .enabled(1)
-      .tag(5) .button( BTN_POS(1,3), BTN_SIZE(1,1), F("Steps/mm"))
-      .tag(6) .button( BTN_POS(2,1), BTN_SIZE(1,1), F("Velocity "))
-      .tag(7) .button( BTN_POS(2,2), BTN_SIZE(1,1), F("Acceleration"))
-      .tag(8) .button( BTN_POS(2,3), BTN_SIZE(1,1), F("Jerk"))
-      .tag(9) .button( BTN_POS(1,4), BTN_SIZE(2,1), F("Interface Settings"))
-      .tag(10).button( BTN_POS(1,5), BTN_SIZE(2,1), F("Restore Factory Settings"))
-      .fgcolor(Theme::back_btn)
-      .tag(1) .button( BTN_POS(1,6), BTN_SIZE(2,1), F("Back"));
-      #undef GRID_COLS
-      #undef GRID_ROWS
-    #else
-      #define GRID_ROWS 5
-      #define GRID_COLS 2
-      #if HAS_BED_PROBE
-        .enabled(1)
+      .tag(3) .button( BTN_POS(1,2),  BTN_SIZE(1,1), F("Steps/mm"))
+      #if ENABLED(BACKLASH_GCODE)
+      .enabled(1)
       #else
-        .enabled(0)
+      .enabled(0)
       #endif
-      .tag(4) .button( BTN_POS(1,1), BTN_SIZE(1,1), F("Z Offset "))
+      .tag(8).button( BTN_POS(1,3),  BTN_SIZE(1,1), F("Axis Backlash"))
+      #if HOTENDS > 1
       .enabled(1)
-      .tag(5) .button( BTN_POS(1,2), BTN_SIZE(1,1), F("Steps/mm"))
-      .tag(9) .button( BTN_POS(1,3), BTN_SIZE(1,1), F("Interface Settings"))
-      .tag(6) .button( BTN_POS(2,1), BTN_SIZE(1,1), F("Velocity "))
-      .tag(7) .button( BTN_POS(2,2), BTN_SIZE(1,1), F("Acceleration"))
-      .tag(8) .button( BTN_POS(2,3), BTN_SIZE(1,1), F("Jerk"))
-      .tag(10).button( BTN_POS(1,4), BTN_SIZE(2,1), F("Restore Factory Settings"))
+      #else
+      .enabled(0)
+      #endif
+      .tag(4) .button( BTN_POS(1,4),  BTN_SIZE(1,1), F("Dual Offset"))
+      .tag(5) .button( BTN_POS(2,1),  BTN_SIZE(1,1), F("Velocity "))
+      .tag(6) .button( BTN_POS(2,2),  BTN_SIZE(1,1), F("Acceleration"))
+      .tag(7) .button( BTN_POS(2,3),  BTN_SIZE(1,1), F("Jerk"))
+      .tag(9).button( BTN_POS(2,4),  BTN_SIZE(1,1), F("Interface Settings"))
+      .tag(10).button( BTN_POS(1,5),  BTN_SIZE(2,1), F("Restore Factory Settings"))
       .fgcolor(Theme::back_btn)
-      .tag(1) .button( BTN_POS(1,5), BTN_SIZE(2,1), F("Back"));
+      .tag(1) .button( BTN_POS(1,6),  BTN_SIZE(2,1), F("Back"));
       #undef GRID_COLS
       #undef GRID_ROWS
     #endif
@@ -1046,22 +1101,21 @@ bool AdvancedSettingsScreen::onTouchEnd(uint8_t tag) {
              current_screen.forget();
              break;
     #if HAS_BED_PROBE
-    case 4:  GOTO_SCREEN(ZOffsetScreen);           break;
+    case 2:  GOTO_SCREEN(ZOffsetScreen);              break;
     #endif
-    case 5:  GOTO_SCREEN(StepsScreen);             break;
-    case 6:  GOTO_SCREEN(VelocityScreen);          break;
-    case 7:  GOTO_SCREEN(AccelerationScreen);      break;
-    case 8:  GOTO_SCREEN(JerkScreen);              break;
-    case 9:
-      GOTO_SCREEN(InterfaceSettingsScreen);
-      LockScreen::check_passcode();
-      break;
-    case 10:
-      GOTO_SCREEN(RestoreFailsafeScreen);
-      LockScreen::check_passcode();
-      break;
-    default:
-      return false;
+    case 3:  GOTO_SCREEN(StepsScreen);                break;
+    #if HOTENDS > 1
+    case 4:  GOTO_SCREEN(NozzleOffsetScreen);         break;
+    #endif
+    case 5:  GOTO_SCREEN(VelocityScreen);             break;
+    case 6:  GOTO_SCREEN(AccelerationScreen);         break;
+    case 7:  GOTO_SCREEN(JerkScreen);                 break;
+    #if ENABLED(BACKLASH_GCODE)
+    case 8:  GOTO_SCREEN(BacklashCompensationScreen); break;
+    #endif
+    case 9:  GOTO_SCREEN(InterfaceSettingsScreen); LockScreen::check_passcode(); break;
+    case 10: GOTO_SCREEN(RestoreFailsafeScreen);   LockScreen::check_passcode(); break;
+    default: return false;
   }
   return true;
 }
@@ -1127,7 +1181,7 @@ void ChangeFilamentScreen::onRedraw(draw_mode_t what) {
        .text(BTN_POS(4,3), BTN_SIZE(1,1), F("Load:"));
     #endif
 
-      drawTempGradient(BTN_POS(1,4), BTN_SIZE(1,3));
+    drawTempGradient(BTN_POS(1,4), BTN_SIZE(1,3));
   }
 
   if(what & FOREGROUND) {
@@ -1169,7 +1223,12 @@ void ChangeFilamentScreen::onRedraw(draw_mode_t what) {
 
     cmd.font(Theme::font_large)
        .tag(10).fgcolor(tog10)               .button (BTN_POS(1,2), BTN_SIZE(1,1), F("1"))
-       .tag(11).fgcolor(tog11)               .button (BTN_POS(2,2), BTN_SIZE(1,1), F("2"));
+    #if HOTENDS < 2
+       .enabled(false)
+    #else
+       .fgcolor(tog11)
+    #endif
+       .tag(11)               .button (BTN_POS(2,2), BTN_SIZE(1,1), F("2"));
 
     // Mask out areas if the related functionality must be disabled.
 
@@ -1219,8 +1278,6 @@ void ChangeFilamentScreen::onRedraw(draw_mode_t what) {
        .tag(8)                .enabled(t_ok) .button (BTN_POS(4,5), BTN_SIZE(1,1), F("Continuous"))
        .tag(1)                               .button (BTN_POS(3,6), BTN_SIZE(2,1), F("Back"));
     #endif
-
-
   }
   #undef GRID_COLS
   #undef GRID_ROWS
@@ -1371,7 +1428,7 @@ void CalibrationScreen::onIdle() {
   #define GRID_ROWS 10
 #else
   #define GRID_COLS 18
-  #define GRID_ROWS  6
+  #define GRID_ROWS  7
 #endif
 
 ValueAdjusters::widgets_t::widgets_t(draw_mode_t what) : _what(what) {
@@ -1387,7 +1444,7 @@ ValueAdjusters::widgets_t::widgets_t(draw_mode_t what) : _what(what) {
     #if defined(USE_PORTRAIT_ORIENTATION)
        .fgcolor(Theme::back_btn).tag(1).button( BTN_POS(1,10), BTN_SIZE(13,1), F("Back"));
     #else
-       .fgcolor(Theme::back_btn).tag(1).button( BTN_POS(15,6), BTN_SIZE(4,1),  F("Back"));
+       .fgcolor(Theme::back_btn).tag(1).button( BTN_POS(15,7), BTN_SIZE(4,1),  F("Back"));
     #endif
   }
 
@@ -1776,6 +1833,88 @@ bool StepsScreen::onTouchHeld(uint8_t tag) {
   }
 #endif // HAS_BED_PROBE
 
+/***************************** NOZZLE OFFSET SCREEN ***************************/
+
+#if HOTENDS > 1
+  void NozzleOffsetScreen::onRedraw(draw_mode_t what) {
+    using namespace Extensible_UI_API;
+
+    widgets_t w(what);
+    w.precision(2).units(PSTR("mm"));
+
+    w.heading(                          PSTR("Nozzle Offset"));
+    w.color(Theme::x_axis).adjuster(2,  PSTR("X:"), getNozzleOffset_mm(X, 1));
+    w.color(Theme::y_axis).adjuster(4,  PSTR("Y:"), getNozzleOffset_mm(Y, 1));
+    w.color(Theme::z_axis).adjuster(6,  PSTR("Z:"), getNozzleOffset_mm(Z, 1));
+    w.increments();
+  }
+
+  bool NozzleOffsetScreen::onTouchHeld(uint8_t tag) {
+    using namespace Extensible_UI_API;
+
+    float inc = getIncrement();
+    axis_t axis;
+
+    switch(tag) {
+      case  2:  axis = X;  inc *= -1;  break;
+      case  3:  axis = X;  inc *=  1;  break;
+      case  4:  axis = Y;  inc *= -1;  break;
+      case  5:  axis = Y;  inc *=  1;  break;
+      case  6:  axis = Z;  inc *= -1;  break;
+      case  7:  axis = Z;  inc *=  1;  break;
+      default:
+        return false;
+    }
+
+    setNozzleOffset_mm(axis, 1, getNozzleOffset_mm(axis,1) + inc);
+    onRefresh();
+    return true;
+  }
+#endif // HOTENDS > 1
+
+/************************* BACKLASH COMPENSATION SCREEN **********************/
+
+#if ENABLED(BACKLASH_GCODE)
+  void BacklashCompensationScreen::onRedraw(draw_mode_t what) {
+    using namespace Extensible_UI_API;
+
+    widgets_t w(what);
+    w.precision(2).units(PSTR("mm"));
+
+    w.heading(                          PSTR("Axis Backlash"));
+    w.color(Theme::x_axis).adjuster(2,  PSTR("X:"), getAxisBacklash_mm(X));
+    w.color(Theme::y_axis).adjuster(4,  PSTR("Y:"), getAxisBacklash_mm(Y));
+    w.color(Theme::z_axis).adjuster(6,  PSTR("Z:"), getAxisBacklash_mm(Z));
+    w.color(Theme::other ).adjuster(8,  PSTR("Smoothing:"), getBacklashSmoothing_mm());
+    w.precision(0).units(PSTR("%")).adjuster(10, PSTR("Correction:"), getBacklashCorrection_percent());
+    w.precision(2).increments();
+  }
+
+  bool BacklashCompensationScreen::onTouchHeld(uint8_t tag) {
+    using namespace Extensible_UI_API;
+
+    const float inc = getIncrement();
+
+    switch(tag) {
+      case  2:   setAxisBacklash_mm(X, getAxisBacklash_mm(X) - inc);  break;
+      case  3:   setAxisBacklash_mm(X, getAxisBacklash_mm(X) + inc);  break;
+      case  4:   setAxisBacklash_mm(Y, getAxisBacklash_mm(Y) - inc);  break;
+      case  5:   setAxisBacklash_mm(Y, getAxisBacklash_mm(Y) + inc);  break;
+      case  6:   setAxisBacklash_mm(Z, getAxisBacklash_mm(Z) - inc);  break;
+      case  7:   setAxisBacklash_mm(Z, getAxisBacklash_mm(Z) + inc);  break;
+      case  8:   setBacklashSmoothing_mm(getBacklashSmoothing_mm() - inc);  break;
+      case  9:   setBacklashSmoothing_mm(getBacklashSmoothing_mm() + inc);  break;
+      case  10:  setBacklashCorrection_percent(getBacklashCorrection_percent() - inc*100);  break;
+      case  11:  setBacklashCorrection_percent(getBacklashCorrection_percent() + inc*100);  break;
+      default:
+        return false;
+    }
+
+    onRefresh();
+    return true;
+  }
+#endif // ENABLED(BACKLASH_GCODE)
+
 /***************************** FEEDRATE SCREEN ***************************/
 
 void FeedrateScreen::onRedraw(draw_mode_t what) {
@@ -1999,7 +2138,7 @@ void InterfaceSettingsScreen::onRedraw(draw_mode_t what) {
     #define GRID_COLS 4
     #define GRID_ROWS 8
 
-       .font(Theme::font_large)
+       .font(Theme::font_medium)
        .text      (BTN_POS(1,1), BTN_SIZE(4,1), F("Interface Settings"))
     #undef EDGE_R
     #define EDGE_R 30
@@ -2084,10 +2223,29 @@ void InterfaceSettingsScreen::onIdle() {
   BaseScreen::onIdle();
 }
 
+#if ENABLED(BACKLASH_GCODE)
+  extern float backlash_distance_mm[XYZ];
+  extern float backlash_correction;
+  #ifdef BACKLASH_SMOOTHING_MM
+    extern float backlash_smoothing_mm;
+  #endif
+#endif
+
 void InterfaceSettingsScreen::defaultSettings() {
   LockScreen::passcode = 0;
   FTDI::SoundPlayer::set_volume(255);
   CLCD::set_brightness(255);
+  // TODO: This really should be moved to the EEPROM
+  #if ENABLED(BACKLASH_GCODE)
+    constexpr float backlash[XYZ] = BACKLASH_DISTANCE_MM;
+    backlash_distance_mm[X_AXIS]  = backlash[X_AXIS];
+    backlash_distance_mm[Y_AXIS]  = backlash[Y_AXIS];
+    backlash_distance_mm[Z_AXIS]  = backlash[Z_AXIS];
+    backlash_correction           = BACKLASH_CORRECTION;
+    #ifdef BACKLASH_SMOOTHING_MM
+      backlash_smoothing_mm       = BACKLASH_SMOOTHING_MM;
+    #endif
+  #endif
 }
 
 void InterfaceSettingsScreen::saveSettings() {
@@ -2097,6 +2255,16 @@ void InterfaceSettingsScreen::saveSettings() {
   data.sound_volume      = FTDI::SoundPlayer::get_volume();
   data.screen_brightness = CLCD::get_brightness();
   data.passcode          = LockScreen::passcode;
+  // TODO: This really should be moved to the EEPROM
+  #if ENABLED(BACKLASH_GCODE)
+    data.backlash_distance_mm[X_AXIS] = backlash_distance_mm[X_AXIS];
+    data.backlash_distance_mm[Y_AXIS] = backlash_distance_mm[Y_AXIS];
+    data.backlash_distance_mm[Z_AXIS] = backlash_distance_mm[Z_AXIS];
+    data.backlash_correction          = backlash_correction;
+    #ifdef BACKLASH_SMOOTHING_MM
+      data.backlash_smoothing_mm      = backlash_smoothing_mm;
+    #endif
+  #endif
   UIStorage::write_data(&data, sizeof(data));
 }
 
@@ -2107,6 +2275,16 @@ void InterfaceSettingsScreen::loadSettings() {
     FTDI::SoundPlayer::set_volume(data.sound_volume);
     CLCD::set_brightness(data.screen_brightness);
     LockScreen::passcode = data.passcode;
+    // TODO: This really should be moved to the EEPROM
+    #if ENABLED(BACKLASH_GCODE)
+      backlash_distance_mm[X_AXIS] = data.backlash_distance_mm[X_AXIS];
+      backlash_distance_mm[Y_AXIS] = data.backlash_distance_mm[Y_AXIS];
+      backlash_distance_mm[Z_AXIS] = data.backlash_distance_mm[Z_AXIS];
+      backlash_correction          = data.backlash_correction;
+      #ifdef BACKLASH_SMOOTHING_MM
+        backlash_smoothing_mm      = data.backlash_smoothing_mm;
+      #endif
+    #endif
   }
 }
 
@@ -2135,7 +2313,7 @@ void LockScreen::onRedraw(draw_mode_t what) {
       #define GRID_ROWS 10
     #else
       #define GRID_COLS 1
-      #define GRID_ROWS 6
+      #define GRID_ROWS 7
     #endif
 
     #define MARGIN_T 3
@@ -2175,6 +2353,7 @@ void LockScreen::onRedraw(draw_mode_t what) {
        .text(BTN_POS(1,1), BTN_SIZE(1,1), message)
        .font(Theme::font_xlarge)
        .text(BTN_POS(1,2), BTN_SIZE(1,1), screen_data.LockScreen.passcode)
+       .font(Theme::font_large)
        #endif
        #if defined(USE_NUMERIC_PASSCODE)
        .keys(BTN_POS(1,l+1), BTN_SIZE(1,1), F("123"),        get_pressed_tag())
@@ -2188,8 +2367,8 @@ void LockScreen::onRedraw(draw_mode_t what) {
        .keys(BTN_POS(1,l+4), BTN_SIZE(1,1), F("zxcvbnm!?<"), get_pressed_tag());
        #endif
 
-    #define MARGIN_T 5
-    #define MARGIN_B 5
+    #define MARGIN_T MARGIN_DEFAULT
+    #define MARGIN_B MARGIN_DEFAULT
 
     #undef GRID_COLS
     #undef GRID_ROWS
@@ -2405,8 +2584,8 @@ void FilesScreen::onRedraw(draw_mode_t what) {
 
     #undef MARGIN_T
     #undef MARGIN_B
-    #define MARGIN_T 5
-    #define MARGIN_B 5
+    #define MARGIN_T MARGIN_DEFAULT
+    #define MARGIN_B MARGIN_DEFAULT
 
     #undef GRID_COLS
     #undef GRID_ROWS
@@ -2463,19 +2642,47 @@ void DeveloperScreen::onRedraw(draw_mode_t what) {
 
     default_button_colors();
 
-    #define GRID_ROWS 8
-    #define GRID_COLS 1
-    cmd.font(Theme::font_large)         .text  ( BTN_POS(1,1), BTN_SIZE(1,1), F("Developer Menu"))
-       .tag(2).font(Theme::font_medium) .button( BTN_POS(1,2), BTN_SIZE(1,1), F("Show All Widgets"))
-       .tag(3)                          .button( BTN_POS(1,3), BTN_SIZE(1,1), F("Show Touch Registers"))
-       .tag(4)                          .button( BTN_POS(1,4), BTN_SIZE(1,1), F("Play Song"))
-       .tag(5)                          .button( BTN_POS(1,5), BTN_SIZE(1,1), F("Play Video from SPI Flash"))
-       .tag(6)                          .button( BTN_POS(1,6), BTN_SIZE(1,1), F("Play Video from Media"))
-       .tag(7)                          .button( BTN_POS(1,7), BTN_SIZE(1,1), F("Copy from Media to SPI Flash"))
+    #ifdef SPI_FLASH_SS
+    constexpr bool has_flash = true;
+    #else
+    constexpr bool has_flash = false;
+    #endif
 
-       .tag(1).fgcolor(Theme::back_btn) .button( BTN_POS(1,8), BTN_SIZE(1,1), F("Back"));
-    #undef GRID_COLS
-    #undef GRID_ROWS
+    #if ENABLED(SDSUPPORT)
+    constexpr bool has_media = true;
+    #else
+    constexpr bool has_media = false;
+    #endif
+
+    #if defined(USE_PORTRAIT_ORIENTATION)
+      #define GRID_ROWS 9
+      #define GRID_COLS 1
+      cmd.font(Theme::font_large)         .text  ( BTN_POS(1,1), BTN_SIZE(1,1), F("Developer Menu"))
+         .tag(2).font(Theme::font_medium) .button( BTN_POS(1,2), BTN_SIZE(1,1), F("Show All Widgets"))
+         .tag(3)                          .button( BTN_POS(1,3), BTN_SIZE(1,1), F("Show Touch Registers"))
+         .tag(4)                          .button( BTN_POS(1,4), BTN_SIZE(1,1), F("Play Song"))
+         .tag(5).enabled(has_media)       .button( BTN_POS(1,5), BTN_SIZE(1,1), F("Play Video from Media"))
+         .tag(6).enabled(has_flash)       .button( BTN_POS(1,6), BTN_SIZE(1,1), F("Play Video from SPI Flash"))
+         .tag(7).enabled(has_flash)       .button( BTN_POS(1,7), BTN_SIZE(1,1), F("Load Video to SPI Flash"))
+         .tag(8).enabled(has_flash)       .button( BTN_POS(1,8), BTN_SIZE(1,1), F("Erase SPI Flash"))
+         .tag(1).fgcolor(Theme::back_btn) .button( BTN_POS(1,9), BTN_SIZE(1,1), F("Back"));
+      #undef GRID_COLS
+      #undef GRID_ROWS
+    #else
+      #define GRID_ROWS 5
+      #define GRID_COLS 2
+      cmd.font(Theme::font_medium)        .text  ( BTN_POS(1,1), BTN_SIZE(2,1), F("Developer Menu"))
+         .tag(2).font(Theme::font_small)  .button( BTN_POS(1,2), BTN_SIZE(1,1), F("Show All Widgets"))
+         .tag(3)                          .button( BTN_POS(1,3), BTN_SIZE(1,1), F("Show Touch Registers"))
+         .tag(4)                          .button( BTN_POS(1,4), BTN_SIZE(1,1), F("Play Song"))
+         .tag(5).enabled(has_media)       .button( BTN_POS(2,2), BTN_SIZE(1,1), F("Play Video from Media"))
+         .tag(6).enabled(has_flash)       .button( BTN_POS(2,3), BTN_SIZE(1,1), F("Play Video from SPI Flash"))
+         .tag(7).enabled(has_flash)       .button( BTN_POS(2,4), BTN_SIZE(1,1), F("Load Video to SPI Flash"))
+         .tag(8).enabled(has_flash)       .button( BTN_POS(2,5), BTN_SIZE(1,1), F("Erase SPI Flash"))
+         .tag(1).fgcolor(Theme::back_btn) .button( BTN_POS(1,5), BTN_SIZE(1,1), F("Back"));
+      #undef GRID_COLS
+      #undef GRID_ROWS
+    #endif
   }
 }
 
@@ -2485,11 +2692,55 @@ bool DeveloperScreen::onTouchEnd(uint8_t tag) {
     case 2:  GOTO_SCREEN(WidgetsScreen);                 break;
     case 3:  GOTO_SCREEN(CalibrationRegistersScreen);    break;
     case 4:  sound.play(js_bach_joy, PLAY_ASYNCHRONOUS); break;
-    case 5:  MediaPlayerScreen::playBootMedia();         break;
-    case 6:  MediaPlayerScreen::playAutoPlayMedia();     break;
-    case 7:  UIStorage::write_file(F("AUTOPLAY.AVI"));   break;
+    #if ENABLED(SDSUPPORT)
+    case 5: if(!MediaPlayerScreen::playCardMedia()) AlertBoxScreen::show(F("Cannot open STARTUP.AVI")); break;
+    #endif
+    #ifdef SPI_FLASH_SS
+    case 6: if(!MediaPlayerScreen::playBootMedia()) AlertBoxScreen::show(F("No boot media available")); break;
+    case 7:
+    {
+      SpinnerScreen::show(F("Saving..."));
+      UIStorage::error_t res = UIStorage::write_file(F("STARTUP.AVI"));
+      SpinnerScreen::hide();
+      switch(res) {
+        case UIStorage::SUCCESS:        AlertBoxScreen::show(F("File copied!")); break;
+        case UIStorage::READ_ERROR:     AlertBoxScreen::show(F("Failed to read file")); break;
+        case UIStorage::VERIFY_ERROR:   AlertBoxScreen::show(F("Failed to verify file")); break;
+        case UIStorage::FILE_NOT_FOUND: AlertBoxScreen::show(F("Cannot open STARTUP.AVI")); break;
+      }
+      break;
+    }
+    case 8: GOTO_SCREEN(EraseSPIFlashScreen); break;
+    #endif
+    default: return false;
   }
   return true;
+}
+
+/**************************** ERASE SPI FLASH SCREEN ***************************/
+
+void EraseSPIFlashScreen::onRedraw(draw_mode_t what) {
+  drawMessage(
+    F("Are you sure?"),
+    F("SPI flash will be erased.")
+  );
+  drawYesNoButtons();
+}
+
+bool EraseSPIFlashScreen::onTouchEnd(uint8_t tag) {
+  switch(tag) {
+    case 1:
+      SpinnerScreen::show(F("Erasing..."));
+      UIStorage::erase_data();
+      SpinnerScreen::hide();
+      AlertBoxScreen::show(F("SPI flash erased"));
+      // Remove EraseSPIFlashScreen from the stack
+      // so the alert box doesn't return to me.
+      current_screen.forget();
+      return true;
+    default:
+      return DialogBoxBaseClass::onTouchEnd(tag);
+  }
 }
 
 /***************************** WIDGET DEMO SCREEN ***************************/
@@ -2678,27 +2929,30 @@ void MediaPlayerScreen::onEntry() {
 void MediaPlayerScreen::onRedraw(draw_mode_t what) {
 }
 
-void MediaPlayerScreen::playAutoPlayMedia() {
-    char fname[15];
-    strcpy_P(fname, PSTR("AUTOPLAY.AVI"));
+bool MediaPlayerScreen::playCardMedia() {
+  char fname[15];
+  strcpy_P(fname, PSTR("STARTUP.AVI"));
 
-    MediaFileReader reader;
-    if(reader.open(fname)) {
-      SERIAL_ECHO_START();
-      SERIAL_ECHOLNPGM("Starting to play AUTOPLAY.AVI");
-      playStream(&reader, MediaFileReader::read);
-      reader.close();
-    }
+  MediaFileReader reader;
+  if(!reader.open(fname))
+    return false;
+
+  SERIAL_ECHO_START();
+  SERIAL_ECHOLNPGM("Starting to play STARTUP.AVI");
+  playStream(&reader, MediaFileReader::read);
+  reader.close();
+  return true;
 }
 
 // Attempt to play media from the onboard SPI flash chip
-void MediaPlayerScreen::playBootMedia() {
-    UIStorage::BootMediaReader reader;
-    if(reader.isAvailable()) {
-      SERIAL_ECHO_START();
-      SERIAL_ECHOLNPGM("Starting to play boot video");
-      playStream(&reader, UIStorage::BootMediaReader::read);
-    }
+bool MediaPlayerScreen::playBootMedia() {
+  UIStorage::BootMediaReader reader;
+  if(!reader.isAvailable()) return false;
+
+  SERIAL_ECHO_START();
+  SERIAL_ECHOLNPGM("Starting to play boot video");
+  playStream(&reader, UIStorage::BootMediaReader::read);
+  return true;
 }
 
 void MediaPlayerScreen::playStream(void *obj, media_streamer_func_t *data_stream) {
@@ -2756,7 +3010,8 @@ void MediaPlayerScreen::playStream(void *obj, media_streamer_func_t *data_stream
           if(timeouts == 0) {
             SERIAL_ECHO_START();
             SERIAL_ECHOLNPGM("Timeout playing video");
-            return;
+            cmd.reset();
+            goto exit;
           }
         }
       } while(CLCD::mem_read_32(REG_MEDIAFIFO_READ) != writePtr);
@@ -2769,9 +3024,9 @@ void MediaPlayerScreen::playStream(void *obj, media_streamer_func_t *data_stream
     SERIAL_ECHO_START();
     SERIAL_ECHOLNPGM("Done playing video");
 
+  exit:
     // Since playing media overwrites RAMG, we need to reinitialize
     // everything that is stored in RAMG.
-
     cmd.cmd(CMD_DLSTART).execute();
     DLCache::init();
     StatusScreen::onStartup();

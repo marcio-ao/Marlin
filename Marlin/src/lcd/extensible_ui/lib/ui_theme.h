@@ -38,6 +38,7 @@ namespace Theme {
   const uint32_t z_axis        = 0x000050;
   const uint32_t e_axis        = 0x000000;
   const uint32_t feedrate      = 0x000000;
+  const uint32_t other         = 0x000000;
 
   const uint32_t toggle_on     = theme_light;
   const uint32_t toggle_off    = theme_darkest;

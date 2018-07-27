@@ -75,9 +75,27 @@ namespace Extensible_UI_API {
   void setActiveTool(uint8_t);
   uint8_t getActiveTool();
 
+  #if HOTENDS > 1
+    float getNozzleOffset_mm(const axis_t axis, uint8_t extruder);
+    void setNozzleOffset_mm(const axis_t axis, uint8_t extruder, float offset);
+  #endif
+
   #if HAS_BED_PROBE
     float getZOffset_mm();
     void incrementZOffset_mm(const float z_offset);
+  #endif
+
+  #if ENABLED(BACKLASH_GCODE)
+    float getAxisBacklash_mm(const axis_t axis);
+    void setAxisBacklash_mm(const axis_t axis, float distance);
+
+    float getBacklashCorrection_percent();
+    void setBacklashCorrection_percent(float percent);
+
+    #ifdef BACKLASH_SMOOTHING_MM
+      float getBacklashSmoothing_mm();
+      void setBacklashSmoothing_mm(float distance);
+    #endif
   #endif
 
   void delay_ms(unsigned long ms);

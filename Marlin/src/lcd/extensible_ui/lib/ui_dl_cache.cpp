@@ -86,6 +86,7 @@ bool DLCache::wait_until_idle() {
     if((millis() - startTime) > 250) {
       SERIAL_ECHO_START();
       SERIAL_ECHOLNPGM("Timeout on DL_Cache::Wait_Until_Idle()");
+      CLCD::CommandFifo::reset();
       return false;
     }
     #if defined(USE_MARLIN_IO)

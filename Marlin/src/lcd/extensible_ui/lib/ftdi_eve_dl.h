@@ -70,13 +70,15 @@ namespace FTDI {
   inline uint32_t BITMAP_HANDLE(uint8_t handle)                {return DL::BITMAP_HANDLE|(((handle)&31UL)<<0);}
   inline uint32_t BITMAP_LAYOUT(uint8_t format, uint16_t linestride, uint16_t height)
                                                                {return DL::BITMAP_LAYOUT|(((format)&31UL)<<19)|(((linestride)&1023UL)<<9)|(((height)&511UL)<<0);}
-  inline uint32_t BITMAP_LAYOUT_H(uint8_t linestride, uint8_t height)
-                                                               {return DL::BITMAP_LAYOUT_H|(((linestride)&3UL)<<2)|(((height)&3UL)<<0);}
 
   inline uint32_t BITMAP_SIZE(uint8_t filter, uint8_t wrapx, uint8_t wrapy, uint16_t width, uint16_t height)
                                                                {return DL::BITMAP_SIZE|(((filter)&1UL)<<20)|(((wrapx)&1UL)<<19)|(((wrapy)&1UL)<<18)|(((width)&511UL)<<9)|(((height)&511UL)<<0);}
+  #if defined(USE_FTDI_FT810)
+  inline uint32_t BITMAP_LAYOUT_H(uint8_t linestride, uint8_t height)
+                                                               {return DL::BITMAP_LAYOUT_H|(((linestride)&3UL)<<2)|(((height)&3UL)<<0);}
   inline uint32_t BITMAP_SIZE_H(uint8_t width, uint8_t height)
                                                                {return DL::BITMAP_SIZE_H|(((width)&3UL)<<2)|(((height)&3UL)<<0);}
+  #endif
   inline uint32_t BITMAP_TRANSFORM_A(uint16_t a)               {return DL::BITMAP_TRANSFORM_A|(((a)&131071UL)<<0);}
   inline uint32_t BITMAP_TRANSFORM_B(uint16_t b)               {return DL::BITMAP_TRANSFORM_B|(((b)&131071UL)<<0);}
   inline uint32_t BITMAP_TRANSFORM_C(uint32_t c)               {return DL::BITMAP_TRANSFORM_C|(((c)&16777215UL)<<0);}
@@ -107,10 +109,17 @@ namespace FTDI {
   inline uint32_t RESTORE_CONTEXT()                            {return DL::RESTORE_CONTEXT;}
   inline uint32_t RETURN ()                                    {return DL::RETURN;}
   inline uint32_t SAVE_CONTEXT()                               {return DL::SAVE_CONTEXT;}
+  #if defined(USE_FTDI_FT810)
   inline uint32_t SCISSOR_XY(uint16_t x,uint16_t y)            {return DL::SCISSOR_XY|(((x)&2047UL)<<11)|(((y)&2047UL)<<0);}
   inline uint32_t SCISSOR_SIZE(uint16_t w,uint16_t h)          {return DL::SCISSOR_SIZE|(((w)&2047UL)<<12)|(((h)&2047UL)<<0);}
   inline uint32_t SCISSOR_XY()                                 {return DL::SCISSOR_XY;}
   inline uint32_t SCISSOR_SIZE()                               {return DL::SCISSOR_SIZE|(2048UL<<12)|((2048UL)<<0);}
+  #else
+  inline uint32_t SCISSOR_XY(uint16_t x,uint16_t y)            {return DL::SCISSOR_XY|(((x)&511UL)<<10)|(((y)&511UL)<<0);}
+  inline uint32_t SCISSOR_SIZE(uint16_t w,uint16_t h)          {return DL::SCISSOR_SIZE|(((w)&511UL)<<10)|(((h)&511UL)<<0);}
+  inline uint32_t SCISSOR_XY()                                 {return DL::SCISSOR_XY;}
+  inline uint32_t SCISSOR_SIZE()                               {return DL::SCISSOR_SIZE|(511UL<<10)|((511UL)<<0);}
+  #endif
   inline uint32_t STENCIL_FUNC(uint16_t func, uint8_t ref, uint8_t mask)
                                                                {return DL::STENCIL_FUNC|(((func)&7UL)<<16)|(((ref)&255UL)<<8)|(((mask)&255UL)<<0);}
   inline uint32_t STENCIL_MASK(uint8_t mask)                   {return DL::STENCIL_MASK|(((mask)&255UL)<<0);}

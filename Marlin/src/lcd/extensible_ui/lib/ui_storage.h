@@ -31,13 +31,21 @@ class UIStorage {
     static void wait_while_busy();
 
   public:
+    enum error_t {
+      SUCCESS,
+      FILE_NOT_FOUND,
+      READ_ERROR,
+      VERIFY_ERROR
+    };
+
     static void initialize  ();
 
     static void write_data  (const void *data, size_t size);
     static bool verify_data (const void *data, size_t size);
     static void read_data   (void *data, size_t size);
+    static void erase_data  ();
 
-    static void write_file  (progmem_str file);
+    static error_t write_file  (progmem_str file);
 
     class BootMediaReader;
 };

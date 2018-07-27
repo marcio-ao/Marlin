@@ -839,8 +839,12 @@ void CLCD::CommandFifo::execute() {
 }
 
 void CLCD::CommandFifo::reset() {
+  safe_delay(100);
+  mem_write_32(REG_CPURESET,  0x00000001);
   mem_write_32(REG_CMD_WRITE, 0x00000000);
   mem_write_32(REG_CMD_READ,  0x00000000);
+  mem_write_32(REG_CPURESET,  0x00000000);
+  safe_delay(300);
   command_write_ptr = 0xFFFFFFFFul;
 };
 
@@ -905,8 +909,12 @@ void CLCD::CommandFifo::execute() {
 }
 
 void CLCD::CommandFifo::reset() {
+  safe_delay(100);
+  mem_write_32(REG_CPURESET,  0x00000001);
   mem_write_32(REG_CMD_WRITE, 0x00000000);
   mem_write_32(REG_CMD_READ,  0x00000000);
+  mem_write_32(REG_CPURESET,  0x00000000);
+  safe_delay(300);
 };
 
 // Writes len bytes into the FIFO, if len is not

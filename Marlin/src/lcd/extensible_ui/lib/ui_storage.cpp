@@ -128,6 +128,18 @@ constexpr uint32_t file_addr = erase_unit_size + write_page_size;
     spi_flash_deselect();
   }
 
+  void UIStorage::erase_data() {
+    spi_flash_select();
+    spi_write_8(WRITE_ENABLE);
+    spi_flash_deselect();
+
+    spi_flash_select();
+    spi_write_8(CHIP_ERASE);
+    spi_flash_deselect();
+
+    wait_while_busy();
+  }
+
   // Write persistent data, up to 4k, in the first sector of
   // the SPI flash.
 
@@ -175,7 +187,7 @@ constexpr uint32_t file_addr = erase_unit_size + write_page_size;
     SERIAL_ECHOLNPGM("DONE");
   }
 
-  void UIStorage::write_file(progmem_str filename) {
+  UIStorage::error_t UIStorage::write_file(progmem_str filename) {
     uint32_t addr;
     uint8_t buff[write_page_size];
 
@@ -184,7 +196,7 @@ constexpr uint32_t file_addr = erase_unit_size + write_page_size;
     MediaFileReader reader;
     if(!reader.open((char*) buff)) {
       SERIAL_ECHO_START(); SERIAL_ECHOLNPGM("Unable to find media file");
-      return;
+      return FILE_NOT_FOUND;
     }
 
     SERIAL_ECHO_START(); SERIAL_ECHOPGM("Erasing SPI Flash...");
@@ -239,7 +251,7 @@ constexpr uint32_t file_addr = erase_unit_size + write_page_size;
       const int16_t nBytes = reader.read(buff, write_page_size);
       if(nBytes == -1) {
         SERIAL_ECHOLNPGM("Failed to read from file");
-        return;
+        return READ_ERROR;
       }
 
       spi_flash_select();
@@ -319,8 +331,10 @@ constexpr uint32_t file_addr = erase_unit_size + write_page_size;
 
     if(verifyOk) {
       SERIAL_ECHOLNPGM("DONE");
+      return SUCCESS;
     } else {
       SERIAL_ECHOLNPGM("FAIL");
+      return VERIFY_ERROR;
     }
   }
 
@@ -334,8 +348,10 @@ constexpr uint32_t file_addr = erase_unit_size + write_page_size;
     if(bytes_remaining != 0xFFFFFFFFUL) {
       SERIAL_ECHO_START(); SERIAL_ECHOLNPAIR("Boot media file size:", bytes_remaining);
       addr = file_addr;
+      return true;
+    } else {
+      return false;
     }
-    return true;
   }
 
   int16_t UIStorage::BootMediaReader::read(void *data, const size_t size) {
@@ -362,11 +378,12 @@ constexpr uint32_t file_addr = erase_unit_size + write_page_size;
   }
 
 #else
-  void UIStorage::initialize() {}
+  void UIStorage::initialize()                                           {}
   void UIStorage::write_data(const void *, size_t)                       {}
   bool UIStorage::verify_data(const void *, size_t)                      {return false;}
   void UIStorage::read_data(void *, size_t)                              {}
-  void UIStorage::write_file(progmem_str)                                {}
+  UIStorage::error_t UIStorage::write_file(progmem_str)                  {}
+  void UIStorage::erase_data()                                           {}
 
   bool UIStorage::BootMediaReader::isAvailable()                         {return false;}
   int16_t UIStorage::BootMediaReader::read(void *, const size_t)         {return -1;}
