@@ -520,6 +520,47 @@
   #endif
 #endif
 
+//
+// Automatic backlash, position and hotend offset calibration
+//
+// Enables G425 for running a fully automatic calibration routine against an
+// electrically conductive cube, bolt or washer mounted on the bed.
+//
+// The calibration routine will use the probe to touch the top and sides of
+// a cube/bolt/washer on the bed and measure and/or correct positional
+// offsets, axis backlash and hotend offsets.
+//
+// Note: The HOTEND_OFFSET and CALIBRATION_CUBE_CENTER must be set to within
+//       +/- 5 mm of true values in order for G425 to succeed.
+//
+//#define CALIBRATION_GCODE
+#if ENABLED(CALIBRATION_GCODE)
+  #define CALIBRATION_MEASUREMENT_RESOLUTION       0.01                    // mm
+
+  #define CALIBRATION_SLOW_FEEDRATE                60                      // mm/m
+  #define CALIBRATION_FAST_FEEDRATE                1200                    // mm/m
+  #define CALIBRATION_TRAVEL_FEEDRATE              3000                    // mm/m
+
+  // The following parameters refer to the conical section of the nozzle tip.
+  #define CALIBRATION_NOZZLE_TIP_HEIGHT            1.0                     // mm
+  #define CALIBRATION_NOZZLE_OUTER_DIAMETER        2.0                     // mm
+
+  // The true location and dimension the cube/bolt/washer on the bed.
+  #define CALIBRATION_CUBE_CENTER                  { 264.0, -22.0,  -2.0} // mm
+  #define CALIBRATION_CUBE_DIMENSIONS              {  10.0,  10.0,  10.0} // mm
+
+  // Comment out any sides which are unreachable by the probe. For best
+  // auto-calibration results, all sides must be reachable.
+  #define CALIBRATION_CUBE_RIGHT_SIDE_MEASUREMENT
+  #define CALIBRATION_CUBE_FRONT_SIDE_MEASUREMENT
+  #define CALIBRATION_CUBE_LEFT_SIDE_MEASUREMENT
+  #define CALIBRATION_CUBE_BACK_SIDE_MEASUREMENT
+
+  // Probing at the exact top center only works if the center is flat. If
+  // probing on a screwhead or hollow washer, probe near the edges.
+  //#define CALIBRATION_CUBE_PROBE_AT_TOP_EDGES
+#endif
+
 /**
  * Adaptive Step Smoothing increases the resolution of multi-axis moves, particularly at step frequencies
  * below 1kHz (for AVR) or 10kHz (for ARM), where aliasing between axes in multi-axis moves causes audible

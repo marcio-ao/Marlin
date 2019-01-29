@@ -170,6 +170,8 @@ class Endstops {
       static void monitor();
       static void run_monitor();
     #endif
+
+    static inline bool are_endstops_enabled_globally() {return enabled_globally;}
 };
 
 extern Endstops endstops;
