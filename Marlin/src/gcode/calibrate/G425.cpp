@@ -450,7 +450,6 @@ inline void calibrate_backlash(measurements_t &m, const float uncertainty) {
     // New scope for TEMPORARY_ENDSTOP_STATE
     TEMPORARY_ENDSTOP_STATE(false);
 
-    ui.set_status_P(PSTR("Measuring backlash"));
     probe_cube(m, uncertainty);
 
     #if ENABLED(BACKLASH_GCODE)
@@ -515,9 +514,6 @@ inline void update_measurements(measurements_t &m, const AxisEnum axis) {
 inline void calibrate_toolhead(measurements_t &m, const float uncertainty, const uint8_t extruder) {
   TEMPORARY_ENDSTOP_STATE(true);
 
-  const bool fast = uncertainty == CALIBRATION_MEASUREMENT_UNKNOWN;
-  ui.set_status_P(fast ? PSTR("Finding calibration cube") : PSTR("Centering nozzle"));
-
   #if HOTENDS > 1
     set_nozzle(m, extruder);
   #endif
@@ -569,8 +565,6 @@ inline void calibrate_all_toolheads(measurements_t &m, const float uncertainty) 
   #endif
 }
 
-inline void say_calibration_done() { ui.set_status_P(PSTR("Calibration done.")); }
-
 /**
  * Perform a full auto-calibration routine:
  *
@@ -592,7 +586,6 @@ inline void calibrate_all() {
   TEMPORARY_ENDSTOP_STATE(true);
 
   /* Do a fast and rough calibration of the toolheads */
-  ui.set_status_P(PSTR("Finding cube"));
   calibrate_all_toolheads(m, CALIBRATION_MEASUREMENT_UNKNOWN);
 
   #if ENABLED(BACKLASH_GCODE)
@@ -607,7 +600,6 @@ inline void calibrate_all() {
   /* Do a slow and precise calibration of the toolheads */
   calibrate_all_toolheads(m, CALIBRATION_MEASUREMENT_UNCERTAIN);
 
-  say_calibration_done();
   move_to(X_AXIS, 150); // Park nozzle away from cube
 }
 
@@ -628,17 +620,12 @@ void GcodeSuite::G425() {
 
   float uncertainty = parser.seenval('U') ? parser.value_float() : CALIBRATION_MEASUREMENT_UNCERTAIN;
 
-  if (parser.seen('B')) {
+  if (parser.seen('B'))
     calibrate_backlash(m, uncertainty);
-    say_calibration_done();
-  }
-  else if (parser.seen('T')) {
+  else if (parser.seen('T'))
     calibrate_toolhead(m, uncertainty, parser.has_value() ? parser.value_int() : active_extruder);
-    say_calibration_done();
-  }
   #if ENABLED(CALIBRATION_CUBE_REPORTING)
     else if (parser.seen('V')) {
-      ui.set_status_P(PSTR("Measuring nozzle center"));
       probe_cube(m, uncertainty);
       SERIAL_EOL();
       report_measured_faces(m);
@@ -650,7 +637,6 @@ void GcodeSuite::G425() {
         normalize_hotend_offsets();
         report_hotend_offsets();
       #endif
-      ui.set_status_P(PSTR("Measurements finished."));
     }
   #endif
   else
