@@ -171,8 +171,8 @@ inline void park_above_cube(measurements_t &m, const float uncertainty) {
 #endif // HOTENDS > 1
 
 inline bool read_probe_value() {
-  #if HAS_BACKLASH_COMPENSATION
-    return (READ(BACKLASH_COMPENSATION_PIN) != BACKLASH_COMPENSATION_PIN_INVERTING);
+  #if HAS_CALIBRATION_CUBE_PROBE
+    return (READ(CALIBRATION_CUBE_PROBE_PIN) != CALIBRATION_CUBE_PROBE_PIN_INVERTING);
   #elif ENABLED(Z_MIN_PROBE_USES_Z_MIN_ENDSTOP_PIN)
     return (READ(Z_MIN_PIN) != Z_MIN_ENDSTOP_INVERTING);
   #else
