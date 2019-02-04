@@ -63,7 +63,7 @@ enum side_t : uint8_t { TOP, RIGHT, FRONT, LEFT, BACK, NUM_SIDES };
 
 struct measurements_t {
   static const float dimensions[XYZ];
-  static constexpr float true_center[XYZ] = CALIBRATION_CUBE_CENTER;
+  static const float true_center[XYZ]; // This cannot be constexpr since it is accessed by index in probe_cube_side
   float cube_center[XYZ] = CALIBRATION_CUBE_CENTER;
   float cube_side[NUM_SIDES];
 
@@ -73,57 +73,47 @@ struct measurements_t {
   float nozzle_outer_dimension[2] = {CALIBRATION_NOZZLE_OUTER_DIAMETER, CALIBRATION_NOZZLE_OUTER_DIAMETER};
 };
 
+const float measurements_t::true_center[XYZ] = CALIBRATION_CUBE_CENTER;
+
 const float measurements_t::dimensions[]  = CALIBRATION_CUBE_DIMENSIONS;
 
 /**
  * A class to save and change the endstop state,
  * then restore it when it goes out of scope.
  */
-class TemporaryEndstopsState {
-  private:
-    bool saved_endstops_global_enabled, saved_soft_endstops_enabled;
+class TemporaryGlobalEndstopsState {
+  bool saved;
 
   public:
-    TemporaryEndstopsState(bool enable) {
-      saved_endstops_global_enabled = endstops.global_enabled();
+    TemporaryGlobalEndstopsState(bool enable) : saved(endstops.are_endstops_enabled_globally()) {
       endstops.enable_globally(enable);
-
-      saved_soft_endstops_enabled = soft_endstops_enabled;
-      soft_endstops_enabled = enable;
     }
-
-    ~TemporaryEndstopsState() {
-      soft_endstops_enabled = saved_soft_endstops_enabled;
-      endstops.enable_globally(saved_endstops_global_enabled);
-    }
+    ~TemporaryGlobalEndstopsState() {endstops.enable_globally(saved);}
 };
 
-/**
- * A class to save and change the backlash compensation state,
- * then restore it when it goes out of scope.
- */
-class TemporaryBacklashCompensation {
-  public:
-    TemporaryBacklashCompensation(const bool enable) {
-      #if ENABLED(BACKLASH_GCODE)
-        REMEMBER(backlash_correction);
-        #ifdef BACKLASH_SMOOTHING_MM
-          REMEMBER(backlash_smoothing_mm);
-          backlash_smoothing_mm = 0;
-        #endif
-        backlash_correction = enable;
-      #endif
-    }
-};
+#define TEMPORARY_ENDSTOP_STATE(enable) \
+    REMEMBER(soft_endstops_enabled, enable); \
+    TemporaryGlobalEndstopsState g(enable);
+
+#if ENABLED(BACKLASH_GCODE) && defined(BACKLASH_SMOOTHING_MM)
+  #define TEMPORARY_BACKLASH_STATE(enable) \
+    REMEMBER(backlash_correction, enable); \
+    REMEMBER(backlash_smoothing_mm, 0);
+#elif  ENABLED(BACKLASH_GCODE)
+  #define TEMPORARY_BACKLASH_STATE(enable) \
+    REMEMBER(backlash_correction, enable);
+#else
+  #define TEMPORARY_BACKLASH_STATE(enable)
+#endif
 
 /**
  * Move to a particular location. Up to three individual axes
  * and their destinations can be specified, in any order.
  */
 inline void move_to(
-  const AxisEnum a1, const float p1,
-  const AxisEnum a2, const float p2,
-  const AxisEnum a3, const float p3
+  const AxisEnum a1 = NO_AXIS, const float p1 = 0,
+  const AxisEnum a2 = NO_AXIS, const float p2 = 0,
+  const AxisEnum a3 = NO_AXIS, const float p3 = 0
 ) {
   set_destination_from_current();
 
@@ -195,6 +185,39 @@ inline void park_above_cube(measurements_t &m, const float uncertainty) {
   }
 
 #endif // HOTENDS > 1
+
+inline bool read_probe_value() {
+  #if ENABLED(Z_MIN_PROBE_USES_Z_MIN_ENDSTOP_PIN)
+    return (READ(Z_MIN_PIN) != Z_MIN_ENDSTOP_INVERTING);
+  #else
+    return (READ(Z_MIN_PROBE_PIN != Z_MIN_PROBE_ENDSTOP_INVERTING);
+  #endif
+}
+
+/**
+ * Move along axis in the specified dir until the probe value becomes stop_state,
+ * then return the axis value.
+ *
+ *   axis         in - Axis along which the measurement will take place
+ *   dir          in - Direction along that axis (-1 or 1)
+ *   stop_state   in - Move until probe pin becomes this value
+ *   fast         in - Fast vs. precise measurement
+ */
+float measuring_movement(const AxisEnum axis, const int dir, const bool stop_state, const bool fast) {
+  const float step  =            fast ? 0.25                      : CALIBRATION_MEASUREMENT_RESOLUTION;
+  const float mms   = MMM_TO_MMS(fast ? CALIBRATION_FEEDRATE_FAST : CALIBRATION_FEEDRATE_SLOW);
+  const float limit =            fast ? 50                        : 5;
+
+  set_destination_from_current();
+  for (float travel = 0; travel < limit; travel += step) {
+    destination[axis] += dir * step;
+    do_blocking_move_to(destination[X_AXIS], destination[Y_AXIS], destination[Z_AXIS], mms);
+    planner.synchronize();
+    if (read_probe_value() == stop_state)
+      break;
+  }
+  return destination[axis];
+}
 
 /**
  * Move along axis until the probe is triggered. Move toolhead to its starting
@@ -278,7 +301,7 @@ inline void probe_cube_side(measurements_t &m, const float uncertainty, const si
  *   uncertainty        in     - How far away from the cube to begin probing
  */
 inline void probe_cube(measurements_t &m, const float uncertainty) {
-  TemporaryEndstopsState s(false);
+  TEMPORARY_ENDSTOP_STATE(false);
 
   #ifdef CALIBRATION_CUBE_PROBE_AT_TOP_EDGES
     constexpr bool probe_top_at_edge = true;
@@ -409,45 +432,53 @@ inline void report_measured_positional_error(const measurements_t &m) {
  */
 inline void calibrate_backlash(measurements_t &m, const float uncertainty) {
   // Backlash compensation should be off while measuring backlash
-  TemporaryBacklashCompensation s(false);
 
-  ui.set_status_P(PSTR("Measuring backlash"));
-  probe_cube(m, uncertainty);
+  {
+    // New scope for TEMPORARY_ENDSTOP_STATE
+    TEMPORARY_ENDSTOP_STATE(false);
 
-  #if ENABLED(BACKLASH_GCODE)
-    #if HAS_X_CENTER
-      backlash_distance_mm[X_AXIS] = (m.backlash[LEFT] + m.backlash[RIGHT]) / 2;
-    #elif ENABLED(CALIBRATION_CUBE_MEASURE_LEFT)
-      backlash_distance_mm[X_AXIS] = m.backlash[LEFT];
-    #elif ENABLED(CALIBRATION_CUBE_MEASURE_RIGHT)
-      backlash_distance_mm[X_AXIS] = m.backlash[RIGHT];
+    ui.set_status_P(PSTR("Measuring backlash"));
+    probe_cube(m, uncertainty);
+
+    #if ENABLED(BACKLASH_GCODE)
+      #if HAS_X_CENTER
+        backlash_distance_mm[X_AXIS] = (m.backlash[LEFT] + m.backlash[RIGHT]) / 2;
+      #elif ENABLED(CALIBRATION_CUBE_MEASURE_LEFT)
+        backlash_distance_mm[X_AXIS] = m.backlash[LEFT];
+      #elif ENABLED(CALIBRATION_CUBE_MEASURE_RIGHT)
+        backlash_distance_mm[X_AXIS] = m.backlash[RIGHT];
+      #endif
+
+      #if HAS_Y_CENTER
+        backlash_distance_mm[Y_AXIS] = (m.backlash[FRONT] + m.backlash[BACK]) / 2;
+      #elif ENABLED(CALIBRATION_CUBE_MEASURE_FRONT)
+        backlash_distance_mm[Y_AXIS] = m.backlash[FRONT];
+      #elif ENABLED(CALIBRATION_CUBE_MEASURE_BACK)
+        backlash_distance_mm[Y_AXIS] = m.backlash[BACK];
+      #endif
+
+      backlash_distance_mm[Z_AXIS] = m.backlash[TOP];
     #endif
-
-    #if HAS_Y_CENTER
-      backlash_distance_mm[Y_AXIS] = (m.backlash[FRONT] + m.backlash[BACK]) / 2;
-    #elif ENABLED(CALIBRATION_CUBE_MEASURE_FRONT)
-      backlash_distance_mm[Y_AXIS] = m.backlash[FRONT];
-    #elif ENABLED(CALIBRATION_CUBE_MEASURE_BACK)
-      backlash_distance_mm[Y_AXIS] = m.backlash[BACK];
-    #endif
-
-    backlash_distance_mm[Z_AXIS] = m.backlash[TOP];
-  #endif
+  }
 
   #if ENABLED(BACKLASH_GCODE)
     // Turn on backlash compensation and move in all
     // directions to take up any backlash
-    TemporaryBacklashCompensation s(true);
-    move_to(
-      X_AXIS, current_position[X_AXIS] + 3,
-      Y_AXIS, current_position[Y_AXIS] + 3,
-      Z_AXIS, current_position[Z_AXIS] + 3
-    );
-    move_to(
-      X_AXIS, current_position[X_AXIS] - 3,
-      Y_AXIS, current_position[Y_AXIS] - 3,
-      Z_AXIS, current_position[Z_AXIS] - 3
-    );
+
+    {
+      // New scope for TEMPORARY_ENDSTOP_STATE
+      TEMPORARY_ENDSTOP_STATE(false);
+      move_to(
+        X_AXIS, current_position[X_AXIS] + 3,
+        Y_AXIS, current_position[Y_AXIS] + 3,
+        Z_AXIS, current_position[Z_AXIS] + 3
+      );
+      move_to(
+        X_AXIS, current_position[X_AXIS] - 3,
+        Y_AXIS, current_position[Y_AXIS] - 3,
+        Z_AXIS, current_position[Z_AXIS] - 3
+      );
+    }
   #endif
 }
 
@@ -469,7 +500,7 @@ inline void update_measurements(measurements_t &m, const AxisEnum axis) {
  *    - Call calibrate_backlash() beforehand for best accuracy
  */
 inline void calibrate_toolhead(measurements_t &m, const float uncertainty, const uint8_t extruder) {
-  TemporaryBacklashCompensation s(true);
+  TEMPORARY_ENDSTOP_STATE(true);
 
   const bool fast = uncertainty == CALIBRATION_MEASUREMENT_UNKNOWN;
   ui.set_status_P(fast ? PSTR("Finding calibration cube") : PSTR("Centering nozzle"));
@@ -525,7 +556,7 @@ inline void calibrate_toolhead(measurements_t &m, const float uncertainty, const
  *   uncertainty    in     - How far away from the cube to begin probing
  */
 inline void calibrate_all_toolheads(measurements_t &m, const float uncertainty) {
-  TemporaryBacklashCompensation s(true);
+  TEMPORARY_ENDSTOP_STATE(true);
 
   HOTEND_LOOP() calibrate_toolhead(m, uncertainty, e);
 
@@ -549,39 +580,6 @@ inline void report_measured_nozzle_dimensions(const measurements_t &m) {
   SERIAL_EOL();
 }
 
-inline bool read_probe_value() {
-  #if ENABLED(Z_MIN_PROBE_USES_Z_MIN_ENDSTOP_PIN)
-    return (READ(Z_MIN_PIN) != Z_MIN_ENDSTOP_INVERTING);
-  #else
-    return (READ(Z_MIN_PROBE_PIN != Z_MIN_PROBE_ENDSTOP_INVERTING);
-  #endif
-}
-
-/**
- * Move along axis in the specified dir until the probe value becomes stop_state,
- * then return the axis value.
- *
- *   axis         in - Axis along which the measurement will take place
- *   dir          in - Direction along that axis (-1 or 1)
- *   stop_state   in - Move until probe pin becomes this value
- *   fast         in - Fast vs. precise measurement
- */
-float measuring_movement(const AxisEnum axis, const int dir, const bool stop_state, const bool fast) {
-  const float step  =            fast ? 0.25                      : CALIBRATION_MEASUREMENT_RESOLUTION;
-  const float mms   = MMM_TO_MMS(fast ? CALIBRATION_FEEDRATE_FAST : CALIBRATION_FEEDRATE_SLOW);
-  const float limit =            fast ? 50                        : 5;
-
-  set_destination_from_current();
-  for (float travel = 0; travel < limit; travel += step) {
-    destination[axis] += dir * step;
-    do_blocking_move_to(destination[X_AXIS], destination[Y_AXIS], destination[Z_AXIS], mms);
-    planner.synchronize();
-    if (read_probe_value() == stop_state)
-      break;
-  }
-  return destination[axis];
-}
-
 inline void say_calibration_done() { ui.set_status_P(PSTR("Calibration done.")); }
 
 /**
@@ -602,7 +600,7 @@ inline void calibrate_all() {
     reset_nozzle_offsets();
   #endif
 
-  TemporaryBacklashCompensation s(true);
+  TEMPORARY_ENDSTOP_STATE(true);
 
   /* Do a fast and rough calibration of the toolheads */
   ui.set_status_P(PSTR("Finding cube"));
