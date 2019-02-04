@@ -535,6 +535,15 @@
  */
 //#define CALIBRATION_GCODE
 #if ENABLED(CALIBRATION_GCODE)
+
+  #ifndef BACKLASH_COMPENSATION_PIN
+    #define BACKLASH_COMPENSATION_PIN -1 // Override in pins.h or set to -1 to use your Z endstop
+  #endif
+
+  #define BACKLASH_COMPENSATION_PIN_INVERTING false // set to true to invert the backlash compensation nozzle probe
+  //#define PULLDOWN_BACKLASH_COMPENSATION
+  #define PULLUP_BACKLASH_COMPENSATION
+
   #define CALIBRATION_MEASUREMENT_RESOLUTION     0.01 // mm
 
   #define CALIBRATION_FEEDRATE_SLOW             60    // mm/m
