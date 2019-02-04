@@ -190,7 +190,7 @@ inline bool read_probe_value() {
   #if ENABLED(Z_MIN_PROBE_USES_Z_MIN_ENDSTOP_PIN)
     return (READ(Z_MIN_PIN) != Z_MIN_ENDSTOP_INVERTING);
   #else
-    return (READ(Z_MIN_PROBE_PIN != Z_MIN_PROBE_ENDSTOP_INVERTING);
+    return (READ(Z_MIN_PROBE_PIN) != Z_MIN_PROBE_ENDSTOP_INVERTING);
   #endif
 }
 
