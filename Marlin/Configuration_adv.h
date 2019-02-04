@@ -545,6 +545,9 @@
   #define CALIBRATION_NOZZLE_TIP_HEIGHT          1.0  // mm
   #define CALIBRATION_NOZZLE_OUTER_DIAMETER      2.0  // mm
 
+  // Uncomment to enable reporting (required for "G425 V", but uses PROGMEM).
+  //#define CALIBRATION_CUBE_REPORTING
+
   // The true location and dimension the cube/bolt/washer on the bed.
   #define CALIBRATION_CUBE_CENTER             { 264.0, -22.0,  -2.0} // mm
   #define CALIBRATION_CUBE_DIMENSIONS         {  10.0,  10.0,  10.0} // mm

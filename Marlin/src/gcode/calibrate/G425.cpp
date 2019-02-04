@@ -31,8 +31,6 @@
 #include "../../module/tool_change.h"
 #include "../../module/endstops.h"
 
-//#define CALIBRATION_MEASUREMENT_DEBUG
-
 /**
  * G425 backs away from the cube by various distances depending
  * on the user's confidence level:
@@ -85,7 +83,7 @@ class TemporaryGlobalEndstopsState {
   bool saved;
 
   public:
-    TemporaryGlobalEndstopsState(bool enable) : saved(endstops.are_endstops_enabled_globally()) {
+    TemporaryGlobalEndstopsState(bool enable) : saved(endstops.global_enabled()) {
       endstops.enable_globally(enable);
     }
     ~TemporaryGlobalEndstopsState() {endstops.enable_globally(saved);}
@@ -168,20 +166,6 @@ inline void park_above_cube(measurements_t &m, const float uncertainty) {
     hotend_offset[X_AXIS][0] = 0;
     hotend_offset[Y_AXIS][0] = 0;
     hotend_offset[Z_AXIS][0] = 0;
-  }
-
-  //
-  // This function requires normalize_hotend_offsets() to be called
-  //
-  inline void report_hotend_offsets() {
-    for (uint8_t e = 1; e < HOTENDS; e++) {
-      SERIAL_ECHOPAIR("T", int(e));
-      SERIAL_ECHOLNPGM(" Hotend Offset:");
-      SERIAL_ECHOLNPAIR("  X: ", hotend_offset[X_AXIS][e]);
-      SERIAL_ECHOLNPAIR("  Y: ", hotend_offset[Y_AXIS][e]);
-      SERIAL_ECHOLNPAIR("  Z: ", hotend_offset[Z_AXIS][e]);
-      SERIAL_EOL();
-    }
   }
 
 #endif // HOTENDS > 1
@@ -362,67 +346,96 @@ inline void probe_cube(measurements_t &m, const float uncertainty) {
   m.pos_error[Z_AXIS] = m.true_center[Z_AXIS] - m.cube_center[Z_AXIS];
 }
 
-inline void report_measured_faces(const measurements_t &m) {
-  SERIAL_ECHOLNPGM("Cube Sides:");
-  SERIAL_ECHOLNPAIR("  Top: ", m.cube_side[TOP]);
-  #if ENABLED(CALIBRATION_CUBE_MEASURE_LEFT)
-    SERIAL_ECHOLNPAIR("  Left: ", m.cube_side[LEFT]);
-  #endif
-  #if ENABLED(CALIBRATION_CUBE_MEASURE_RIGHT)
-    SERIAL_ECHOLNPAIR("  Right: ", m.cube_side[RIGHT]);
-  #endif
-  #if ENABLED(CALIBRATION_CUBE_MEASURE_FRONT)
-    SERIAL_ECHOLNPAIR("  Front: ", m.cube_side[FRONT]);
-  #endif
-  #if ENABLED(CALIBRATION_CUBE_MEASURE_BACK)
-    SERIAL_ECHOLNPAIR("  Back: ", m.cube_side[BACK]);
-  #endif
-  SERIAL_EOL();
-}
+#if ENABLED(CALIBRATION_CUBE_REPORTING)
+  inline void report_measured_faces(const measurements_t &m) {
+    SERIAL_ECHOLNPGM("Cube Sides:");
+    SERIAL_ECHOLNPAIR("  Top: ", m.cube_side[TOP]);
+    #if ENABLED(CALIBRATION_CUBE_MEASURE_LEFT)
+      SERIAL_ECHOLNPAIR("  Left: ", m.cube_side[LEFT]);
+    #endif
+    #if ENABLED(CALIBRATION_CUBE_MEASURE_RIGHT)
+      SERIAL_ECHOLNPAIR("  Right: ", m.cube_side[RIGHT]);
+    #endif
+    #if ENABLED(CALIBRATION_CUBE_MEASURE_FRONT)
+      SERIAL_ECHOLNPAIR("  Front: ", m.cube_side[FRONT]);
+    #endif
+    #if ENABLED(CALIBRATION_CUBE_MEASURE_BACK)
+      SERIAL_ECHOLNPAIR("  Back: ", m.cube_side[BACK]);
+    #endif
+    SERIAL_EOL();
+  }
 
-inline void report_measured_center(const measurements_t &m) {
-  SERIAL_ECHOLNPGM("Cube Center:");
-  #if HAS_X_CENTER
-    SERIAL_ECHOLNPAIR(" X", m.cube_center[X_AXIS]);
-  #endif
-  #if HAS_Y_CENTER
-    SERIAL_ECHOLNPAIR(" Y", m.cube_center[Y_AXIS]);
-  #endif
-  SERIAL_ECHOLNPAIR(" Z", m.cube_center[Z_AXIS]);
-  SERIAL_EOL();
-}
+  inline void report_measured_center(const measurements_t &m) {
+    SERIAL_ECHOLNPGM("Cube Center:");
+    #if HAS_X_CENTER
+      SERIAL_ECHOLNPAIR(" X", m.cube_center[X_AXIS]);
+    #endif
+    #if HAS_Y_CENTER
+      SERIAL_ECHOLNPAIR(" Y", m.cube_center[Y_AXIS]);
+    #endif
+    SERIAL_ECHOLNPAIR(" Z", m.cube_center[Z_AXIS]);
+    SERIAL_EOL();
+  }
 
-inline void report_measured_backlash(const measurements_t &m) {
-  SERIAL_ECHOLNPGM("Backlash:");
-  #if ENABLED(CALIBRATION_CUBE_MEASURE_LEFT)
-    SERIAL_ECHOLNPAIR("  Left: ", m.backlash[LEFT]);
-  #endif
-  #if ENABLED(CALIBRATION_CUBE_MEASURE_RIGHT)
-    SERIAL_ECHOLNPAIR("  Right: ", m.backlash[RIGHT]);
-  #endif
-  #if ENABLED(CALIBRATION_CUBE_MEASURE_FRONT)
-    SERIAL_ECHOLNPAIR("  Front: ", m.backlash[FRONT]);
-  #endif
-  #if ENABLED(CALIBRATION_CUBE_MEASURE_BACK)
-    SERIAL_ECHOLNPAIR("  Back: ", m.backlash[BACK]);
-  #endif
-  SERIAL_ECHOLNPAIR("  Top: ", m.backlash[TOP]);
-  SERIAL_EOL();
-}
+  inline void report_measured_backlash(const measurements_t &m) {
+    SERIAL_ECHOLNPGM("Backlash:");
+    #if ENABLED(CALIBRATION_CUBE_MEASURE_LEFT)
+      SERIAL_ECHOLNPAIR("  Left: ", m.backlash[LEFT]);
+    #endif
+    #if ENABLED(CALIBRATION_CUBE_MEASURE_RIGHT)
+      SERIAL_ECHOLNPAIR("  Right: ", m.backlash[RIGHT]);
+    #endif
+    #if ENABLED(CALIBRATION_CUBE_MEASURE_FRONT)
+      SERIAL_ECHOLNPAIR("  Front: ", m.backlash[FRONT]);
+    #endif
+    #if ENABLED(CALIBRATION_CUBE_MEASURE_BACK)
+      SERIAL_ECHOLNPAIR("  Back: ", m.backlash[BACK]);
+    #endif
+    SERIAL_ECHOLNPAIR("  Top: ", m.backlash[TOP]);
+    SERIAL_EOL();
+  }
 
-inline void report_measured_positional_error(const measurements_t &m) {
-  SERIAL_CHAR('T');
-  SERIAL_ECHO(int(active_extruder));
-  SERIAL_ECHOLNPGM(" Positional Error:");
-  #if HAS_X_CENTER
-    SERIAL_ECHOLNPAIR(" X", m.pos_error[X_AXIS]);
+  inline void report_measured_positional_error(const measurements_t &m) {
+    SERIAL_CHAR('T');
+    SERIAL_ECHO(int(active_extruder));
+    SERIAL_ECHOLNPGM(" Positional Error:");
+    #if HAS_X_CENTER
+      SERIAL_ECHOLNPAIR(" X", m.pos_error[X_AXIS]);
+    #endif
+    #if HAS_Y_CENTER
+      SERIAL_ECHOLNPAIR(" Y", m.pos_error[Y_AXIS]);
+    #endif
+    SERIAL_ECHOLNPAIR(" Z", m.pos_error[Z_AXIS]);
+    SERIAL_EOL();
+  }
+
+  inline void report_measured_nozzle_dimensions(const measurements_t &m) {
+    SERIAL_ECHOLNPGM("Nozzle Tip Outer Dimensions:");
+    #if HAS_X_CENTER
+      SERIAL_ECHOLNPAIR(" X", m.nozzle_outer_dimension[X_AXIS]);
+    #endif
+    #if HAS_Y_CENTER
+      SERIAL_ECHOLNPAIR(" Y", m.nozzle_outer_dimension[Y_AXIS]);
+    #endif
+    SERIAL_EOL();
+  }
+
+  #if HOTENDS > 1
+    //
+    // This function requires normalize_hotend_offsets() to be called
+    //
+    inline void report_hotend_offsets() {
+      for (uint8_t e = 1; e < HOTENDS; e++) {
+        SERIAL_ECHOPAIR("T", int(e));
+        SERIAL_ECHOLNPGM(" Hotend Offset:");
+        SERIAL_ECHOLNPAIR("  X: ", hotend_offset[X_AXIS][e]);
+        SERIAL_ECHOLNPAIR("  Y: ", hotend_offset[Y_AXIS][e]);
+        SERIAL_ECHOLNPAIR("  Z: ", hotend_offset[Z_AXIS][e]);
+        SERIAL_EOL();
+      }
+    }
   #endif
-  #if HAS_Y_CENTER
-    SERIAL_ECHOLNPAIR(" Y", m.pos_error[Y_AXIS]);
-  #endif
-  SERIAL_ECHOLNPAIR(" Z", m.pos_error[Z_AXIS]);
-  SERIAL_EOL();
-}
+#endif // CALIBRATION_CUBE_REPORTING
 
 /**
  * Probe around the calibration cube to measure backlash
@@ -510,13 +523,6 @@ inline void calibrate_toolhead(measurements_t &m, const float uncertainty, const
   #endif
 
   probe_cube(m, uncertainty);
-  if (!fast) {
-    #if ENABLED(BACKLASH_GCODE) && ENABLED(CALIBRATION_MEASUREMENT_DEBUG)
-      SERIAL_ECHOPAIR("Backlash (T", int(extruder));
-      SERIAL_ECHOLNPGM("):");
-      report_measured_backlash(m);
-    #endif
-  }
 
   /* Adjust the hotend offset */
   #if HOTENDS > 1
@@ -529,9 +535,6 @@ inline void calibrate_toolhead(measurements_t &m, const float uncertainty, const
     hotend_offset[Z_AXIS][extruder] += m.pos_error[Z_AXIS];
 
     normalize_hotend_offsets();
-    #ifdef CALIBRATION_MEASUREMENT_DEBUG
-      report_hotend_offsets();
-    #endif
   #endif
 
   // Correct for positional error, so the cube
@@ -563,21 +566,7 @@ inline void calibrate_all_toolheads(measurements_t &m, const float uncertainty) 
   #if HOTENDS > 1
     normalize_hotend_offsets();
     set_nozzle(m, 0);
-    #ifdef CALIBRATION_MEASUREMENT_DEBUG
-      report_hotend_offsets();
-    #endif
   #endif
-}
-
-inline void report_measured_nozzle_dimensions(const measurements_t &m) {
-  SERIAL_ECHOLNPGM("Nozzle Tip Outer Dimensions:");
-  #if HAS_X_CENTER
-    SERIAL_ECHOLNPAIR(" X", m.nozzle_outer_dimension[X_AXIS]);
-  #endif
-  #if HAS_Y_CENTER
-    SERIAL_ECHOLNPAIR(" Y", m.nozzle_outer_dimension[Y_AXIS]);
-  #endif
-  SERIAL_EOL();
 }
 
 inline void say_calibration_done() { ui.set_status_P(PSTR("Calibration done.")); }
@@ -608,10 +597,6 @@ inline void calibrate_all() {
 
   #if ENABLED(BACKLASH_GCODE)
     calibrate_backlash(m, CALIBRATION_MEASUREMENT_UNCERTAIN);
-    #ifdef CALIBRATION_MEASUREMENT_DEBUG
-      SERIAL_ECHOLNPGM("Backlash before correction:");
-      report_measured_backlash(m);
-    #endif
   #endif
 
   /* Cycle the toolheads so the servos settle into their "natural" positions */
@@ -643,22 +628,7 @@ void GcodeSuite::G425() {
 
   float uncertainty = parser.seenval('U') ? parser.value_float() : CALIBRATION_MEASUREMENT_UNCERTAIN;
 
-  if (parser.seen('V')) {
-    ui.set_status_P(PSTR("Measuring nozzle center"));
-    probe_cube(m, uncertainty);
-    SERIAL_EOL();
-    report_measured_faces(m);
-    report_measured_center(m);
-    report_measured_backlash(m);
-    report_measured_nozzle_dimensions(m);
-    report_measured_positional_error(m);
-    #if HOTENDS > 1
-      normalize_hotend_offsets();
-      report_hotend_offsets();
-    #endif
-    ui.set_status_P(PSTR("Measurements finished."));
-  }
-  else if (parser.seen('B')) {
+  if (parser.seen('B')) {
     calibrate_backlash(m, uncertainty);
     say_calibration_done();
   }
@@ -666,6 +636,23 @@ void GcodeSuite::G425() {
     calibrate_toolhead(m, uncertainty, parser.has_value() ? parser.value_int() : active_extruder);
     say_calibration_done();
   }
+  #if ENABLED(CALIBRATION_CUBE_REPORTING)
+    else if (parser.seen('V')) {
+      ui.set_status_P(PSTR("Measuring nozzle center"));
+      probe_cube(m, uncertainty);
+      SERIAL_EOL();
+      report_measured_faces(m);
+      report_measured_center(m);
+      report_measured_backlash(m);
+      report_measured_nozzle_dimensions(m);
+      report_measured_positional_error(m);
+      #if HOTENDS > 1
+        normalize_hotend_offsets();
+        report_hotend_offsets();
+      #endif
+      ui.set_status_P(PSTR("Measurements finished."));
+    }
+  #endif
   else
     calibrate_all();
 }
