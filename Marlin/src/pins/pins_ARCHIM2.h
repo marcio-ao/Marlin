@@ -224,7 +224,7 @@
 //
 // LCD / Controller
 //
-#if ENABLED(ULTRA_LCD)
+#if ENABLED(ULTRA_LCD) || ENABLED(EXTENSIBLE_UI)
   #define BEEPER_PIN       23   // D24 PA15_CTS1
   #define LCD_PINS_RS      17   // D17 PA12_RXD1
   #define LCD_PINS_ENABLE  24   // D23 PA14_RTS1
@@ -235,7 +235,7 @@
 
   #define SD_DETECT_PIN     2   // D2  PB25_TIOA0
 
-  #if ENABLED(NEWPANEL)
+  #if ENABLED(NEWPANEL) || ENABLED(EXTENSIBLE_UI)
     // Buttons on AUX-2
     #define BTN_EN1        60   // D60 PA3_TIOB1
     #define BTN_EN2        13   // D13 PB27_TIOB0

@@ -100,11 +100,47 @@ void menu_change_filament();
 void menu_info();
 void menu_led();
 
+#if ENABLED(LULZBOT_ABOUT_FIRMWARE_MENU)
+  void menu_info_stats();
+  void lcd_custom_bootscreen();
+
+  /**
+   *
+   * Extra menu item to show LulzBot firmware version
+   *
+   */
+  void menu_show_bootscreen() {
+    if (ui.lcd_clicked) { ui.goto_previous_screen_no_defer(); }
+    lcd_custom_bootscreen();
+  }
+
+  /**
+   *
+   * Extra menu item to show printer and firmware version
+   *
+   */
+  void menu_about_printer() {
+    START_MENU();
+    MENU_BACK(MSG_MAIN);
+    MENU_ITEM(submenu, _UxGT("Firmware Version"), menu_show_bootscreen);
+
+    #if ENABLED(PRINTCOUNTER)
+      MENU_ITEM(submenu, MSG_INFO_STATS_MENU, menu_info_stats);          // Printer Statistics >
+    #endif
+    END_MENU();
+  }
+#endif
+
 void menu_main() {
   START_MENU();
   MENU_BACK(MSG_WATCH);
 
-  const bool busy = printer_busy();
+  const bool busy = printer_busy()
+    #if ENABLED(SDSUPPORT)
+      , card_detected = card.isDetected()
+      , card_open = card_detected && card.isFileOpen()
+    #endif
+  ;
 
   if (busy) {
     MENU_ITEM(function, MSG_PAUSE_PRINT, lcd_pause);
@@ -122,8 +158,8 @@ void menu_main() {
         if (!busy) MENU_ITEM(function, MSG_AUTOSTART, card.beginautostart);
       #endif
 
-      if (card.isDetected()) {
-        if (!card.isFileOpen()) {
+      if (card_detected) {
+        if (!card_open) {
           MENU_ITEM(submenu, MSG_CARD_MENU, menu_sdcard);
           #if !PIN_EXISTS(SD_DETECT)
             MENU_ITEM(gcode, MSG_CHANGE_SDCARD, PSTR("M21"));  // SD-card changed by user
@@ -170,6 +206,14 @@ void menu_main() {
     #endif
   #endif
 
+  #if ENABLED(LULZBOT_ABOUT_FIRMWARE_MENU)
+      #if ENABLED(PRINTCOUNTER)
+      MENU_ITEM(submenu, MSG_INFO_MENU, menu_about_printer);
+      #else
+      MENU_ITEM(submenu, MSG_INFO_MENU, menu_show_bootscreen);
+      #endif
+  #endif
+
   #if ENABLED(LCD_INFO_MENU)
     MENU_ITEM(submenu, MSG_INFO_MENU, menu_info);
   #endif
@@ -196,8 +240,8 @@ void menu_main() {
       if (!busy) MENU_ITEM(function, MSG_AUTOSTART, card.beginautostart);
     #endif
 
-    if (card.isDetected()) {
-      if (!card.isFileOpen()) {
+    if (card_detected) {
+      if (!card_open) {
         MENU_ITEM(submenu, MSG_CARD_MENU, menu_sdcard);
         #if !PIN_EXISTS(SD_DETECT)
           MENU_ITEM(gcode, MSG_CHANGE_SDCARD, PSTR("M21"));  // SD-card changed by user

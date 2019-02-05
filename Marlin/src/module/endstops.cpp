@@ -734,7 +734,7 @@ void Endstops::update() {
         #elif ENABLED(Z_DUAL_ENDSTOPS)
           PROCESS_DUAL_ENDSTOP(Z, Z2, MIN);
         #else
-          #if ENABLED(Z_MIN_PROBE_USES_Z_MIN_ENDSTOP_PIN)
+          #if ENABLED(Z_MIN_PROBE_USES_Z_MIN_ENDSTOP_PIN) || defined(LULZBOT_Z_MIN_USES_Z_PROBE_ENABLED)
             if (z_probe_enabled) PROCESS_ENDSTOP(Z, MIN);
           #elif ENABLED(Z_MIN_PROBE_ENDSTOP)
             if (!z_probe_enabled) PROCESS_ENDSTOP(Z, MIN);

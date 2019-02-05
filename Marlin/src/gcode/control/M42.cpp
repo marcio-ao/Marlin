@@ -24,6 +24,11 @@
 #include "../../Marlin.h" // for pin_is_protected
 #include "../../inc/MarlinConfig.h"
 
+#if defined(LULZBOT_M42_TOGGLES_PROBE_PINS)
+ #include "../../module/endstops.h"
+ #include "../../module/stepper_indirection.h"
+#endif
+
 #if FAN_COUNT > 0
   #include "../../module/temperature.h"
 #endif
@@ -41,6 +46,10 @@
 void GcodeSuite::M42() {
   if (!parser.seenval('S')) return;
   const byte pin_status = parser.value_byte();
+
+  #if defined(LULZBOT_M42_TOGGLES_PROBE_PINS)
+    LULZBOT_M42_TOGGLES_PROBE_PINS
+  #endif
 
   const int pin_index = PARSED_PIN_INDEX('P', GET_PIN_MAP_INDEX(LED_PIN));
   if (pin_index < 0) return;

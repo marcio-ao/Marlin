@@ -34,6 +34,11 @@
  * G12: Clean the nozzle
  */
 void GcodeSuite::G12() {
+  #if defined(LULZBOT_WIPE_SEQUENCE_COMMANDS)
+     GcodeSuite::process_subcommands_now_P(PSTR(LULZBOT_WIPE_SEQUENCE_COMMANDS));
+     return;
+  #endif
+
   // Don't allow nozzle cleaning without homing first
   if (axis_unhomed_error()) return;
 

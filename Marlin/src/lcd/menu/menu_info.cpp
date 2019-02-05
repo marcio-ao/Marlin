@@ -26,7 +26,7 @@
 
 #include "../../inc/MarlinConfigPre.h"
 
-#if HAS_LCD_MENU && ENABLED(LCD_INFO_MENU)
+#if HAS_LCD_MENU && ENABLED(LCD_INFO_MENU) || ENABLED(LULZBOT_ABOUT_FIRMWARE_MENU)
 
 #include "menu.h"
 // #include "../../module/motion.h"

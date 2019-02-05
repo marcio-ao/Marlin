@@ -342,6 +342,10 @@ class Planner {
       static void add_backlash_correction_steps(const int32_t da, const int32_t db, const int32_t dc, const uint8_t dm, block_t * const block);
     #endif
 
+    #if ENABLED(LULZBOT_BABYSTEP_IN_PLANNER)
+      static void add_babystep_correction_steps(const int32_t da, const int32_t db, const int32_t dc, const uint8_t dm, block_t * const block);
+    #endif
+
   public:
 
     /**

@@ -181,6 +181,9 @@
  *
  */
 void GcodeSuite::G28(const bool always_home_all) {
+  #if defined(LULZBOT_HOMING_USES_PROBE_PINS)
+    LULZBOT_ENABLE_PROBE_PINS(true);
+  #endif
 
   #if ENABLED(DEBUG_LEVELING_FEATURE)
     if (DEBUGGING(LEVELING)) {
@@ -417,6 +420,13 @@ void GcodeSuite::G28(const bool always_home_all) {
 
   #endif // DUAL_X_CARRIAGE
 
+  #if ENABLED(ULTRA_LCD) && defined(LULZBOT_HOMING_MESSAGE_WORKAROUND)
+    ui.reset_status();
+  #endif
+
+  #if defined(LULZBOT_BACKOFF_AFTER_HOME)
+    LULZBOT_BACKOFF_AFTER_HOME // This must happen before endstops.not_homing()
+  #endif
   endstops.not_homing();
 
   #if ENABLED(DELTA) && ENABLED(DELTA_HOME_TO_SAFE_ZONE)
@@ -463,5 +473,8 @@ void GcodeSuite::G28(const bool always_home_all) {
       const uint8_t cv = L6470::chain[j];
       L6470.set_param(cv, L6470_ABS_POS, stepper.position((AxisEnum)L6470.axis_xref[cv]));
     }
+  #endif
+  #if defined(LULZBOT_HOMING_USES_PROBE_PINS)
+    LULZBOT_ENABLE_PROBE_PINS(false);
   #endif
 }

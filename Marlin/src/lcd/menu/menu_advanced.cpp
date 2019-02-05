@@ -446,7 +446,9 @@ void menu_advanced_temperature() {
 
     #if ENABLED(DISTINCT_E_FACTORS)
       #define EDIT_VMAX_E(N) MENU_MULTIPLIER_ITEM_EDIT(float3, MSG_VMAX MSG_E##N, &planner.settings.max_feedrate_mm_s[E_AXIS_N(N-1)], 1, 999)
+      #if not defined(LULZBOT_HIDE_ACTIVE_NOZZLE_IN_LCD)
       MENU_MULTIPLIER_ITEM_EDIT(float3, MSG_VMAX MSG_E, &planner.settings.max_feedrate_mm_s[E_AXIS_N(active_extruder)], 1, 999);
+      #endif
       EDIT_VMAX_E(1);
       EDIT_VMAX_E(2);
       #if E_STEPPERS > 2
@@ -496,7 +498,9 @@ void menu_advanced_temperature() {
 
     #if ENABLED(DISTINCT_E_FACTORS)
       #define EDIT_AMAX_E(N,E) MENU_MULTIPLIER_ITEM_EDIT_CALLBACK(long5, MSG_AMAX MSG_E##N, &planner.settings.max_acceleration_mm_per_s2[E_AXIS_N(E)], 100, 99000, _reset_e##E##_acceleration_rate)
+      #if not defined(LULZBOT_HIDE_ACTIVE_NOZZLE_IN_LCD)
       MENU_MULTIPLIER_ITEM_EDIT_CALLBACK(long5, MSG_AMAX MSG_E, &planner.settings.max_acceleration_mm_per_s2[E_AXIS_N(active_extruder)], 100, 99000, _reset_acceleration_rates);
+      #endif
       EDIT_AMAX_E(1,0);
       EDIT_AMAX_E(2,1);
       #if E_STEPPERS > 2
@@ -552,14 +556,16 @@ void menu_advanced_temperature() {
     START_MENU();
     MENU_BACK(MSG_ADVANCED_SETTINGS);
 
-    #define EDIT_QSTEPS(Q) MENU_MULTIPLIER_ITEM_EDIT_CALLBACK(float62, MSG_##Q##STEPS, &planner.settings.axis_steps_per_mm[_AXIS(Q)], 5, 9999, _planner_refresh_positioning)
+    #define EDIT_QSTEPS(Q) MENU_MULTIPLIER_ITEM_EDIT_CALLBACK(LULZBOT_PRECISION_XYZ_STEPS, MSG_##Q##STEPS, &planner.settings.axis_steps_per_mm[_AXIS(Q)], 5, 9999, _planner_refresh_positioning)
     EDIT_QSTEPS(A);
     EDIT_QSTEPS(B);
     EDIT_QSTEPS(C);
 
     #if ENABLED(DISTINCT_E_FACTORS)
       #define EDIT_ESTEPS(N,E) MENU_MULTIPLIER_ITEM_EDIT_CALLBACK(float62, MSG_E##N##STEPS, &planner.settings.axis_steps_per_mm[E_AXIS_N(E)], 5, 9999, _planner_refresh_e##E##_positioning)
-      MENU_MULTIPLIER_ITEM_EDIT_CALLBACK(float62, MSG_ESTEPS, &planner.settings.axis_steps_per_mm[E_AXIS_N(active_extruder)], 5, 9999, _planner_refresh_positioning);
+      #if not defined(LULZBOT_HIDE_ACTIVE_NOZZLE_IN_LCD)
+      MENU_MULTIPLIER_ITEM_EDIT_CALLBACK(LULZBOT_PRECISION_XYZ_STEPS, MSG_ESTEPS, &planner.settings.axis_steps_per_mm[E_AXIS_N(active_extruder)], 5, 9999, _planner_refresh_positioning);
+      #endif
       EDIT_ESTEPS(1,0);
       EDIT_ESTEPS(2,1);
       #if E_STEPPERS > 2
@@ -575,13 +581,13 @@ void menu_advanced_temperature() {
         #endif // E_STEPPERS > 3
       #endif // E_STEPPERS > 2
     #else
-      MENU_MULTIPLIER_ITEM_EDIT_CALLBACK(float62, MSG_ESTEPS, &planner.settings.axis_steps_per_mm[E_AXIS], 5, 9999, _planner_refresh_positioning);
+      MENU_MULTIPLIER_ITEM_EDIT_CALLBACK(LULZBOT_PRECISION_XYZ_STEPS, MSG_ESTEPS, &planner.settings.axis_steps_per_mm[E_AXIS], 5, 9999, _planner_refresh_positioning);
     #endif
 
     END_MENU();
   }
 
-  #if ENABLED(EEPROM_SETTINGS)
+  #if ENABLED(EEPROM_SETTINGS) && DISABLED(LULZBOT_HIDE_INITIALIZE_EEPROM)
 
     #include "../../module/configuration_store.h"
 
@@ -640,7 +646,9 @@ void menu_advanced_settings() {
     MENU_ITEM(submenu, MSG_TMC_DRIVERS, menu_tmc);
   #endif
 
+  #if !defined(LULZBOT_HIDE_PID_CONFIG_IN_LCD)
   MENU_ITEM(submenu, MSG_TEMPERATURE, menu_advanced_temperature);
+  #endif
 
   #if DISABLED(NO_VOLUMETRICS) || ENABLED(ADVANCED_PAUSE_FEATURE)
     MENU_ITEM(submenu, MSG_FILAMENT, menu_advanced_filament);
@@ -685,7 +693,7 @@ void menu_advanced_settings() {
     MENU_ITEM_EDIT_CALLBACK(bool, MSG_SD_UPDATE, &sd_update_state, _lcd_toggle_sd_update);
   #endif
 
-  #if ENABLED(EEPROM_SETTINGS) && DISABLED(SLIM_LCD_MENUS)
+  #if ENABLED(EEPROM_SETTINGS) && DISABLED(SLIM_LCD_MENUS) && DISABLED(LULZBOT_HIDE_INITIALIZE_EEPROM)
     MENU_ITEM(submenu, MSG_INIT_EEPROM, lcd_init_eeprom_confirm);
   #endif
 

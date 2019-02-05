@@ -24,6 +24,7 @@
 
 #if ENABLED(USB_FLASH_DRIVE_SUPPORT)
 
+#include "../../Marlin.h"
 #include "../../core/serial.h"
 
 #include "lib/Usb.h"
@@ -142,7 +143,11 @@ bool Sd2Card::readBlock(uint32_t block, uint8_t* dst) {
       SERIAL_ECHOLNPAIR("Read block ", block);
     #endif
   #endif
-  return bulk.Read(0, block, 512, 1, dst) == 0;
+  const bool ok = (bulk.Read(0, block, 512, 1, dst) == 0);
+  #if defined(LULZBOT_USB_READ_ERROR_IS_FATAL)
+  if(!ok) kill(PSTR("USB Read Error"));
+  #endif
+  return ok;
 }
 
 bool Sd2Card::writeBlock(uint32_t block, const uint8_t* src) {

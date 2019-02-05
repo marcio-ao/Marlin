@@ -102,6 +102,9 @@ void MarlinUI::set_font(const MarlinFont font_nr) {
 
   #if ENABLED(SHOW_CUSTOM_BOOTSCREEN)
 
+    #ifdef LULZBOT_CUSTOM_BOOTSCREEN
+      LULZBOT_CUSTOM_BOOTSCREEN
+    #else
     FORCE_INLINE void draw_custom_bootscreen(const u8g_pgm_uint8_t * const bmp, const bool erase=true) {
       constexpr u8g_uint_t left = (LCD_PIXEL_WIDTH  - (CUSTOM_BOOTSCREEN_BMPWIDTH)) / 2,
                            top = (LCD_PIXEL_HEIGHT - (CUSTOM_BOOTSCREEN_BMPHEIGHT)) / 2;
@@ -128,6 +131,7 @@ void MarlinUI::set_font(const MarlinFont font_nr) {
         #endif
       } while (u8g.nextPage());
     }
+    #endif
 
     void lcd_custom_bootscreen() {
       #if ENABLED(ANIMATED_BOOTSCREEN)

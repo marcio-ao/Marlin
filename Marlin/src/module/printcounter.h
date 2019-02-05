@@ -160,6 +160,10 @@ class PrintCounter: public Stopwatch {
      */
     static printStatistics getStats() { return data; }
 
+    #if defined(LULZBOT_PRINTCOUNTER)
+    printStatistics* getStatsPtr() {return &data;};
+    #endif
+
     /**
      * @brief Loop function
      * @details This function should be called at loop, it will take care of

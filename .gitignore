@@ -115,6 +115,10 @@ tags
 *.dSYM/
 *.su
 
+# Additional Marlin build files
+*.a.txt
+*.map
+
 # PlatformIO files/dirs
 .pio*
 .pioenvs

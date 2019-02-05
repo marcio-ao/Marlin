@@ -1,8 +1,9 @@
-/*************
- * dummy.cpp *
- *************/
+/****************
+ * ui_filereader.h *
+ ****************/
 
 /****************************************************************************
+ *   Written By Mark Pelletier  2017 - Aleph Objects, Inc.                  *
  *   Written By Marcio Teixeira 2018 - Aleph Objects, Inc.                  *
  *                                                                          *
  *   This program is free software: you can redistribute it and/or modify   *
@@ -19,46 +20,26 @@
  *   location: <http://www.gnu.org/licenses/>.                              *
  ****************************************************************************/
 
-#include "../../../inc/MarlinConfigPre.h"
+#ifndef _UI_FILEREADER_
+#define _UI_FILEREADER_
 
-#if ENABLED(EXTENSIBLE_UI)
+#include "../../../sd/SdFile.h"
+#include "../../../sd/cardreader.h"
 
-#include "../ui_api.h"
+class MediaFileReader {
+  private:
+    Sd2Card  card;
+    SdVolume volume;
+    SdFile   root, file;
 
-// To implement a new UI, complete the functions below and
-// read or update Marlin's state using the methods in the
-// ExtUI methods in "../ui_api.h"
-//
-// Although it may be possible to access other state
-// variables from Marlin, using the API here possibly
-// helps ensure future compatibility.
+  public:
+    bool open(const char* filename);
+    int16_t read(void *buff, size_t bytes);
+    uint32_t size();
+    void rewind();
+    void close();
 
-namespace ExtUI {
-  void onStartup() {
-    /* Initialize the display module here. The following
-     * routines are available for access to the GPIO pins:
-     *
-     *   SET_OUTPUT(pin)
-     *   SET_INPUT_PULLUP(pin)
-     *   SET_INPUT(pin)
-     *   WRITE(pin,value)
-     *   READ(pin)
-     */
-  }
-  void onIdle() {}
-  void onPrinterKilled(const char* msg) {}
-  void onMediaInserted() {};
-  void onMediaError() {};
-  void onMediaRemoved() {};
-  void onPlayTone(const uint16_t frequency, const uint16_t duration) {}
-  void onPrintTimerStarted() {}
-  void onPrintTimerPaused() {}
-  void onPrintTimerStopped() {}
-  void onFilamentRunout() {}
-  void onStatusChanged(const char * const msg) {}
-  void onFactoryReset() {}
-  void onLoadSettings() {}
-  void onStoreSettings() {}
-}
+    static int16_t read(void *obj, void *buff, size_t bytes);
+};
 
-#endif // EXTENSIBLE_UI
+#endif // _UI_FILEREADER_

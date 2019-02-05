@@ -57,7 +57,7 @@ void GcodeSuite::G92() {
   #endif
 
   bool didE = false;
-  #if IS_SCARA || !HAS_POSITION_SHIFT
+  #if IS_SCARA || !HAS_POSITION_SHIFT || defined(LULZBOT_G92_BACKWARDS_COMPATIBILITY)
     bool didXYZ = false;
   #else
     constexpr bool didXYZ = false;
@@ -69,7 +69,7 @@ void GcodeSuite::G92() {
                   v = i == E_AXIS ? l : LOGICAL_TO_NATIVE(l, i),
                   d = v - current_position[i];
       if (!NEAR_ZERO(d)) {
-        #if IS_SCARA || !HAS_POSITION_SHIFT
+        #if IS_SCARA || !HAS_POSITION_SHIFT || defined(LULZBOT_G92_BACKWARDS_COMPATIBILITY)
           if (i == E_AXIS) didE = true; else didXYZ = true;
           current_position[i] = v;        // Without workspaces revert to Marlin 1.0 behavior
         #elif HAS_POSITION_SHIFT

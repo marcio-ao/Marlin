@@ -455,6 +455,8 @@ void MarlinSettings::postprocess() {
     return false;
   }
 
+  LULZBOT_SAVE_ZOFFSET_TO_EEPROM_IMPL
+
   /**
    * M500 - Store Configuration
    */
@@ -576,7 +578,9 @@ void MarlinSettings::postprocess() {
       #if !HAS_BED_PROBE
         const float zprobe_zoffset = 0;
       #endif
+      LULZBOT_EEPROM_BEFORE_ZOFFSET
       EEPROM_WRITE(zprobe_zoffset);
+      LULZBOT_EEPROM_AFTER_ZOFFSET
     }
 
     //
@@ -1299,7 +1303,9 @@ void MarlinSettings::postprocess() {
         #if !HAS_BED_PROBE
           float zprobe_zoffset;
         #endif
+        LULZBOT_EEPROM_BEFORE_ZOFFSET
         EEPROM_READ(zprobe_zoffset);
+        LULZBOT_EEPROM_AFTER_ZOFFSET
       }
 
       //
@@ -2366,6 +2372,13 @@ void MarlinSettings::reset(PORTARG_SOLO) {
     #define SAY_UNITS_P(PORT, COLON) say_units(COLON)
   #endif
 
+  void report_M92(
+    #if NUM_SERIAL > 1
+      const int8_t port,
+    #endif
+    const bool echo=true, const int8_t e=-1
+  );
+
   /**
    * M503 - Report current settings in RAM
    *
@@ -2458,21 +2471,12 @@ void MarlinSettings::reset(PORTARG_SOLO) {
     #endif // !NO_VOLUMETRICS
 
     CONFIG_ECHO_HEADING("Steps per unit:");
-    CONFIG_ECHO_START();
-    SERIAL_ECHOPAIR_P(port, "  M92 X", LINEAR_UNIT(planner.settings.axis_steps_per_mm[X_AXIS]));
-    SERIAL_ECHOPAIR_P(port, " Y", LINEAR_UNIT(planner.settings.axis_steps_per_mm[Y_AXIS]));
-    SERIAL_ECHOPAIR_P(port, " Z", LINEAR_UNIT(planner.settings.axis_steps_per_mm[Z_AXIS]));
-    #if DISABLED(DISTINCT_E_FACTORS)
-      SERIAL_ECHOPAIR_P(port, " E", VOLUMETRIC_UNIT(planner.settings.axis_steps_per_mm[E_AXIS]));
-    #endif
-    SERIAL_EOL_P(port);
-    #if ENABLED(DISTINCT_E_FACTORS)
-      CONFIG_ECHO_START();
-      for (uint8_t i = 0; i < E_STEPPERS; i++) {
-        SERIAL_ECHOPAIR_P(port, "  M92 T", (int)i);
-        SERIAL_ECHOLNPAIR_P(port, " E", VOLUMETRIC_UNIT(planner.settings.axis_steps_per_mm[E_AXIS + i]));
-      }
-    #endif
+    report_M92(
+      #if NUM_SERIAL > 1
+        port,
+      #endif
+      !forReplay
+    );
 
     CONFIG_ECHO_HEADING("Maximum feedrates (units/s):");
     CONFIG_ECHO_START();

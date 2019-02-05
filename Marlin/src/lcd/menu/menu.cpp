@@ -90,8 +90,10 @@ void MarlinUI::goto_previous_screen() {
   if (screen_history_depth > 0) {
     --screen_history_depth;
     goto_screen(
-      screen_history[screen_history_depth].menu_function,
-      screen_history[screen_history_depth].encoder_position
+      screen_history[screen_history_depth].menu_function
+      #if !defined(LULZBOT_RESET_SELECTION_TO_FIRST_ON_MENU_BACK)
+      ,screen_history[screen_history_depth].encoder_position
+      #endif
     );
   }
   else
@@ -376,10 +378,10 @@ void MarlinUI::completion_feedback(const bool good/*=true*/) {
     if (ui.should_draw()) {
       #if ENABLED(BABYSTEP_HOTEND_Z_OFFSET)
         if (!do_probe)
-          draw_edit_screen(PSTR(MSG_IDEX_Z_OFFSET), ftostr43sign(hotend_offset[Z_AXIS][active_extruder]));
+          draw_edit_screen(PSTR(MSG_IDEX_Z_OFFSET), LULZBOT_PRECISION_ZOFFSET(hotend_offset[Z_AXIS][active_extruder]));
         else
       #endif
-          draw_edit_screen(PSTR(MSG_ZPROBE_ZOFFSET), ftostr43sign(zprobe_zoffset));
+          draw_edit_screen(PSTR(MSG_ZPROBE_ZOFFSET), LULZBOT_PRECISION_ZOFFSET(zprobe_zoffset));
 
       #if ENABLED(BABYSTEP_ZPROBE_GFX_OVERLAY)
         if (do_probe) _lcd_zoffset_overlay_gfx(zprobe_zoffset);

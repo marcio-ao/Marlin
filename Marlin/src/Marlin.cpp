@@ -344,7 +344,12 @@ void disable_all_steppers() {
   #ifdef ACTION_ON_FILAMENT_RUNOUT
     void host_action_filament_runout(const bool eol/*=true*/) { host_action(PSTR(ACTION_ON_FILAMENT_RUNOUT), eol); }
   #endif
-
+  #ifdef ACTION_ON_G29_FAILURE
+    void host_action_probe_failure() { host_action(PSTR(ACTION_ON_G29_FAILURE)); }
+  #endif
+  #ifdef ACTION_ON_G29_RECOVER
+    void host_action_probe_recover() { host_action(PSTR(ACTION_ON_G29_RECOVER)); }
+  #endif
 #endif // HAS_ACTION_COMMANDS
 
 /**
@@ -937,6 +942,10 @@ void setup() {
     fanmux_init();
   #endif
 
+  #if defined(LULZBOT_STARTUP)
+    LULZBOT_STARTUP
+  #endif
+
   ui.init();
   ui.reset_status();
 
@@ -968,6 +977,7 @@ void setup() {
   #if ENABLED(SWITCHING_NOZZLE)
     // Initialize nozzle servo(s)
     #if SWITCHING_NOZZLE_TWO_SERVOS
+      GcodeSuite::process_subcommands_now_P("G28 Z");
       lower_nozzle(0);
       raise_nozzle(1);
     #else
@@ -1033,6 +1043,9 @@ void loop() {
         wait_for_heatup = false;
         #if ENABLED(POWER_LOSS_RECOVERY)
           card.removeJobRecoveryFile();
+        #endif
+        #if defined(LULZBOT_AFTER_ABORT_PRINT_ACTION)
+          LULZBOT_AFTER_ABORT_PRINT_ACTION
         #endif
       }
     #endif // SDSUPPORT

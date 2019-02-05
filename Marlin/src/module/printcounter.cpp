@@ -29,6 +29,10 @@ Stopwatch print_job_timer;      // Global Print Job Timer instance
 
 #else // PRINTCOUNTER
 
+#if ENABLED(EXTENSIBLE_UI)
+  #include "../lcd/extensible_ui/ui_api.h"
+#endif
+
 #include "printcounter.h"
 #include "../Marlin.h"
 #include "../HAL/shared/persistent_store_api.h"
@@ -106,6 +110,10 @@ void PrintCounter::saveStats() {
   persistentStore.access_start();
   persistentStore.write_data(address + sizeof(uint8_t), (uint8_t*)&data, sizeof(printStatistics));
   persistentStore.access_finish();
+
+  #if ENABLED(EXTENSIBLE_UI) && ENABLED(LULZBOT_PRINTCOUNTER)
+    ExtUI::onStoreSettings();
+  #endif
 }
 
 void PrintCounter::showStats() {

@@ -24,6 +24,27 @@
 #include "../../Marlin.h" // for pin_is_protected and idle()
 #include "../../module/stepper.h"
 
+#if defined(LULZBOT_M226_PINS_WORKAROUND)
+ #include "../../module/endstops.h"
+ bool _digitalRead(const int pin_number) {
+   LULZBOT_ENABLE_PROBE_PINS(true);
+   delayMicroseconds(10);
+   bool val;
+   switch(pin_number) {
+    #if HAS_Z_MIN
+     case Z_MIN_PIN: val = READ(Z_MIN_PIN) != Z_MIN_ENDSTOP_INVERTING; break;
+    #endif
+    #if HAS_Z_MIN_PROBE_PIN
+     case Z_MIN_PROBE_PIN: val = READ(Z_MIN_PROBE_PIN) != Z_MIN_PROBE_ENDSTOP_INVERTING;  break;
+    #endif
+    default: val = digitalRead(pin_number); break;
+   }
+   LULZBOT_ENABLE_PROBE_PINS(false);
+   return val;
+ }
+ #define digitalRead _digitalRead
+#endif
+
 /**
  * M226: Wait until the specified pin reaches the state required (M226 P<pin> S<state>)
  */
@@ -34,12 +55,19 @@ void GcodeSuite::M226() {
     const pin_t pin = GET_PIN_MAP_PIN(pin_number);
 
     if (WITHIN(pin_state, -1, 1) && pin > -1) {
+      #if !defined(LULZBOT_NO_PIN_PROTECTION_ON_M226)
       if (pin_is_protected(pin))
         protected_pin_err();
-      else {
+      else
+      #endif
+      {
         int target = LOW;
         planner.synchronize();
+        #if !defined(LULZBOT_NO_PIN_PROTECTION_ON_M226)
+        // Don't switch pin mode. Since we are disabling protection,
+        // we should only poll pins that already are inputs.
         pinMode(pin, INPUT);
+        #endif
         switch (pin_state) {
           case 1: target = HIGH; break;
           case 0: target = LOW; break;

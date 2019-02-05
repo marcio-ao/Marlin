@@ -127,21 +127,27 @@ void GcodeSuite::dwell(millis_t time) {
 
   void GcodeSuite::G29_with_retry() {
     uint8_t retries = G29_MAX_RETRIES;
+    #if defined(LULZBOT_ENABLE_PROBE_PINS)
+      LULZBOT_ENABLE_PROBE_PINS(true);
+    #endif
     while (G29()) { // G29 should return true for failed probes ONLY
       if (retries--) {
-        #ifdef G29_ACTION_ON_RECOVER
-          host_action(PSTR(G29_ACTION_ON_RECOVER));
+        #ifdef ACTION_ON_G29_RECOVER
+          host_action_probe_recover();
         #endif
         #ifdef G29_RECOVER_COMMANDS
           process_subcommands_now_P(PSTR(G29_RECOVER_COMMANDS));
         #endif
       }
       else {
+        #if defined(LULZBOT_ENABLE_PROBE_PINS)
+          LULZBOT_ENABLE_PROBE_PINS(false);
+        #endif
         #ifdef G29_FAILURE_COMMANDS
           process_subcommands_now_P(PSTR(G29_FAILURE_COMMANDS));
         #endif
-        #ifdef G29_ACTION_ON_FAILURE
-          host_action(PSTR(G29_ACTION_ON_FAILURE));
+        #ifdef ACTION_ON_G29_FAILURE
+          host_action_probe_failure();
         #endif
         #if ENABLED(G29_HALT_ON_FAILURE)
           kill(PSTR(MSG_ERR_PROBING_FAILED));
@@ -149,6 +155,9 @@ void GcodeSuite::dwell(millis_t time) {
         return;
       }
     }
+    #if defined(LULZBOT_ENABLE_PROBE_PINS)
+      LULZBOT_ENABLE_PROBE_PINS(false);
+    #endif
     #ifdef G29_SUCCESS_COMMANDS
       process_subcommands_now_P(PSTR(G29_SUCCESS_COMMANDS));
     #endif
@@ -271,7 +280,11 @@ void GcodeSuite::process_parsed_command(
       #endif
 
       #if ENABLED(CALIBRATION_GCODE)
-        case 425: G425(); break;                                  // G425: Perform calibration with calibration cube
+        case 425:
+          LULZBOT_ENABLE_PROBE_PINS(true);
+          G425();                                                 // G425: Perform calibration with calibration cube
+          LULZBOT_ENABLE_PROBE_PINS(false);
+          break;
       #endif
 
       #if ENABLED(DEBUG_GCODE_PARSER)
@@ -421,7 +434,15 @@ void GcodeSuite::process_parsed_command(
       case 115: M115(); break;                                    // M115: Report capabilities
       case 117: M117(); break;                                    // M117: Set LCD message text, if possible
       case 118: M118(); break;                                    // M118: Display a message in the host console
-      case 119: M119(); break;                                    // M119: Report endstop states
+      case 119: // M119: Report endstop states
+        #if defined(LULZBOT_ENABLE_PROBE_PINS)
+          LULZBOT_ENABLE_PROBE_PINS(true);
+        #endif
+        M119();
+        #if defined(LULZBOT_ENABLE_PROBE_PINS)
+          LULZBOT_ENABLE_PROBE_PINS(false);
+        #endif
+        break;
       case 120: M120(); break;                                    // M120: Enable endstops
       case 121: M121(); break;                                    // M121: Disable endstops
 
