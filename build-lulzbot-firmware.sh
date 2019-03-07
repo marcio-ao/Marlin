@@ -24,14 +24,11 @@ MINI_TOOLHEADS="Gladiola_SingleExtruder Albatross_Flexystruder Finch_Aerostruder
 TAZ_MODELS="Juniper_TAZ5 Oliveoil_TAZ6"
 TAZ_TOOLHEADS="Tilapia_SingleExtruder Kanyu_Flexystruder Opah_Moarstruder Javelin_DualExtruderV2 Longfin_FlexyDually Yellowfin_DualExtruderV3 Angelfish_Aerostruder $UNIVERSAL_TOOLHEADS"
 
-TAZ7_MODELS="Quiver_TAZPro"
-TAZ7_TOOLHEADS="Quiver_DualExtruder $UNIVERSAL_TOOLHEADS"
+TAZ_PRO_MODELS="Quiver_TAZPro"
+TAZ_PRO_TOOLHEADS="Quiver_DualExtruder $UNIVERSAL_TOOLHEADS"
 
 MINI2_MODELS="Hibiscus_Mini2"
 MINI2_TOOLHEADS="$UNIVERSAL_TOOLHEADS"
-
-#TAZ7_MODELS="Quiver_TAZPro"
-#TAZ7_TOOLHEADS="Angelfish_Aerostruder"
 
 ####
 # usage
@@ -65,8 +62,8 @@ compile_dependencies() {
 
   get_arch_info $printer
 
-  case $printer in
-    Quiver_TAZPro | Hibiscus_Mini2)
+  case $HARDWARE_MOTHERBOARD in
+    1592)
       ARCHIM_SRC="ArduinoAddons/arduino-1.8.5/packages/ultimachine/hardware/sam/1.6.9-b"
       (cd "$ARCHIM_SRC/system/libsam/build_gcc"; ARM_GCC_TOOLCHAIN="$gcc_path" make)
       cp -u $ARCHIM_SRC/variants/arduino_due_x/libsam_sam3x8e_gcc_rel.a     $ARCHIM_SRC/variants/archim/libsam_sam3x8e_gcc_rel.a
@@ -84,7 +81,7 @@ compile_dependencies() {
 get_arch_info() {
   printer=$1   ; shift 1
   case $printer in
-    Quiver_TAZPro)
+    Quiver_TAZPro | Unsupported_ArchimTAZ6 | Unsupported_ArchimRedGum)
       gcc_path=$ARM_TOOLS_PATH
       format=bin
       HARDWARE_MOTHERBOARD=1592
@@ -271,9 +268,9 @@ build_for_taz() {
       build_firmware ${model} ${toolhead}
     done
   done
-  for model in $TAZ7_MODELS
+  for model in $TAZ_PRO_MODELS
   do
-    for toolhead in $TAZ7_TOOLHEADS
+    for toolhead in $TAZ_PRO_TOOLHEADS
     do
       build_firmware ${model} ${toolhead}
     done

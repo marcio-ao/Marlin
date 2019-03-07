@@ -19,7 +19,17 @@
  *   location: <http://www.gnu.org/licenses/>.                              *
  ****************************************************************************/
 
+#pragma once
 #include <stdbool.h>
 
-void enable_probe_pins(const bool enable);
+#ifdef __cplusplus
+  class EnableProbePins {
+    public:
+      static void enable(const bool enable);
+
+      EnableProbePins() {enable(true);}
+      ~EnableProbePins() {enable(false);}
+  };
+#endif
+
 void lulzbot_startup(void);

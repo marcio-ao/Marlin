@@ -1,6 +1,6 @@
 /**
  * Marlin 3D Printer Firmware
- * Copyright (C) 2016 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
+ * Copyright (C) 2019 MarlinFirmware [https://github.com/MarlinFirmware/Marlin]
  *
  * Based on Sprinter and grbl.
  * Copyright (C) 2011 Camiel Gubbels / Erik van der Zalm
@@ -27,7 +27,7 @@
 #if defined(LULZBOT_M226_PINS_WORKAROUND)
  #include "../../module/endstops.h"
  bool _digitalRead(const int pin_number) {
-   LULZBOT_ENABLE_PROBE_PINS(true);
+   LULZBOT_ENABLE_PROBE_PINS
    delayMicroseconds(10);
    bool val;
    switch(pin_number) {
@@ -39,7 +39,6 @@
     #endif
     default: val = digitalRead(pin_number); break;
    }
-   LULZBOT_ENABLE_PROBE_PINS(false);
    return val;
  }
  #define digitalRead _digitalRead

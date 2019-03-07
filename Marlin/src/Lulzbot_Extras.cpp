@@ -29,7 +29,7 @@
 #define LULZBOT_EMI_SHUTOFF(pin)             SET_OUTPUT(pin); WRITE(pin, LOW);
 
 void lulzbot_startup(void) {
-    enable_probe_pins(false);
+    EnableProbePins::enable(false);
 
     #if defined(LULZBOT_USE_ARCHIM2)
         LULZBOT_EMI_SHUTOFF(GPIO_PB1_J20_5)
@@ -72,17 +72,17 @@ void lulzbot_startup(void) {
         LULZBOT_EMI_SHUTOFF(pin); \
     }
 
-#if defined(LULZBOT_USE_AUTOLEVELING) && !defined(LULZBOT_USE_HOME_BUTTON)
+#if defined(LULZBOT_USE_AUTOLEVELING) && !defined(LULZBOT_Z_MIN_PROBE_PIN)
 
-     void enable_probe_pins(const bool enable) {
+     void EnableProbePins::enable(const bool enable) {
          endstops.enable_z_probe(enable);
          LULZBOT_SET_PIN_STATE(Z_MIN_PIN, enable)
          LULZBOT_EXTRUDER_MOTOR_SHUTOFF_ON_PROBE(enable)
      }
 
-#elif defined(LULZBOT_USE_AUTOLEVELING) && defined(LULZBOT_USE_HOME_BUTTON)
+#elif defined(LULZBOT_USE_AUTOLEVELING) && defined(LULZBOT_Z_MIN_PROBE_PIN)
 
-     void enable_probe_pins(const bool enable) {
+     void EnableProbePins::enable(const bool enable) {
          endstops.enable_z_probe(enable);
          LULZBOT_SET_PIN_STATE(Z_MIN_PIN, enable)
          LULZBOT_SET_PIN_STATE(LULZBOT_Z_MIN_PROBE_PIN, enable)
@@ -90,7 +90,7 @@ void lulzbot_startup(void) {
 
 #else
 
-     void enable_probe_pins(const bool enable) {
+     void EnableProbePins::enable(const bool enable) {
      }
 
 #endif

@@ -1,0 +1,504 @@
+< Timeout
+> N0M110*3
+> N1M105*6
+> N2M105*5
+> N3M105*4
+< ok N0 P15 B4
+< ok T:126.86 /0.00 B:55.17 /0.00 T0:126.86 /0.00 T1:118.07 /0.00 @:0 B@:0 @0:0 @1:0
+> N4M105*3
+< ok T:126.86 /0.00 B:55.17 /0.00 T0:126.86 /0.00 T1:118.07 /0.00 @:0 B@:0 @0:0 @1:0
+> N5M105*2
+< ok T:126.86 /0.00 B:55.17 /0.00 T0:126.86 /0.00 T1:118.07 /0.00 @:0 B@:0 @0:0 @1:0
+> N6M105*1
+< ok T:126.86 /0.00 B:55.17 /0.00 T0:126.86 /0.00 T1:118.07 /0.00 @:0 B@:0 @0:0 @1:0
+> N7T0*29
+< ok T:126.86 /0.00 B:55.17 /0.00 T0:126.86 /0.00 T1:118.07 /0.00 @:0 B@:0 @0:0 @1:0
+> N8M82*49
+< ok T:126.86 /0.00 B:55.17 /0.00 T0:126.86 /0.00 T1:118.07 /0.00 @:0 B@:0 @0:0 @1:0
+> N9M221 S100*73
+< echo:Active Extruder: 0
+< ok N7 P15 B3
+< ok N8 P15 B4
+> N10M105*54
+> N11M73 P0*71
+< ok N9 P15 B4
+> N12M75*2
+< ok T:126.86 /0.00 B:55.17 /0.00 T0:126.86 /0.00 T1:118.07 /0.00 @:0 B@:0 @0:0 @1:0
+> N13M107*55
+< ok N11 P15 B4
+> N14G90*5
+< ok N12 P15 B4
+> N15M420 S0*114
+< echo:Writing UI settings to SPI Flash (offset 624)...DONE
+< ok N13 P15 B2
+< ok N14 P15 B3
+> N16M104 S140 T0*51
+< echo:Bed Leveling OFF
+< ok N15 P15 B4
+> N17M104 S140 T1*51
+> N18M140 S60*74
+< ok N16 P15 B4
+> N19G28*11
+< ok N17 P15 B4
+> N20M117 Heating...*96
+< ok N18 P15 B4
+> N21M109 R140 T0*59
+< echo:Active Extruder: 0
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:Active Extruder: 0
+< X:5.00 Y:285.00 Z:290.00 E:0.00 Count X:500 Y:28500 Z:145000
+< ok N19 P15 B2
+< ok N20 P15 B3
+> N22M109 R140 T1*57
+<  T:133.88 /140.00 B:56.56 /60.00 T0:133.88 /140.00 T1:124.55 /140.00 @:38 B@:103 @0:38 @1:127 W:?
+<  T:135.74 /140.00 B:56.82 /60.00 T0:135.74 /140.00 T1:126.35 /140.00 @:18 B@:103 @0:18 @1:127 W:0
+< ok N21 P15 B3
+> N23T0*43
+<  T:126.66 /140.00 B:56.88 /60.00 T0:136.00 /140.00 T1:126.66 /140.00 @:127 B@:103 @0:15 @1:127 W:?
+<  T:128.50 /140.00 B:57.18 /60.00 T0:137.54 /140.00 T1:128.50 /140.00 @:127 B@:103 @0:1 @1:127 W:?
+< echo:busy: processing
+<  T:130.37 /140.00 B:57.44 /60.00 T0:138.77 /140.00 T1:130.37 /140.00 @:52 B@:103 @0:0 @1:52 W:0
+< ok N22 P15 B3
+> N24M82*15
+< echo:Active Extruder: 0
+< ok N23 P15 B4
+> N25G92 E0*80
+> N26G1 E-10 F100*34
+< ok N24 P15 B4
+> N27G0 X50 F1000*38
+< X:5.00 Y:285.00 Z:290.00 E:0.00 Count X:500 Y:28500 Z:145000
+< ok N25 P15 B4
+> N28T1*33
+< ok N26 P14 B4
+> N29M82*2
+< ok N27 P13 B4
+> N30G92 E0*84
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:Active Extruder: 1
+< ok N28 P15 B2
+< ok N29 P15 B3
+> N31G1  E-10 F100*4
+< X:50.00 Y:285.00 Z:290.00 E:0.00 Count X:5000 Y:28500 Z:145000
+< ok N30 P15 B4
+> N32M104 S140 T0*53
+> N33M104 S140 T1*53
+< ok N31 P14 B4
+> N34M106*51
+< ok N32 P14 B4
+> N35T0*44
+< ok N33 P14 B4
+> N36G1 X-17 Y90 F2000*122
+< ok N34 P14 B4
+> N37M104*50
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:Active Extruder: 0
+< ok N35 P15 B2
+< ok N36 P14 B3
+> N38M117 Cooling...*126
+< ok N37 P14 B4
+> N39M109 R140 T0*50
+> N40M109 R140 T1*61
+< ok N38 P14 B4
+> N41M107*48
+<  T:140.64 /140.00 B:60.10 /60.00 T0:140.64 /140.00 T1:141.13 /140.00 @:14 B@:7 @0:14 @1:16 W:?
+<  T:140.92 /140.00 B:60.04 /60.00 T0:140.92 /140.00 T1:141.43 /140.00 @:9 B@:17 @0:9 @1:11 W:0
+< ok N39 P14 B2
+<  T:141.33 /140.00 B:60.03 /60.00 T0:140.86 /140.00 T1:141.33 /140.00 @:14 B@:18 @0:11 @1:14 W:?
+<  T:141.26 /140.00 B:60.02 /60.00 T0:140.86 /140.00 T1:141.26 /140.00 @:16 B@:18 @0:11 @1:16 W:0
+< ok N40 P14 B3
+> N42G1 Z 1.0*75
+< ok N41 P14 B4
+> N43G1 X -18 Y95 F1000*81
+> N44G1 X -16 Y90 F1000*93
+< ok N42 P13 B4
+> N45G1 X -18 Y85 F1000*86
+< ok N43 P12 B4
+> N46G1 X -16 Y90 F1000*95
+< ok N44 P11 B4
+> N47G1 X -18 Y80 F1000*81
+< ok N45 P10 B4
+> N48G1 X -16 Y95 F1000*84
+< ok N46 P9 B4
+> N49G1 X -18 Y75 F2000*86
+< ok N47 P8 B4
+> N50G1 X -16 Y65 F2000*81
+< ok N48 P7 B4
+> N51G1 X -18 Y70 F2000*90
+< ok N49 P6 B4
+> N52G1 X -16 Y60 F2000*86
+< ok N50 P5 B3
+< ok N51 P4 B4
+> N53G1 X -18 Y55 F2000*95
+> N54G1 X -16 Y50 F2000*83
+< ok N52 P3 B4
+> N55G1 X -18 Y40 F2000*93
+< ok N53 P2 B4
+> N56G1 X -16 Y45 F2000*85
+< ok N54 P1 B4
+> N57G1 X -18 Y35 F2000*93
+< ok N55 P0 B4
+> N58G1 X -16 Y40 F2000*94
+< echo:busy: processing
+< echo:busy: processing
+< ok N56 P0 B2
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< ok N57 P0 B3
+> N59G1 X -18 Y70 F2000*82
+< ok N58 P0 B3
+> N60G1 X -16 Y30 F2000*82
+< ok N59 P0 B3
+> N61G1 X -18 Y35 F2000*88
+< ok N60 P0 B3
+> N62G1 X -16 Y25 F2000*84
+< ok N61 P0 B3
+> N63G1 X -18 Y30 F2000*95
+< ok N62 P0 B3
+> N64G1 X -16 Y25 F1000*81
+< ok N63 P0 B3
+> N65G1 X -18 Y23 F1000*88
+< ok N64 P0 B3
+> N66G1 X -16 Z15 F2000*80
+< ok N65 P0 B3
+> N67M106 S255*116
+< ok N66 P0 B3
+> N68G4 S5*117
+< ok N67 P0 B4
+> N69M107*58
+> N70G0 X50 F1000*36
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< ok N68 P15 B2
+< ok N69 P15 B3
+> N71T1*45
+< ok N70 P14 B4
+> N72G1 X295 Y90  F5000*72
+> N73G1 Z 1.0*73
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:Active Extruder: 1
+< ok N71 P15 B2
+< ok N72 P14 B3
+> N74G1 X296 Y95 F1000*108
+< ok N73 P13 B4
+> N75G1 X294 Y90 F1000*106
+> N76G1 X296 Y85 F1000*111
+< ok N74 P12 B4
+> N77G1 X294 Y90 F1000*104
+< ok N75 P11 B4
+> N78G1 X296 Y80 F1000*100
+< ok N76 P10 B4
+> N79G1 X294 Y95 F1000*99
+< ok N77 P9 B4
+> N80G1 X296 Y75 F2000*106
+< ok N78 P8 B4
+> N81G1 X294 Y65 F2000*104
+< ok N79 P7 B4
+> N82G1 X296 Y70 F2000*109
+< ok N80 P6 B4
+> N83G1 X294 Y60 F2000*111
+< ok N81 P5 B4
+> N84G1 X296 Y55 F2000*108
+< ok N82 P4 B4
+> N85G1 X294 Y50 F2000*106
+< ok N83 P3 B4
+> N86G1 X296 Y40 F2000*106
+< ok N84 P2 B3
+< ok N85 P1 B3
+> N87G1 X294 Y45 F2000*108
+< ok N86 P0 B4
+> N88G1 X296 Y35 F2000*102
+> N89G1 X294 Y40 F2000*103
+< echo:busy: processing
+< ok N87 P0 B2
+< ok N88 P0 B3
+> N90G1 X296 Y70 F2000*110
+< ok N89 P0 B3
+> N91G1 X294 Y30 F2000*105
+< ok N90 P0 B3
+> N92G1 X296 Y35 F2000*109
+< ok N91 P0 B3
+> N93G1 X294 Y25 F2000*111
+< ok N92 P0 B3
+> N94G1 X296 Y30 F2000*110
+< ok N93 P0 B3
+> N95G1 X294 Y25 F1000*106
+< ok N94 P0 B3
+> N96G1 X296 Y23 F1000*109
+< ok N95 P0 B3
+> N97G1 X294 Z15 F2000*107
+< ok N96 P0 B3
+> N98M106 S255*116
+< ok N97 P0 B3
+> N99G4 S5*123
+< ok N98 P0 B4
+> N100M107*4
+> N101G0 X247 F1000*39
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< ok N99 P15 B2
+< ok N100 P15 B3
+> N102T0*25
+< ok N101 P14 B4
+> N103M109 R140*78
+> N104M204 S100*66
+< echo:busy: processing
+< echo:busy: processing
+< echo:Active Extruder: 0
+< ok N102 P15 B2
+<  T:139.12 /140.00 B:59.97 /60.00 T0:139.12 /140.00 T1:139.16 /140.00 @:28 B@:34 @0:28 @1:31 W:?
+<  T:139.57 /140.00 B:59.99 /60.00 T0:139.57 /140.00 T1:139.74 /140.00 @:20 B@:30 @0:20 @1:22 W:0
+< ok N103 P15 B3
+> N105G29*54
+< ok N104 P15 B4
+> N106M420 S1*64
+> N107M204 S500*69
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< Error:Probing failed
+< X:-9.00 Y:289.00 Z:4.20 E:-10.00 Count X:-900 Y:28900 Z:2100
+< //action:probe_rewipe
+< echo:Active Extruder: 0
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:Active Extruder: 0
+< X:-9.00 Y:289.00 Z:290.00 E:-10.00 Count X:-900 Y:28900 Z:145000
+<  T:139.88 /170.00 B:60.02 /60.00 T0:139.88 /170.00 T1:139.98 /170.00 @:22 B@:23 @0:22 @1:30 W:?
+<  T:139.96 /170.00 B:60.00 /60.00 T0:139.96 /170.00 T1:139.88 /170.00 @:127 B@:27 @0:127 @1:127 W:?
+< echo:busy: processing
+<  T:140.08 /170.00 B:60.02 /60.00 T0:140.08 /170.00 T1:139.92 /170.00 @:127 B@:22 @0:127 @1:127 W:?
+<  T:140.48 /170.00 B:60.02 /60.00 T0:140.48 /170.00 T1:140.29 /170.00 @:127 B@:22 @0:127 @1:127 W:?
+< echo:busy: processing
+<  T:141.24 /170.00 B:60.02 /60.00 T0:141.24 /170.00 T1:140.91 /170.00 @:127 B@:22 @0:127 @1:127 W:?
+<  T:142.36 /170.00 B:60.01 /60.00 T0:142.36 /170.00 T1:141.93 /170.00 @:127 B@:24 @0:127 @1:127 W:?
+< echo:busy: processing
+<  T:144.05 /170.00 B:60.00 /60.00 T0:144.05 /170.00 T1:143.41 /170.00 @:127 B@:26 @0:127 @1:127 W:?
+<  T:145.64 /170.00 B:60.01 /60.00 T0:145.64 /170.00 T1:144.82 /170.00 @:127 B@:23 @0:127 @1:127 W:?
+< echo:busy: processing
+<  T:147.45 /170.00 B:59.99 /60.00 T0:147.45 /170.00 T1:146.32 /170.00 @:127 B@:28 @0:127 @1:127 W:?
+<  T:149.24 /170.00 B:60.00 /60.00 T0:149.24 /170.00 T1:147.88 /170.00 @:127 B@:25 @0:127 @1:127 W:?
+< echo:busy: processing
+<  T:151.59 /170.00 B:60.00 /60.00 T0:151.59 /170.00 T1:149.80 /170.00 @:127 B@:25 @0:127 @1:127 W:?
+<  T:153.72 /170.00 B:59.99 /60.00 T0:153.72 /170.00 T1:151.63 /170.00 @:127 B@:27 @0:127 @1:127 W:?
+< echo:busy: processing
+<  T:155.85 /170.00 B:59.99 /60.00 T0:155.85 /170.00 T1:153.51 /170.00 @:127 B@:27 @0:127 @1:127 W:?
+<  T:157.79 /170.00 B:60.00 /60.00 T0:157.79 /170.00 T1:155.29 /170.00 @:127 B@:25 @0:127 @1:127 W:?
+< echo:busy: processing
+<  T:160.04 /170.00 B:60.00 /60.00 T0:160.04 /170.00 T1:157.27 /170.00 @:45 B@:25 @0:45 @1:127 W:0
+<  T:162.26 /170.00 B:60.00 /60.00 T0:162.26 /170.00 T1:158.96 /170.00 @:26 B@:26 @0:26 @1:127 W:4294967
+<  T:158.96 /170.00 B:60.00 /60.00 T0:162.26 /170.00 T1:158.96 /170.00 @:127 B@:26 @0:26 @1:127 W:?
+< echo:busy: processing
+<  T:161.03 /170.00 B:60.00 /60.00 T0:164.63 /170.00 T1:161.03 /170.00 @:44 B@:26 @0:7 @1:44 W:0
+< echo:Active Extruder: 0
+<  T:166.14 /170.00 B:59.98 /60.00 T0:166.14 /170.00 T1:162.67 /170.00 @:0 B@:30 @0:0 @1:31 W:?
+< echo:busy: processing
+<  T:167.52 /170.00 B:59.98 /60.00 T0:167.52 /170.00 T1:164.34 /170.00 @:0 B@:30 @0:0 @1:19 W:0
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:Active Extruder: 1
+<  T:169.91 /170.00 B:59.98 /60.00 T0:169.56 /170.00 T1:169.91 /170.00 @:40 B@:29 @0:34 @1:40 W:?
+< echo:busy: processing
+<  T:170.51 /170.00 B:60.00 /60.00 T0:169.80 /170.00 T1:170.51 /170.00 @:30 B@:25 @0:31 @1:30 W:4294967
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< Timeout
+> N108M104 S205  T0*47
+< echo:busy: processing
+< echo:Active Extruder: 0
+< echo:busy: processing
+< echo:busy: processing
+<  T:170.67 /160.00 B:60.01 /60.00 T0:170.67 /160.00 T1:169.80 /170.00 @:15 B@:22 @0:15 @1:31 W:?
+< echo:busy: processing
+<  T:170.39 /160.00 B:60.02 /60.00 T0:170.39 /160.00 T1:169.61 /170.00 @:0 B@:20 @0:0 @1:36 W:?
+<  T:170.05 /160.00 B:59.99 /60.00 T0:170.05 /160.00 T1:169.41 /170.00 @:0 B@:26 @0:0 @1:40 W:?
+< echo:busy: processing
+<  T:169.61 /160.00 B:59.99 /60.00 T0:169.61 /160.00 T1:169.19 /170.00 @:0 B@:26 @0:0 @1:44 W:0
+<  T:169.25 /160.00 B:60.02 /60.00 T0:169.47 /160.00 T1:169.25 /160.00 @:43 B@:20 @0:0 @1:43 W:?
+<  T:168.95 /160.00 B:59.99 /60.00 T0:168.90 /160.00 T1:168.95 /160.00 @:0 B@:26 @0:0 @1:0 W:0
+< echo:Unknown command: ""
+<  T:168.90 /160.00 B:59.99 /60.00 T0:168.90 /160.00 T1:168.95 /160.00 @:0 B@:26 @0:0 @1:0 W:?
+< echo:busy: processing
+<  T:168.11 /160.00 B:59.95 /60.00 T0:168.11 /160.00 T1:168.84 /160.00 @:0 B@:35 @0:0 @1:0 W:0
+< Timeout
+< Timeout
+< Timeout
+< Timeout
+< Timeout
+< Timeout
+< Timeout
+< Timeout
+< Timeout
+< Timeout
+< Timeout
+< Timeout
+< Error:Probing failed
+< X:-9.00 Y:289.00 Z:4.20 E:-10.00 Count X:-900 Y:28900 Z:2100
+< //action:probe_rewipe
+< echo:Active Extruder: 0
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:Active Extruder: 0
+< X:-9.00 Y:289.00 Z:290.00 E:-10.00 Count X:-900 Y:28900 Z:145000
+<  T:159.88 /170.00 B:59.99 /60.00 T0:159.88 /170.00 T1:159.83 /170.00 @:127 B@:27 @0:127 @1:127 W:?
+< echo:busy: processing
+<  T:160.00 /170.00 B:60.00 /60.00 T0:160.00 /170.00 T1:159.88 /170.00 @:106 B@:25 @0:106 @1:127 W:0
+<  T:159.97 /170.00 B:60.01 /60.00 T0:160.11 /170.00 T1:159.97 /170.00 @:127 B@:23 @0:111 @1:127 W:?
+< echo:busy: processing
+<  T:160.31 /170.00 B:60.01 /60.00 T0:160.39 /170.00 T1:160.31 /170.00 @:107 B@:23 @0:116 @1:107 W:0
+< echo:Active Extruder: 0
+<  T:160.51 /170.00 B:60.00 /60.00 T0:160.51 /170.00 T1:160.37 /170.00 @:115 B@:25 @0:115 @1:107 W:?
+<  T:161.14 /170.00 B:60.00 /60.00 T0:161.14 /170.00 T1:161.14 /170.00 @:112 B@:25 @0:112 @1:102 W:0
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:Active Extruder: 1
+<  T:169.85 /170.00 B:60.02 /60.00 T0:169.69 /170.00 T1:169.85 /170.00 @:41 B@:20 @0:33 @1:41 W:?
+< echo:busy: processing
+<  T:170.44 /170.00 B:60.00 /60.00 T0:169.91 /170.00 T1:170.44 /170.00 @:30 B@:24 @0:29 @1:30 W:0
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< echo:busy: processing
+< Timeout
+> N109M104 S205  T1*47
+< echo:busy: processing
+< echo:Active Extruder: 0
+< echo:busy: processing
+< echo:busy: processing
+<  T:170.56 /160.00 B:60.00 /60.00 T0:170.56 /160.00 T1:169.85 /170.00 @:18 B@:23 @0:18 @1:30 W:?
+< echo:busy: processing
+<  T:170.32 /160.00 B:60.02 /60.00 T0:170.32 /160.00 T1:169.65 /170.00 @:0 B@:19 @0:0 @1:35 W:?
+<  T:169.94 /160.00 B:60.01 /60.00 T0:169.94 /160.00 T1:169.52 /170.00 @:0 B@:21 @0:0 @1:38 W:0
+<  T:169.36 /160.00 B:60.01 /60.00 T0:169.52 /160.00 T1:169.36 /160.00 @:42 B@:21 @0:0 @1:42 W:?
+< echo:busy: processing
+<  T:169.14 /160.00 B:59.97 /60.00 T0:168.84 /160.00 T1:169.14 /160.00 @:0 B@:29 @0:0 @1:0 W:0
+< echo:Unknown command: ""
+<  T:168.84 /160.00 B:59.97 /60.00 T0:168.84 /160.00 T1:169.14 /160.00 @:0 B@:29 @0:0 @1:0 W:?
+< echo:busy: processing
+<  T:168.20 /160.00 B:59.96 /60.00 T0:168.20 /160.00 T1:168.97 /160.00 @:0 B@:32 @0:0 @1:0 W:0
+< Timeout
+< Timeout
+< Timeout
+< Timeout
+< Timeout
+< Timeout
+< Timeout
+< Timeout
+< Timeout
+< Timeout
+> 
+M105*
+
+< Timeout
+< Timeout
+< Error:Probing failed
+< X:-9.00 Y:289.00 Z:4.20 E:-10.00 Count X:-900 Y:28900 Z:2100
+< //action:probe_failed
+< echo:busy: processing
+< //action:cancel
+< Error:Printer halted. kill() called!
+< //action:poweroff
+< Timeout
+> N110G1 X100 Y-29 Z0.5 F3000*42
+< Timeout
+< Timeout
+< Timeout
+< Timeout
+< Timeout
+> 
+M105*
+
+< Timeout
+< Timeout
+< Timeout
+< Timeout

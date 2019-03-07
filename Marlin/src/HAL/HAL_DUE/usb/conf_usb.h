@@ -59,8 +59,8 @@
  */
 
 //! Device definition (mandatory)
-#define  USB_DEVICE_VENDOR_ID             0x03EB /* ATMEL VID */
-#define  USB_DEVICE_PRODUCT_ID            0x2424 /* MSC / CDC */
+#define  USB_DEVICE_VENDOR_ID LULZBOT_USB_DEVICE_VENDOR_ID /* ATMEL VID */
+#define  USB_DEVICE_PRODUCT_ID LULZBOT_USB_DEVICE_PRODUCT_ID /* MSC / CDC */
 #define  USB_DEVICE_MAJOR_VERSION         1
 #define  USB_DEVICE_MINOR_VERSION         0
 #define  USB_DEVICE_POWER                 100 // Consumption on Vbus line (mA)
